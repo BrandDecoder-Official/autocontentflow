@@ -7,30 +7,51 @@
         body { font-family: sans-serif; background: #1a1a1a; color: #fff; text-align: center; padding: 50px; }
         .btn { background: #00e676; border: none; padding: 15px 30px; font-size: 20px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; }
         .btn:hover { background: #00c853; }
-        #status { margin-top: 30px; color: #aaa; }
+        #status { margin-top: 30px; color: #aaa; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <h1>🚀 BrandDecoder 內容工廠</h1>
+    <h1>🚀 BrandDecoder 內容工廠 (雲端直連測試版)</h1>
     <p>目前狀態：<span id="power-status">⚡ 系統在線</span></p>
     
-    <button class="btn" onclick="startEngine()">啟動大腦生成劇本</button>
+    <button class="btn" onclick="startEngine()">啟動大腦生成劇本 (並傳送至 TG)</button>
 
     <div id="status">準備就緒...</div>
 
     <script>
         async function startEngine() {
             const statusDiv = document.getElementById('status');
-            statusDiv.innerText = '🧠 大腦思考中，請稍候...';
+            statusDiv.innerText = '🧠 大腦思考中，請稍候 (約需 10~20 秒)...';
             
             try {
-                // 這裡填入你的 Cloud Run URL
-                const response = await fetch('https://bd-autocontentflow-217800246535.asia-east1.run.app', {
+                // 📦 為了配合你剛寫好的雲端後端，這裡準備一組「固定」的測試參數
+                const payload = {
+                    isComicMode: false, // 先測標準文案模式
+                    client: "BrandDecoder 測試總部",
+                    platform: "FB_IG",
+                    topic: "AI 自動化帶來的產業變革與未來趨勢",
+                    mediaType: "image",
+                    persona: "專業又幽默的科技主編",
+                    wordLimit: 300,
+                    ctaGoal: "吸引讀者留言討論",
+                    mentionBrand: true
+                };
+
+                // 🌐 打向你的 Cloud Run API 網址 (注意：路徑加上了 /api/content/draft)
+                const response = await fetch('https://bd-autocontentflow-217800246535.asia-east1.run.app/api/content/draft', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
-                const result = await response.text();
-                statusDiv.innerText = result;
+                
+                // 💡 雲端版現在是回傳 JSON 格式，不是純文字了
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerText = `✅ 成功！\n${result.message}\n快去打開你的 Telegram 看看！`;
+                } else {
+                    statusDiv.innerText = '❌ 發生錯誤: ' + result.message;
+                }
             } catch (error) {
                 statusDiv.innerText = '❌ 連線失敗: ' + error.message;
             }
