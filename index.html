@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>BrandDecoder | 內容工廠指揮中心</title>
+    <style>
+        body { font-family: sans-serif; background: #1a1a1a; color: #fff; text-align: center; padding: 50px; }
+        .btn { background: #00e676; border: none; padding: 15px 30px; font-size: 20px; border-radius: 5px; cursor: pointer; color: #000; font-weight: bold; }
+        .btn:hover { background: #00c853; }
+        #status { margin-top: 30px; color: #aaa; }
+    </style>
+</head>
+<body>
+    <h1>🚀 BrandDecoder 內容工廠</h1>
+    <p>目前狀態：<span id="power-status">⚡ 系統在線</span></p>
+    
+    <button class="btn" onclick="startEngine()">啟動大腦生成劇本</button>
+
+    <div id="status">準備就緒...</div>
+
+    <script>
+        async function startEngine() {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerText = '🧠 大腦思考中，請稍候...';
+            
+            try {
+                // 這裡填入你的 Cloud Run URL
+                const response = await fetch('你的_CLOUD_RUN_網址', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.text();
+                statusDiv.innerText = result;
+            } catch (error) {
+                statusDiv.innerText = '❌ 連線失敗: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
