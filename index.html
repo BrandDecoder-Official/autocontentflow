@@ -30,7 +30,7 @@
         
         <div class="w-full mb-8 text-center">
             <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機</span></h1>
-            <p class="text-gray-500 font-medium">全自動圖文企劃 ✕ 動漫 IP 工廠 ✕ 雲端神經網路</p>
+            <p class="text-gray-500 font-medium">全自動圖文企劃 ✕ 動漫 IP 工廠 ✕ 自動排程引擎</p>
         </div>
 
         <form id="agentForm" class="w-full space-y-6">
@@ -65,9 +65,47 @@
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
                 <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">📝</span> 企劃主題輸入
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">📡</span> 靈感與資料來源設定
                 </h2>
-                <textarea id="topic" rows="3" placeholder="請輸入你要寫的主題，例如：AI 自動化如何幫助產業降低成本..." class="block p-4 w-full text-gray-900 bg-gray-50 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors resize-none" required></textarea>
+                
+                <div class="flex space-x-2 mb-6 bg-gray-100 p-1 rounded-xl">
+                    <button type="button" id="tabManual" onclick="switchSource('manual')" class="flex-1 py-2 px-4 rounded-lg font-bold text-sm bg-white shadow text-blue-600 transition-all">✍️ 手動輸入主題</button>
+                    <button type="button" id="tabAutoRSS" onclick="switchSource('auto_rss')" class="flex-1 py-2 px-4 rounded-lg font-bold text-sm text-gray-500 hover:text-gray-700 transition-all">🤖 自動抓取時事 (RSS)</button>
+                </div>
+
+                <div id="sourceManual" class="animate-fade-in">
+                    <textarea id="topic" rows="3" placeholder="請輸入你要寫的主題，例如：AI 自動化如何幫助產業降低成本..." class="block p-4 w-full text-gray-900 bg-gray-50 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors resize-none"></textarea>
+                </div>
+
+                <div id="sourceAutoRSS" class="hidden animate-fade-in space-y-4">
+                    <div class="p-5 bg-blue-50 rounded-xl border border-blue-200">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-bold text-blue-900 mb-2">追蹤關鍵字 (Keyword)</label>
+                                <input type="text" id="rssKeyword" placeholder="例：人工智慧, 房地產..." class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-blue-900 mb-2">新聞時間範圍</label>
+                                <select id="rssTimeframe" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
+                                    <option value="1d">🕒 過去 24 小時內 (追熱點)</option>
+                                    <option value="3d">📅 過去 3 天內</option>
+                                    <option value="7d">🗓️ 過去 7 天內 (週報性質)</option>
+                                </select>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-bold text-blue-900 mb-2">新聞類別 (可選)</label>
+                                <select id="rssCategory" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
+                                    <option value="">🌍 不限類別 (全網搜尋)</option>
+                                    <option value="科技">💻 科技與 AI</option>
+                                    <option value="商業">📈 財經商業</option>
+                                    <option value="體育">🏅 體育賽事</option>
+                                    <option value="政治">🏛️ 政治時事</option>
+                                </select>
+                            </div>
+                        </div>
+                        <p class="text-xs text-blue-600 mt-4 font-bold">💡 系統將會自動爬取符合條件的最熱門新聞，並將新聞標題與摘要餵給 AI 作為生成腳本的靈感。</p>
+                    </div>
+                </div>
             </div>
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
@@ -133,7 +171,7 @@
             </div>
 
             <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
-                <span id="btnText">🚀 生成企劃並送交 Telegram 審核</span>
+                <span id="btnText">🚀 執行任務 / 儲存排程</span>
             </button>
         </form>
     </div>
@@ -147,32 +185,27 @@
         // 🌐 Cloud Run 伺服器網址
         const CLOUD_RUN_URL = 'https://bd-autocontentflow-217800246535.asia-east1.run.app';
         let isComicModeActive = false;
-        
-        // 🔐 全域變數：儲存 Google 登入的 JWT Token
+        let currentSourceType = 'manual'; // 追蹤目前是手動還是 RSS 模式
         let globalAuthToken = ''; 
 
         // ==========================================
         // 🛡️ Google 登入核心邏輯
         // ==========================================
         function handleCredentialResponse(response) {
-            globalAuthToken = response.credential; // 取得 Token
-            
-            // 隱藏登入畫面，顯示主程式
+            globalAuthToken = response.credential;
             document.getElementById('loginScreen').classList.add('hidden');
             const mainApp = document.getElementById('mainApp');
             mainApp.classList.remove('hidden');
             setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
-
             showToast('✅ 登入成功！身分驗證完畢。', 'success');
         }
 
         window.onload = function () {
             google.accounts.id.initialize({
-                // 👇 🚨 請在這裡填入你在 GCP 申請的 OAuth Client ID！🚨 👇
-                client_id: "217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com", 
+                // 👇 🚨 記得換回你的 Client ID 🚨 👇
+                client_id: "【請把你的ClientID貼在這裡，結尾要是.apps.googleusercontent.com】", 
                 callback: handleCredentialResponse
             });
-            
             google.accounts.id.renderButton(
                 document.getElementById("googleButtonDiv"),
                 { theme: "outline", size: "large", width: 300, shape: "pill" }
@@ -180,7 +213,7 @@
         };
 
         // ==========================================
-        // 🎨 UI 介面切換與提示邏輯
+        // 🎨 UI 介面切換邏輯
         // ==========================================
         function switchMode(toComic) {
             isComicModeActive = toComic;
@@ -202,6 +235,31 @@
             }
         }
 
+        // 🌟 新增：靈感來源 Tab 切換邏輯
+        function switchSource(type) {
+            currentSourceType = type;
+            const tabManual = document.getElementById('tabManual');
+            const tabAutoRSS = document.getElementById('tabAutoRSS');
+            const sourceManual = document.getElementById('sourceManual');
+            const sourceAutoRSS = document.getElementById('sourceAutoRSS');
+
+            if (type === 'manual') {
+                tabManual.classList.add('bg-white', 'shadow', 'text-blue-600');
+                tabManual.classList.remove('text-gray-500');
+                tabAutoRSS.classList.remove('bg-white', 'shadow', 'text-blue-600');
+                tabAutoRSS.classList.add('text-gray-500');
+                sourceManual.classList.remove('hidden');
+                sourceAutoRSS.classList.add('hidden');
+            } else {
+                tabAutoRSS.classList.add('bg-white', 'shadow', 'text-blue-600');
+                tabAutoRSS.classList.remove('text-gray-500');
+                tabManual.classList.remove('bg-white', 'shadow', 'text-blue-600');
+                tabManual.classList.add('text-gray-500');
+                sourceAutoRSS.classList.remove('hidden');
+                sourceManual.classList.add('hidden');
+            }
+        }
+
         function showToast(msg, type = 'info') {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
@@ -213,32 +271,44 @@
             else { toastIcon.innerText = '⏳'; toast.style.backgroundColor = '#3b82f6'; }
 
             toast.classList.remove('translate-y-20', 'opacity-0');
-            
-            if (type !== 'info') {
-                setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 5000);
-            }
+            if (type !== 'info') setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 5000);
         }
 
         // ==========================================
-        // 🚀 API 發送邏輯 (掛載 Token 打向 Cloud Run)
+        // 🚀 API 發送邏輯 (已支援手動與 RSS 雙軌並行)
         // ==========================================
         document.getElementById('agentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const topic = document.getElementById('topic').value.trim();
-            if (!topic) return alert('請輸入企劃主題！');
-
             const btn = document.getElementById('submitBtn');
             const btnText = document.getElementById('btnText');
 
+            // 1. 基礎 Payload 打包
             const payload = {
-                isComicMode: isComicModeActive,
                 client: document.getElementById('client').value,
                 platform: document.getElementById('platform').value,
-                topic: topic,
-                mentionBrand: document.getElementById('mentionBrand').checked
+                mentionBrand: document.getElementById('mentionBrand').checked,
+                sourceType: currentSourceType // 告訴後端這是手動還是 RSS
             };
 
+            // 2. 根據資料來源打包
+            if (currentSourceType === 'manual') {
+                const topic = document.getElementById('topic').value.trim();
+                if (!topic) return showToast('請輸入企劃主題！', 'error');
+                payload.topic = topic;
+            } else {
+                const keyword = document.getElementById('rssKeyword').value.trim();
+                if (!keyword) return showToast('請輸入追蹤關鍵字！', 'error');
+                payload.rssConfig = {
+                    keyword: keyword,
+                    timeframe: document.getElementById('rssTimeframe').value,
+                    category: document.getElementById('rssCategory').value
+                };
+                payload.topic = `[系統自動] 抓取關鍵字: ${keyword} 的最新新聞`; // 暫時代替主題
+            }
+
+            // 3. 根據大腦模式打包
+            payload.isComicMode = isComicModeActive;
             if (isComicModeActive) {
                 payload.comicCharacters = Array.from(document.querySelectorAll('input[name="comicCharacters"]:checked')).map(cb => cb.value);
                 payload.comicStyle = document.getElementById('comicStyle').value;
@@ -250,17 +320,19 @@
                 payload.wordLimit = 350; 
             }
 
+            // 鎖定 UI，準備發射
             btn.disabled = true;
             btn.classList.replace('bg-blue-600', 'bg-gray-500');
-            btnText.innerText = '🧠 大腦高速運算中，請稍候...';
+            btnText.innerText = currentSourceType === 'manual' ? '🧠 大腦高速運算中，請稍候...' : '⚙️ 正在儲存排程規則...';
             showToast('正在與雲端神經網路連線...', 'info');
 
             try {
+                // ⚠️ 這裡要注意：如果未來 A 路線(存設定) 跟 B 路線(直接生成) 的 API 不同，可以在這裡加 if 判斷
+                // 目前我們還是先打向同一個 API 測試 payload
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/draft`, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // 🛡️ 關鍵：把通行證掛在 Header 裡面送給 Cloud Run
                         'Authorization': `Bearer ${globalAuthToken}` 
                     },
                     body: JSON.stringify(payload)
@@ -269,7 +341,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    showToast('劇本生成成功！請看 Telegram 👀', 'success');
+                    showToast('✅ 任務處理成功！請查看結果', 'success');
                 } else {
                     throw new Error(result.message);
                 }
@@ -279,7 +351,7 @@
             } finally {
                 btn.disabled = false;
                 btn.classList.replace('bg-gray-500', 'bg-blue-600');
-                btnText.innerText = '🚀 生成企劃並送交 Telegram 審核';
+                btnText.innerText = '🚀 執行任務 / 儲存排程';
             }
         });
     </script>
