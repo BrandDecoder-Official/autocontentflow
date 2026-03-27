@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BrandDecoder | AI 內容指揮中心</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         .mode-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
-        /* 隱藏滾動條 */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
@@ -19,113 +19,123 @@
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center py-10 px-4">
 
-    <div class="w-full max-w-4xl mb-8 text-center">
-        <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機</span></h1>
-        <p class="text-gray-500 font-medium">全自動圖文企劃 ✕ 動漫 IP 工廠 ✕ 雲端神經網路</p>
+    <div id="loginScreen" class="w-full max-w-md mt-20 flex flex-col items-center glass-card p-10 rounded-3xl shadow-xl border border-gray-200 transition-all duration-500">
+        <div class="text-6xl mb-4">🤖</div>
+        <h1 class="text-3xl font-black text-gray-900 mb-2">系統登入</h1>
+        <p class="text-gray-500 mb-8 text-center font-medium">BrandDecoder 私有 AI 自動化生成流</p>
+        <div id="googleButtonDiv"></div>
     </div>
 
-    <form id="agentForm" class="w-full max-w-4xl space-y-6">
+    <div id="mainApp" class="w-full max-w-4xl hidden transition-all duration-500 opacity-0">
         
-        <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-            <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                <span class="bg-gray-100 p-2 rounded-lg mr-3">🏢</span> 發佈目標設定
-            </h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">系統應用</label>
-                    <select id="client" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                        <option value="AI Agent 內容生成自動流" selected>AI Agent 內容生成自動流</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-2">目標平台</label>
-                    <select id="platform" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                        <option value="ALL">🌍 三平台大滿貫同步 (FB+IG+Threads)</option>
-                        <option value="FB_IG" selected>🌐 FB + IG 雙平台</option>
-                        <option value="FB">📘 僅限 Facebook</option>
-                        <option value="IG">📸 僅限 Instagram</option>
-                    </select>
-                </div>
-            </div>
-            <div class="mt-4 flex items-center">
-                <input id="mentionBrand" type="checkbox" checked class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
-                <label for="mentionBrand" class="ml-2 text-sm font-bold text-gray-700 cursor-pointer">結尾強制置入品牌推銷 (取消則為純分享文)</label>
-            </div>
+        <div class="w-full mb-8 text-center">
+            <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機</span></h1>
+            <p class="text-gray-500 font-medium">全自動圖文企劃 ✕ 動漫 IP 工廠 ✕ 雲端神經網路</p>
         </div>
 
-        <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-            <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                <span class="bg-gray-100 p-2 rounded-lg mr-3">📝</span> 企劃主題輸入
-            </h2>
-            <textarea id="topic" rows="3" placeholder="請輸入你要寫的主題，例如：AI 自動化如何幫助室內設計產業降低成本..." class="block p-4 w-full text-gray-900 bg-gray-50 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors resize-none" required></textarea>
-        </div>
-
-        <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-            <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 選擇大腦生成模式
-            </h2>
+        <form id="agentForm" class="w-full space-y-6">
             
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div id="btnStandardMode" class="mode-active border-2 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(false)">
-                    <div class="text-2xl mb-1">✍️</div>
-                    <div class="font-bold text-gray-800">標準圖文模式</div>
-                    <div class="text-xs text-gray-500 mt-1">專業、質感、知識分享</div>
-                </div>
-                <div id="btnComicMode" class="border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(true)">
-                    <div class="text-2xl mb-1">🦸‍♂️</div>
-                    <div class="font-bold text-gray-800">動漫 IP 宇宙</div>
-                    <div class="text-xs text-gray-500 mt-1">四格漫畫、幽默吐槽</div>
-                </div>
-            </div>
-
-            <div id="standardSettings" class="space-y-4 animate-fade-in">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🏢</span> 發佈目標設定
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">小編人設 (Tone調)</label>
-                        <input type="text" id="persona" value="專業、熱情、幽默的社群總編" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">系統應用</label>
+                        <select id="client" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
+                            <option value="AI Agent 內容生成自動流" selected>AI Agent 內容生成自動流</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">互動鉤子 (CTA)</label>
-                        <select id="ctaGoal" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
-                            <option value="【強制指令：貼文最後拋出一個與主題相關的二選一問題，引導留言。】">🙋‍♀️ 共鳴提問 (吸引留言)</option>
-                            <option value="【強制指令：貼文最後使用幽默語氣，要求讀者 Tag 朋友來看。】">🤝 標記好友 (抓交替法)</option>
-                            <option value="">🚫 純分享 (不留鉤子)</option>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">目標平台</label>
+                        <select id="platform" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
+                            <option value="ALL">🌍 三平台大滿貫同步 (FB+IG+Threads)</option>
+                            <option value="FB_IG" selected>🌐 FB + IG 雙平台</option>
+                            <option value="FB">📘 僅限 Facebook</option>
+                            <option value="IG">📸 僅限 Instagram</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center">
+                    <input id="mentionBrand" type="checkbox" checked class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                    <label for="mentionBrand" class="ml-2 text-sm font-bold text-gray-700 cursor-pointer">結尾強制置入推銷 (取消則為純分享文)</label>
+                </div>
+            </div>
+
+            <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">📝</span> 企劃主題輸入
+                </h2>
+                <textarea id="topic" rows="3" placeholder="請輸入你要寫的主題，例如：AI 自動化如何幫助產業降低成本..." class="block p-4 w-full text-gray-900 bg-gray-50 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors resize-none" required></textarea>
+            </div>
+
+            <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 選擇大腦生成模式
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div id="btnStandardMode" class="mode-active border-2 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(false)">
+                        <div class="text-2xl mb-1">✍️</div>
+                        <div class="font-bold text-gray-800">標準圖文模式</div>
+                        <div class="text-xs text-gray-500 mt-1">專業、質感、知識分享</div>
+                    </div>
+                    <div id="btnComicMode" class="border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(true)">
+                        <div class="text-2xl mb-1">🦸‍♂️</div>
+                        <div class="font-bold text-gray-800">動漫 IP 宇宙</div>
+                        <div class="text-xs text-gray-500 mt-1">四格漫畫、幽默吐槽</div>
+                    </div>
+                </div>
+
+                <div id="standardSettings" class="space-y-4 animate-fade-in">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">小編人設 (Tone調)</label>
+                            <input type="text" id="persona" value="專業、熱情、幽默的科技總編" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-2">互動鉤子 (CTA)</label>
+                            <select id="ctaGoal" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
+                                <option value="【強制指令：貼文最後拋出一個與主題相關的二選一問題，引導留言。】">🙋‍♀️ 共鳴提問 (吸引留言)</option>
+                                <option value="【強制指令：貼文最後使用幽默語氣，要求讀者 Tag 朋友來看。】">🤝 標記好友 (抓交替法)</option>
+                                <option value="">🚫 純分享 (不留鉤子)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="comicSettings" class="hidden space-y-4 animate-fade-in">
+                    <div class="p-5 bg-pink-50 rounded-xl border border-pink-200">
+                        <label class="block text-sm font-bold text-pink-900 mb-3">🎭 登場角色 (可複選)</label>
+                        <div class="flex flex-wrap gap-3 mb-5">
+                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
+                                <input type="checkbox" name="comicCharacters" value="AH_ZE" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿澤 (受氣包)
+                            </label>
+                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
+                                <input type="checkbox" name="comicCharacters" value="AH_QI" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿淇 (吐槽役)
+                            </label>
+                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
+                                <input type="checkbox" name="comicCharacters" value="GENERAL_MANAGER" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400"> 總經理 (魔王)
+                            </label>
+                        </div>
+
+                        <label class="block text-sm font-bold text-pink-900 mb-3">🎨 漫畫視覺畫風</label>
+                        <select id="comicStyle" class="w-full bg-white border border-pink-300 text-pink-900 rounded-lg p-3 font-bold cursor-pointer shadow-sm">
+                            <option value="TORIYAMA_HUMOR">🥚 鳥山明爆笑風 (預設推薦)</option>
+                            <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派黑白風 (北斗神拳)</option>
+                            <option value="JOJO_PSYCHEDELIC">🌈 JoJo 霓虹魔性風</option>
+                            <option value="CHIIKAWA">🥺 吉伊卡哇療癒風</option>
+                            <option value="PIXAR">🧸 皮克斯 3D 質感風</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <div id="comicSettings" class="hidden space-y-4 animate-fade-in">
-                <div class="p-5 bg-pink-50 rounded-xl border border-pink-200">
-                    <label class="block text-sm font-bold text-pink-900 mb-3">🎭 登場角色 (可複選)</label>
-                    <div class="flex flex-wrap gap-3 mb-5">
-                        <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                            <input type="checkbox" name="comicCharacters" value="AH_ZE" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿澤 (受氣包)
-                        </label>
-                        <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                            <input type="checkbox" name="comicCharacters" value="AH_QI" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿淇 (吐槽役)
-                        </label>
-                        <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                            <input type="checkbox" name="comicCharacters" value="GENERAL_MANAGER" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400"> 總經理 (魔王)
-                        </label>
-                    </div>
-
-                    <label class="block text-sm font-bold text-pink-900 mb-3">🎨 漫畫視覺畫風</label>
-                    <select id="comicStyle" class="w-full bg-white border border-pink-300 text-pink-900 rounded-lg p-3 font-bold cursor-pointer shadow-sm">
-                        <option value="TORIYAMA_HUMOR">🥚 鳥山明爆笑風 (預設推薦)</option>
-                        <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派黑白風 (北斗神拳)</option>
-                        <option value="JOJO_PSYCHEDELIC">🌈 JoJo 霓虹魔性風</option>
-                        <option value="CHIIKAWA">🥺 吉伊卡哇療癒風</option>
-                        <option value="PIXAR">🧸 皮克斯 3D 質感風</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
-            <span id="btnText">🚀 生成企劃並送交 Telegram 審核</span>
-        </button>
-    </form>
+            <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
+                <span id="btnText">🚀 生成企劃並送交 Telegram 審核</span>
+            </button>
+        </form>
+    </div>
 
     <div id="toast" class="fixed bottom-5 right-5 transform translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-4 rounded-xl shadow-2xl font-bold flex items-center z-50">
         <span id="toastIcon" class="mr-3 text-2xl">ℹ️</span>
@@ -133,12 +143,44 @@
     </div>
 
     <script>
-        // 🌐 你的 Cloud Run 伺服器網址 (請確認是否正確)
+        // 🌐 Cloud Run 伺服器網址
         const CLOUD_RUN_URL = 'https://bd-autocontentflow-217800246535.asia-east1.run.app';
-
         let isComicModeActive = false;
+        
+        // 🔐 全域變數：儲存 Google 登入的 JWT Token
+        let globalAuthToken = ''; 
 
-        // UI 模式切換邏輯
+        // ==========================================
+        // 🛡️ Google 登入核心邏輯
+        // ==========================================
+        function handleCredentialResponse(response) {
+            globalAuthToken = response.credential; // 取得 Token
+            
+            // 隱藏登入畫面，顯示主程式
+            document.getElementById('loginScreen').classList.add('hidden');
+            const mainApp = document.getElementById('mainApp');
+            mainApp.classList.remove('hidden');
+            setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
+
+            showToast('✅ 登入成功！身分驗證完畢。', 'success');
+        }
+
+        window.onload = function () {
+            google.accounts.id.initialize({
+                // 👇 🚨 請在這裡填入你在 GCP 申請的 OAuth Client ID！🚨 👇
+                client_id: "217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com", 
+                callback: handleCredentialResponse
+            });
+            
+            google.accounts.id.renderButton(
+                document.getElementById("googleButtonDiv"),
+                { theme: "outline", size: "large", width: 300, shape: "pill" }
+            );
+        };
+
+        // ==========================================
+        // 🎨 UI 介面切換與提示邏輯
+        // ==========================================
         function switchMode(toComic) {
             isComicModeActive = toComic;
             const btnStandard = document.getElementById('btnStandardMode');
@@ -159,7 +201,6 @@
             }
         }
 
-        // Toast 提示框控制器
         function showToast(msg, type = 'info') {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
@@ -172,13 +213,14 @@
 
             toast.classList.remove('translate-y-20', 'opacity-0');
             
-            // 成功或失敗 5 秒後自動消失，loading 狀態則不自動消失
             if (type !== 'info') {
                 setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 5000);
             }
         }
 
-        // 表單提交與 API 呼叫邏輯
+        // ==========================================
+        // 🚀 API 發送邏輯 (掛載 Token 打向 Cloud Run)
+        // ==========================================
         document.getElementById('agentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -188,7 +230,6 @@
             const btn = document.getElementById('submitBtn');
             const btnText = document.getElementById('btnText');
 
-            // 📦 根據不同模式，精準打包 Payload
             const payload = {
                 isComicMode: isComicModeActive,
                 client: document.getElementById('client').value,
@@ -200,25 +241,27 @@
             if (isComicModeActive) {
                 payload.comicCharacters = Array.from(document.querySelectorAll('input[name="comicCharacters"]:checked')).map(cb => cb.value);
                 payload.comicStyle = document.getElementById('comicStyle').value;
-                if (payload.comicCharacters.length === 0) return alert('請至少選擇一位登場角色！');
+                if (payload.comicCharacters.length === 0) return showToast('請至少選擇一位登場角色！', 'error');
             } else {
                 payload.mediaType = 'image';
                 payload.persona = document.getElementById('persona').value;
                 payload.ctaGoal = document.getElementById('ctaGoal').value;
-                payload.wordLimit = 350; // 預設字數，保持介面簡潔
+                payload.wordLimit = 350; 
             }
 
-            // 鎖定按鈕與狀態提示
             btn.disabled = true;
             btn.classList.replace('bg-blue-600', 'bg-gray-500');
             btnText.innerText = '🧠 大腦高速運算中，請稍候...';
             showToast('正在與雲端神經網路連線...', 'info');
 
             try {
-                // 🚀 發送請求至 Cloud Run
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/draft`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // 🛡️ 關鍵：把通行證掛在 Header 裡面送給 Cloud Run
+                        'Authorization': `Bearer ${globalAuthToken}` 
+                    },
                     body: JSON.stringify(payload)
                 });
                 
@@ -226,8 +269,6 @@
                 
                 if (result.success) {
                     showToast('劇本生成成功！請看 Telegram 👀', 'success');
-                    // 可選：成功後清空主題，方便下一次輸入
-                    // document.getElementById('topic').value = ''; 
                 } else {
                     throw new Error(result.message);
                 }
@@ -235,7 +276,6 @@
                 console.error(error);
                 showToast(`發生錯誤: ${error.message}`, 'error');
             } finally {
-                // 恢復按鈕狀態
                 btn.disabled = false;
                 btn.classList.replace('bg-gray-500', 'bg-blue-600');
                 btnText.innerText = '🚀 生成企劃並送交 Telegram 審核';
