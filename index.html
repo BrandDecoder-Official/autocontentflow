@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrandDecoder | AI 內容指揮中心 V5</title>
+    <title>BrandDecoder | AI 內容指揮中心 V6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -16,7 +16,6 @@
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
         .char-item { border: 1px solid #e5e7eb; padding: 16px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; transition: all 0.3s ease; }
-        .char-item:hover { border-color: #bfdbfe; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center py-10 px-4">
@@ -31,8 +30,8 @@
     <div id="mainApp" class="w-full max-w-5xl hidden transition-all duration-500 opacity-0">
         
         <div class="w-full mb-8 text-center">
-            <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機 V5</span></h1>
-            <p class="text-gray-500 font-medium">全能商務合成 ✕ 動漫 IP 工廠 ✕ 真人角色鎖定</p>
+            <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機 V6</span></h1>
+            <p class="text-gray-500 font-medium">14張DNA資產包 ✕ 解析度自由選 ✕ 真實模式優化</p>
         </div>
 
         <form id="agentForm" class="w-full space-y-6">
@@ -50,26 +49,25 @@
                         <label class="block text-sm font-bold text-gray-700 mb-2">🎯 目標平台</label>
                         <select id="platform" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl block p-3 font-medium transition-colors cursor-pointer focus:ring-blue-500 focus:border-blue-500">
                             <option value="FB_IG" selected>🌐 FB + IG 雙平台</option>
-                            <option value="FB">📘 僅限 Facebook</option>
-                            <option value="IG">📸 僅限 Instagram</option>
-                            <option value="THREADS">🧵 僅限 Threads</option>
+                            <option value="THREADS">🧵 Threads</option>
+                            <option value="FB">📘 Facebook</option>
+                            <option value="IG">📸 Instagram</option>
                         </select>
                     </div>
                 </div>
 
                 <div id="sourceManual" class="mt-5 animate-fade-in">
-                    <textarea id="topic" rows="3" placeholder="請輸入主題，例如：老K吃到美味烤雞串後的搞笑反應..." class="block p-4 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
+                    <textarea id="topic" rows="3" placeholder="請輸入主題，例如：老K在海底撈遇到瓜哥..." class="block p-4 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
                 </div>
 
                 <div id="sourceAutoRSS" class="hidden mt-5 animate-fade-in p-5 bg-blue-50 rounded-xl border border-blue-200">
-                    <label class="block text-sm font-bold text-blue-900 mb-2">追蹤關鍵字 (例：人工智慧, 房地產)</label>
-                    <input type="text" id="rssKeyword" placeholder="請輸入關鍵字" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-3 font-medium focus:ring-blue-500 focus:border-blue-500">
+                    <input type="text" id="rssKeyword" placeholder="請輸入追蹤關鍵字 (例：AI, 房地產)" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-3 font-medium focus:ring-blue-500 focus:border-blue-500">
                 </div>
             </div>
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
                 <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 選擇大腦生成模式與畫風
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 模式與視覺大腦設定
                 </h2>
                 
                 <div class="grid grid-cols-2 gap-4 mb-6">
@@ -81,39 +79,48 @@
                     <div id="btnStandardMode" class="border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(false)">
                         <div class="text-3xl mb-2">📸</div>
                         <div class="font-bold text-gray-800 text-lg">商業實境應用</div>
-                        <div class="text-sm text-gray-500 mt-1">專業商品、風景合成</div>
+                        <div class="text-sm text-gray-500 mt-1">專業商品、風景、真人合成</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-gray-50 rounded-xl border border-gray-200">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 p-5 bg-gray-50 rounded-xl border border-gray-200">
                     <div>
                         <label class="block text-sm font-bold text-gray-700 mb-2">📐 圖片比例</label>
                         <select id="aspectRatioSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-3 font-medium cursor-pointer">
-                            <option value="1:1" selected>1:1 (正方形 - 預設)</option>
-                            <option value="16:9">16:9 (橫式影片)</option>
-                            <option value="9:16">9:16 (直式短影音)</option>
-                            <option value="1:4">1:4 (直式長條漫)</option>
+                            <option value="1:1" selected>1:1 (正方形)</option>
+                            <option value="16:9">16:9 (橫式)</option>
+                            <option value="9:16">9:16 (直式短片)</option>
+                        }
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">🎨 畫風設定字典</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">🔍 解析度選擇</label>
+                        <select id="resolutionSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-3 font-medium cursor-pointer">
+                            <option value="512">512px (低解析快速測試)</option>
+                            <option value="1K" selected>1K (標準)</option>
+                            <option value="2K">2K (高清推薦)</option>
+                            <option value="4K">4K (旗艦海報)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">🎨 風格字典</label>
                         <select id="comicStyleSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-3 font-medium cursor-pointer">
-                            <option value="TORIYAMA_HUMOR" selected>🥚 鳥山明爆笑風 (黑白預設)</option>
-                            <option value="GHIBLI">🍃 吉卜力溫馨風 (彩色)</option>
-                            <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派黑白風</option>
-                            <option value="REALISTIC">📸 超逼真商業攝影模式</option>
+                            <option value="TORIYAMA_HUMOR" selected>🥚 鳥山明爆笑風</option>
+                            <option value="GHIBLI">🍃 吉卜力溫馨風</option>
+                            <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派風</option>
+                            <option value="REALISTIC" id="styleRealistic">📸 真實商業攝影 (真實模式專用)</option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+            <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8 animate-fade-in">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
                     <h2 class="text-xl font-bold text-gray-800 flex items-center mb-4 md:mb-0">
-                        <span class="bg-gray-100 p-2 rounded-lg mr-3">👥</span> 登場角色 DNA 管理
+                        <span class="bg-gray-100 p-2 rounded-lg mr-3">👥</span> 登場角色管理 (⚠️ google提示：角色一致性最多4張)
                     </h2>
                     <button type="button" onclick="addCharacterSlot()" class="bg-blue-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
-                        + 加入新角色
+                        + 新增登場角色
                     </button>
                 </div>
 
@@ -127,11 +134,10 @@
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
                 <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🖼️</span> 額外參考圖 (場景 / 物件)
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🖼️</span> 上傳場景/物件參考圖 (⚠️最多10張)
                 </h2>
-                <p class="text-sm text-gray-500 mb-4 font-medium">如果您有特定的商品照片、或是希望 AI 參考的場景構圖，請在此上傳。</p>
                 <input type="file" id="referenceImagesInput" accept="image/png, image/jpeg, image/webp" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-gray-200 rounded-xl p-2 bg-white">
-                <p class="text-xs text-red-500 mt-2 font-bold">* 角色 DNA 圖 + 參考圖，總數請勿超過 10 張。單張限制 < 512KB。</p>
+                <p class="text-xs text-red-500 mt-2 font-bold">* 最終 DNA 資產包限制：4張角色圖 + 10張參考圖。單張必須 < 512KB。</p>
             </div>
 
             <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
@@ -146,7 +152,6 @@
     </div>
 
     <script>
-        // ⚠️ 請確認這裡是你最新的 Cloud Run 網址
         const CLOUD_RUN_URL = 'https://bd-autocontentflow-217800246535.asia-east1.run.app';
         let isComicModeActive = true; 
         let currentSourceType = 'manual';
@@ -169,33 +174,34 @@
             });
             google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
             
-            // 預設給總編一個老K的位置
+            // 初始化老K
             addCharacterSlot("老K", "聰明、科技總編", true);
         };
 
-        // 🌟 角色 DNA 卡片動態生成器
+        // 🌟 角色管理區塊邏輯
         function addCharacterSlot(name = "", personality = "", isReal = false) {
             const list = document.getElementById('characterList');
-            if (list.children.length >= 5) {
-                alert("⚠️ 登場角色太多大腦會混亂喔！建議最多 5 人。");
+            // 🌟 核心修正 2：角色數量硬限制為最多 4 個
+            if (list.children.length >= 4) {
+                alert("⚠️ google官方提示：登場角色圖片最多只能有4張，以確保角色一致性喔！");
                 return;
             }
 
             const charCard = document.createElement('div');
-            charCard.className = 'char-item relative';
+            charCard.className = 'char-item animate-fade-in relative';
             charCard.innerHTML = `
-                <button type="button" onclick="this.parentElement.remove()" class="absolute top-3 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" title="移除角色">✕</button>
+                <button type="button" onclick="this.parentElement.remove()" class="absolute top-3 right-4 text-gray-400 hover:text-red-500 font-bold text-xl">✕</button>
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                     <div class="md:col-span-4">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">本名 (必填)</label>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">本名 (中/英文)</label>
                         <input type="text" name="charName" value="${name}" placeholder="例：老K" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 font-bold focus:ring-blue-500 focus:border-blue-500" required>
                     </div>
                     <div class="md:col-span-8">
-                        <label class="block text-sm font-bold text-gray-700 mb-1">角色個性/設定</label>
-                        <input type="text" name="charPersona" value="${personality}" placeholder="例：幽默、容易受驚嚇" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 font-medium focus:ring-blue-500 focus:border-blue-500">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">個性/設定/Tone調</label>
+                        <input type="text" name="charPersona" value="${personality}" placeholder="例：幽默、受氣包、北斗神拳" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 font-medium focus:ring-blue-500 focus:border-blue-500">
                     </div>
                     <div class="md:col-span-12 mt-2">
-                        <label class="block text-sm font-bold text-blue-700 mb-1">🔗 上傳 DNA 照片 (若要鎖定長相請上傳)</label>
+                        <label class="block text-sm font-bold text-blue-700 mb-1">🔗 上傳 DNA 照片 (若要鎖定真人長相請上傳)</label>
                         <input type="file" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 border border-blue-200 rounded-xl p-1 bg-blue-50 cursor-pointer">
                     </div>
                 </div>
@@ -203,35 +209,37 @@
             list.appendChild(charCard);
         }
 
-        // 禁用角色清單
         function toggleNoCharacterMode(checked) {
             const list = document.getElementById('characterList');
             list.style.opacity = checked ? '0.4' : '1';
             list.style.pointerEvents = checked ? 'none' : 'auto';
         }
 
-        // 切換模式 (動漫/商業)
+        // 🌟 核心修正 3：修正真實模式切換邏輯
         function switchMode(toComic) {
             isComicModeActive = toComic;
             const btnStandard = document.getElementById('btnStandardMode');
             const btnComic = document.getElementById('btnComicMode');
             const charSection = document.getElementById('characterSection');
             const styleSelect = document.getElementById('comicStyleSelect');
+            const styleRealistic = document.getElementById('styleRealistic');
 
             if (toComic) {
                 btnComic.classList.add('mode-active');
                 btnStandard.classList.remove('mode-active');
                 charSection.classList.remove('hidden');
+                styleRealistic.classList.add('hidden'); // 漫畫模式隱藏真實畫風
+                // 切回動漫風預設
                 if (styleSelect.value === 'REALISTIC') styleSelect.value = 'TORIYAMA_HUMOR';
             } else {
                 btnStandard.classList.add('mode-active');
                 btnComic.classList.remove('mode-active');
-                charSection.classList.add('hidden'); 
-                styleSelect.value = 'REALISTIC'; 
+                charSection.classList.add('hidden'); // 真實模式通常不需要在網頁上手動管理漫畫格子
+                styleRealistic.classList.remove('hidden'); // 真實模式顯示真實畫風
+                styleSelect.value = 'REALISTIC'; // 強制鎖定為真實攝影畫風
             }
         }
 
-        // 切換來源 (手動/RSS)
         function switchSource(type) {
             currentSourceType = type;
             const manual = document.getElementById('sourceManual');
@@ -249,11 +257,11 @@
             }
         }
 
-        // 🌟 圖片轉 Base64 核心引擎 (防呆防超載)
+        // 圖片轉 Base64 核心邏輯 (單張限制 < 512KB)
         async function processFileToBase64(file) {
             if (!file || file.size === 0) return null;
             if (file.size > 512 * 1024) {
-                alert(`❌ 圖片 [${file.name}] 太大了 (超過 512KB)，大腦吃不下，已自動忽略！`);
+                alert(`❌ 圖片 [${file.name}] 超過 512KB，已自動忽略！`);
                 return null;
             }
             return new Promise((resolve, reject) => {
@@ -282,7 +290,7 @@
             const btnText = document.getElementById('btnText');
 
             btn.disabled = true;
-            btnText.innerText = '⚙️ 正在打包 DNA 與設定檔...';
+            btnText.innerText = '⚙️ 正在收集 DNA 並壓縮檔案...';
 
             const payload = {
                 platform: document.getElementById('platform').value,
@@ -290,7 +298,8 @@
                 isComicMode: isComicModeActive,
                 aspectRatio: document.getElementById('aspectRatioSelect').value,
                 style: document.getElementById('comicStyleSelect').value,
-                resolution: '2K' 
+                // 🌟 解析度選擇
+                resolution: document.getElementById('resolutionSelect').value 
             };
 
             // 1. 文字主題
@@ -303,27 +312,34 @@
                 if (!payload.rssKeyword) return restoreUI('請輸入 RSS 關鍵字！');
             }
 
-            // 2. 收集圖片與角色 DNA
+            // --- 🌟 核心修正 4：精密資產包封裝 (硬限制 4+10) ---
             const isNoCharMode = document.getElementById('noCharacterMode').checked;
+            
+            // 2. 封裝登場角色資料卡 (人名/個系/ Base64頭像)
+            payload.comicCharacters = []; 
+            // 🌟 最終送往後台的圖片參考清單 (最高 14 張)
             let referenceImages = []; 
 
             if (isComicModeActive && !isNoCharMode) {
                 const charItems = document.querySelectorAll('#characterList .char-item');
-                payload.comicCharacters = []; 
 
                 for (let item of charItems) {
+                    // 只取前 4 個
+                    if (payload.comicCharacters.length >= 4) break; 
+
                     const name = item.querySelector('[name="charName"]').value.trim();
                     if (!name) continue; 
                     const persona = item.querySelector('[name="charPersona"]').value.trim();
-                    
                     const fileInput = item.querySelector('[name="charAvatar"]');
-                    const base64Img = fileInput.files.length > 0 ? await processFileToBase64(fileInput.files[0]) : null;
+                    const base64Img = await processFileToBase64(fileInput.files[0]);
 
-                    payload.comicCharacters.push({ name, persona });
+                    const charData = { name, persona };
+                    payload.comicCharacters.push(charData);
 
+                    // 如果上傳了照片，加入資產包
                     if (base64Img) {
                         referenceImages.push({
-                            type: 'character', 
+                            type: 'character', // 標記為角色照片，Webhook 會強制鎖定
                             name: name,
                             mimeType: base64Img.mimeType,
                             data: base64Img.data
@@ -331,16 +347,14 @@
                     }
                 }
             } else {
-                payload.comicCharacters = []; 
+                payload.comicCharacters = []; // 無角色或商業模式
             }
 
-            // 3. 收集場景物件圖
+            // 3. 上傳場景/物件參考圖 (限制 10 張)
             const sceneFiles = document.getElementById('referenceImagesInput').files;
             if (sceneFiles.length > 0) {
-                if (referenceImages.length + sceneFiles.length > 10) {
-                    alert(`⚠️ 總圖片超過 10 張！系統將自動捨棄多餘的照片。`);
-                }
-                for (let i = 0; i < Math.min(sceneFiles.length, (10 - referenceImages.length)); i++) {
+                // 最多只取 10 張
+                for (let i = 0; i < Math.min(sceneFiles.length, 10); i++) {
                     const base64Img = await processFileToBase64(sceneFiles[i]);
                     if (base64Img) {
                         referenceImages.push({
@@ -352,15 +366,16 @@
                 }
             }
             
+            // 將組合好的 image_options 送往後台
             payload.image_options = {
                 aspectRatio: payload.aspectRatio,
-                resolution: payload.resolution,
+                resolution: payload.resolution, // 解析度 (文字，由aiService處理)
                 style: payload.style,
-                referenceImages: referenceImages 
+                referenceImages: referenceImages // 📦 包含了前 4張角色 + 前 10張參考的硬限制資產包
             };
 
             btn.classList.replace('bg-blue-600', 'bg-gray-500');
-            btnText.innerText = '🧠 傳送至雲端大腦...';
+            btnText.innerText = '🧠 傳送至雲端大腦 V6...';
 
             try {
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/draft`, {
@@ -369,7 +384,7 @@
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
-                if (result.success) showToast('✅ 任務處理成功！請查看 Telegram', 'success');
+                if (result.success) showToast('✅ 任務處理成功！請查看結果', 'success');
                 else throw new Error(result.message);
             } catch (error) {
                 console.error(error);
