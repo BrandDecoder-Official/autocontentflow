@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrandDecoder | AI 內容指揮中心</title>
+    <title>BrandDecoder | AI 內容指揮中心 V5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -15,6 +15,8 @@
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        .char-item { border: 1px solid #e5e7eb; padding: 16px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; transition: all 0.3s ease; }
+        .char-item:hover { border-color: #bfdbfe; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center py-10 px-4">
@@ -26,208 +28,113 @@
         <div id="googleButtonDiv"></div>
     </div>
 
-    <div id="mainApp" class="w-full max-w-4xl hidden transition-all duration-500 opacity-0">
+    <div id="mainApp" class="w-full max-w-5xl hidden transition-all duration-500 opacity-0">
         
         <div class="w-full mb-8 text-center">
-            <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機</span></h1>
-            <p class="text-gray-500 font-medium">全自動圖文企劃 ✕ 動漫 IP 工廠 ✕ 自動排程引擎</p>
+            <h1 class="text-4xl font-black text-gray-900 tracking-tight mb-2">🚀 BrandDecoder <span class="text-blue-600">AI 總機 V5</span></h1>
+            <p class="text-gray-500 font-medium">全能商務合成 ✕ 動漫 IP 工廠 ✕ 真人角色鎖定</p>
         </div>
 
         <form id="agentForm" class="w-full space-y-6">
             
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🏢</span> 發佈目標設定
-                </h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">系統應用</label>
-                        <select id="client" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                            <option value="AI Agent 內容生成自動流" selected>AI Agent 內容生成自動流</option>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">📡 靈感與主題來源</label>
+                        <select id="sourceType" onchange="switchSource(this.value)" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl block p-3 font-medium transition-colors cursor-pointer focus:ring-blue-500 focus:border-blue-500">
+                            <option value="manual" selected>✍️ 手動輸入主題 (企劃生成)</option>
+                            <option value="auto_rss">🤖 自動抓取時事 (RSS 爬蟲)</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">目標平台</label>
-                        <select id="platform" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                            <option value="ALL">🌍 三平台大滿貫同步 (FB+IG+Threads)</option>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">🎯 目標平台</label>
+                        <select id="platform" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl block p-3 font-medium transition-colors cursor-pointer focus:ring-blue-500 focus:border-blue-500">
                             <option value="FB_IG" selected>🌐 FB + IG 雙平台</option>
                             <option value="FB">📘 僅限 Facebook</option>
                             <option value="IG">📸 僅限 Instagram</option>
-                            <option value="THREADS">🧵 僅限 Threads</option>
                         </select>
                     </div>
                 </div>
-                <div class="mt-4 flex items-center">
-                    <input id="mentionBrand" type="checkbox" checked class="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
-                    <label for="mentionBrand" class="ml-2 text-sm font-bold text-gray-700 cursor-pointer">結尾強制置入推銷 (取消則為純分享文)</label>
+
+                <div id="sourceManual" class="mt-5 animate-fade-in">
+                    <textarea id="topic" rows="3" placeholder="請輸入主題，例如：老K吃到美味烤雞串後的搞笑反應..." class="block p-4 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
+                </div>
+
+                <div id="sourceAutoRSS" class="hidden mt-5 animate-fade-in p-5 bg-blue-50 rounded-xl border border-blue-200">
+                    <label class="block text-sm font-bold text-blue-900 mb-2">追蹤關鍵字 (例：人工智慧, 房地產)</label>
+                    <input type="text" id="rssKeyword" placeholder="請輸入關鍵字" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-3 font-medium focus:ring-blue-500 focus:border-blue-500">
                 </div>
             </div>
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
                 <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">📡</span> 靈感與資料來源設定
-                </h2>
-                
-                <div class="flex space-x-2 mb-6 bg-gray-100 p-1 rounded-xl">
-                    <button type="button" id="tabManual" onclick="switchSource('manual')" class="flex-1 py-2 px-4 rounded-lg font-bold text-sm bg-white shadow text-blue-600 transition-all">✍️ 手動輸入主題</button>
-                    <button type="button" id="tabAutoRSS" onclick="switchSource('auto_rss')" class="flex-1 py-2 px-4 rounded-lg font-bold text-sm text-gray-500 hover:text-gray-700 transition-all">🤖 自動抓取時事 (RSS)</button>
-                </div>
-
-                <div id="sourceManual" class="animate-fade-in">
-                    <textarea id="topic" rows="3" placeholder="請輸入你要寫的主題，例如：AI 自動化如何幫助產業降低成本..." class="block p-4 w-full text-gray-900 bg-gray-50 rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium transition-colors resize-none"></textarea>
-                </div>
-
-                <div id="sourceAutoRSS" class="hidden animate-fade-in space-y-4">
-                    <div class="p-5 bg-blue-50 rounded-xl border border-blue-200">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-bold text-blue-900 mb-2">追蹤關鍵字 (Keyword)</label>
-                                <input type="text" id="rssKeyword" placeholder="例：人工智慧, 房地產..." class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-blue-900 mb-2">新聞時間範圍</label>
-                                <select id="rssTimeframe" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
-                                    <option value="1d">🕒 過去 24 小時內 (追熱點)</option>
-                                    <option value="3d">📅 過去 3 天內</option>
-                                    <option value="7d">🗓️ 過去 7 天內 (週報性質)</option>
-                                </select>
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-sm font-bold text-blue-900 mb-2">新聞類別 (可選)</label>
-                                <select id="rssCategory" class="w-full bg-white border border-blue-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
-                                    <option value="">🌍 不限類別 (全網搜尋)</option>
-                                    <option value="科技">💻 科技與 AI</option>
-                                    <option value="商業">📈 財經商業</option>
-                                    <option value="體育">🏅 體育賽事</option>
-                                    <option value="政治">🏛️ 政治時事</option>
-                                </select>
-                            </div>
-                        </div>
-                        <p class="text-xs text-blue-600 mt-4 font-bold">💡 系統將會自動爬取符合條件的最熱門新聞，並將新聞標題與摘要餵給 AI 作為生成腳本的靈感。</p>
-                    </div>
-                </div>
-            </div>
-
-            <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 選擇大腦生成模式
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🧠</span> 選擇大腦生成模式與畫風
                 </h2>
                 
                 <div class="grid grid-cols-2 gap-4 mb-6">
-                    <div id="btnStandardMode" class="mode-active border-2 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(false)">
-                        <div class="text-2xl mb-1">✍️</div>
-                        <div class="font-bold text-gray-800">標準圖文模式</div>
-                        <div class="text-xs text-gray-500 mt-1">專業、質感、知識分享</div>
+                    <div id="btnComicMode" class="mode-active border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(true)">
+                        <div class="text-3xl mb-2">🦸‍♂️</div>
+                        <div class="font-bold text-gray-800 text-lg">動漫 IP 宇宙</div>
+                        <div class="text-sm text-gray-500 mt-1">四格漫畫、幽默吐槽</div>
                     </div>
-                    <div id="btnComicMode" class="border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(true)">
-                        <div class="text-2xl mb-1">🦸‍♂️</div>
-                        <div class="font-bold text-gray-800">動漫 IP 宇宙</div>
-                        <div class="text-xs text-gray-500 mt-1">四格漫畫、幽默吐槽</div>
-                    </div>
-                </div>
-
-                <div id="standardSettings" class="space-y-4 animate-fade-in">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">小編人設 (Tone調)</label>
-                            <input type="text" id="persona" value="專業、熱情、幽默的科技總編" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-2">互動鉤子 (CTA)</label>
-                            <select id="ctaGoal" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium cursor-pointer">
-                                <option value="【強制指令：貼文最後拋出一個與主題相關的二選一問題，引導留言。】">🙋‍♀️ 共鳴提問 (吸引留言)</option>
-                                <option value="【強制指令：貼文最後使用幽默語氣，要求讀者 Tag 朋友來看。】">🤝 標記好友 (抓交替法)</option>
-                                <option value="">🚫 純分享 (不留鉤子)</option>
-                            </select>
-                        </div>
+                    <div id="btnStandardMode" class="border-2 border-gray-200 rounded-xl p-4 cursor-pointer text-center transition-all hover:bg-gray-50" onclick="switchMode(false)">
+                        <div class="text-3xl mb-2">📸</div>
+                        <div class="font-bold text-gray-800 text-lg">商業實境應用</div>
+                        <div class="text-sm text-gray-500 mt-1">專業商品、風景合成</div>
                     </div>
                 </div>
 
-                <div id="comicSettings" class="hidden space-y-4 animate-fade-in">
-                    <div class="p-5 bg-pink-50 rounded-xl border border-pink-200">
-                        <label class="block text-sm font-bold text-pink-900 mb-3">🎭 登場角色 (可複選)</label>
-                        <div class="flex flex-wrap gap-3 mb-5">
-                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                                <input type="checkbox" name="comicCharacters" value="AH_ZE" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿澤 (受氣包)
-                            </label>
-                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                                <input type="checkbox" name="comicCharacters" value="AH_QI" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400" checked> 阿淇 (吐槽役)
-                            </label>
-                            <label class="flex items-center bg-white py-2 px-4 border border-pink-200 rounded-lg cursor-pointer hover:bg-pink-100 shadow-sm font-bold text-gray-700">
-                                <input type="checkbox" name="comicCharacters" value="GENERAL_MANAGER" class="mr-2 w-4 h-4 text-pink-500 focus:ring-pink-400"> 總經理 (魔王)
-                            </label>
-                        </div>
-
-                        <label class="block text-sm font-bold text-pink-900 mb-3">🎨 漫畫視覺畫風</label>
-                        <select id="comicStyle" class="w-full bg-white border border-pink-300 text-pink-900 rounded-lg p-3 font-bold cursor-pointer shadow-sm">
-                            
-                            <optgroup label="🔥 日漫熱血/經典系列">
-                                <option value="TORIYAMA_HUMOR" selected>🥚 鳥山明爆笑風 (預設推薦)</option>
-                                <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派黑白風 (北斗神拳)</option>
-                                <option value="DRAGON_BALL">🐉 七龍珠戰鬥風</option>
-                                <option value="JOJO_PSYCHEDELIC">🌈 JoJo 霓虹魔性風</option>
-                                <option value="SLAM_DUNK">🏀 灌籃高手風</option>
-                                <option value="ONE_PIECE">🏴‍☠️ 航海王冒險風</option>
-                                <option value="DEMON_SLAYER">🌊 鬼滅之刃浮世繪風</option>
-                            </optgroup>
-
-                            <optgroup label="🌸 日系溫馨/療癒系列">
-                                <option value="GHIBLI">🍃 吉卜力溫馨風</option>
-                                <option value="DORAEMON">🚪 哆啦A夢經典風</option>
-                                <option value="MARUKO">🎒 櫻桃小丸子風</option>
-                                <option value="CHIIKAWA">🥺 吉伊卡哇療癒風</option>
-                                <option value="SUMIKKO">🍵 角落生物風</option>
-                            </optgroup>
-
-                            <optgroup label="🎬 美式/3D 動畫系列">
-                                <option value="PIXAR">🧸 皮克斯 3D 質感風</option>
-                                <option value="FROZEN">❄️ 冰雪奇緣美學</option>
-                                <option value="SIMPSONS">🍩 辛普森家庭風</option>
-                                <option value="SOUTH_PARK">🤬 南方四賤客風</option>
-                                <option value="POWERPUFF">💥 飛天小女警風</option>
-                            </optgroup>
-
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 bg-gray-50 rounded-xl border border-gray-200">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">📐 圖片比例</label>
+                        <select id="aspectRatioSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-3 font-medium cursor-pointer">
+                            <option value="1:1" selected>1:1 (正方形 - 預設)</option>
+                            <option value="16:9">16:9 (橫式影片)</option>
+                            <option value="9:16">9:16 (直式短影音)</option>
+                            <option value="1:4">1:4 (直式長條漫)</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">🎨 畫風設定字典</label>
+                        <select id="comicStyleSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-3 font-medium cursor-pointer">
+                            <option value="TORIYAMA_HUMOR" selected>🥚 鳥山明爆笑風 (黑白預設)</option>
+                            <option value="GHIBLI">🍃 吉卜力溫馨風 (彩色)</option>
+                            <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派黑白風</option>
+                            <option value="REALISTIC">📸 超逼真商業攝影模式</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b pb-4 mb-6">
+                    <h2 class="text-xl font-bold text-gray-800 flex items-center mb-4 md:mb-0">
+                        <span class="bg-gray-100 p-2 rounded-lg mr-3">👥</span> 登場角色 DNA 管理
+                    </h2>
+                    <button type="button" onclick="addCharacterSlot()" class="bg-blue-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-sm">
+                        + 加入新角色
+                    </button>
+                </div>
+
+                <div id="characterList" class="space-y-4"></div>
+                
+                <div class="mt-6 flex items-center p-4 bg-gray-50 border border-gray-200 rounded-xl">
+                    <input id="noCharacterMode" type="checkbox" onchange="toggleNoCharacterMode(this.checked)" class="w-5 h-5 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                    <label for="noCharacterMode" class="ml-3 text-sm font-bold text-gray-700 cursor-pointer select-none">🚫 本任務不加入任何角色 (切換為純商品/風景攝影模式)</label>
                 </div>
             </div>
 
             <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
-                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
-                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🖼️</span> 進階生圖設定 (Gemini 3.1)
+                <h2 class="text-xl font-bold text-gray-800 mb-4 flex items-center border-b pb-3">
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🖼️</span> 額外參考圖 (場景 / 物件)
                 </h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">📐 圖片比例</label>
-                        <select id="aspectRatioSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                            <option value="1:1" selected>1:1 (正方形 - 預設)</option>
-                            <option value="16:9">16:9 (橫式影片)</option>
-                            <option value="9:16">9:16 (直式短影音)</option>
-                            <option value="4:1">4:1 (橫幅 Banner)</option>
-                            <option value="1:4">1:4 (直式長圖)</option>
-                            <option value="8:1">8:1 (極限橫幅)</option>
-                            <option value="1:8">1:8 (極限長條漫)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-2">🔍 解析度</label>
-                        <select id="resolutionSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
-                            <option value="512" selected>512 (0.5K - 快速預覽)</option>
-                            <option value="1K">1K</option>
-                            <option value="2K">2K (標準高畫質)</option>
-                            <option value="4K">4K (極致畫質)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="mt-6">
-                    <label class="block text-sm font-bold text-gray-700 mb-2">📥 上傳參考圖 (最多14張，單張必須 < 512KB)</label>
-                    <input type="file" id="referenceImagesInput" accept="image/png, image/jpeg, image/webp" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-gray-200 rounded-xl p-2 bg-white">
-                    <p class="text-xs text-gray-500 mt-2 font-medium">💡 可上傳角色設定圖、畫風參考圖，Gemini 3.1 引擎將自動提取 DNA 進行合成。</p>
-                </div>
+                <p class="text-sm text-gray-500 mb-4 font-medium">如果您有特定的商品照片、或是希望 AI 參考的場景構圖，請在此上傳。</p>
+                <input type="file" id="referenceImagesInput" accept="image/png, image/jpeg, image/webp" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-gray-200 rounded-xl p-2 bg-white">
+                <p class="text-xs text-red-500 mt-2 font-bold">* 角色 DNA 圖 + 參考圖，總數請勿超過 10 張。單張限制 < 512KB。</p>
             </div>
 
             <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
-                <span id="btnText">🚀 執行任務 / 儲存排程</span>
+                <span id="btnText">🚀 執行任務 / 傳送大腦</span>
             </button>
         </form>
     </div>
@@ -238,241 +145,242 @@
     </div>
 
     <script>
-        // 🌐 Cloud Run 伺服器網址
+        // ⚠️ 請確認這裡是你最新的 Cloud Run 網址
         const CLOUD_RUN_URL = 'https://bd-autocontentflow-217800246535.asia-east1.run.app';
-        let isComicModeActive = false;
-        let currentSourceType = 'manual'; // 追蹤目前是手動還是 RSS 模式
+        let isComicModeActive = true; 
+        let currentSourceType = 'manual';
         let globalAuthToken = ''; 
 
-        // ==========================================
-        // 🛡️ Google 登入核心邏輯
-        // ==========================================
+        // 登入驗證
         function handleCredentialResponse(response) {
             globalAuthToken = response.credential;
             document.getElementById('loginScreen').classList.add('hidden');
             const mainApp = document.getElementById('mainApp');
             mainApp.classList.remove('hidden');
             setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
-            showToast('✅ 登入成功！身分驗證完畢。', 'success');
+            showToast('✅ 登入成功！工廠引擎已發動。', 'success');
         }
 
         window.onload = function () {
             google.accounts.id.initialize({
-                // 👇 🚨 記得換回你的 Client ID 🚨 👇
                 client_id: "217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com", 
                 callback: handleCredentialResponse
             });
-            google.accounts.id.renderButton(
-                document.getElementById("googleButtonDiv"),
-                { theme: "outline", size: "large", width: 300, shape: "pill" }
-            );
+            google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
+            
+            // 預設給總編一個老K的位置
+            addCharacterSlot("老K", "聰明、科技總編", true);
         };
 
-        // ==========================================
-        // 🖼️ 圖片壓縮與 Base64 轉換神經
-        // ==========================================
-        async function processReferenceImages(fileInputId) {
-            const fileInput = document.getElementById(fileInputId);
-            const files = fileInput.files;
-            let processedImages = [];
-
-            if (files.length > 14) {
-                showToast("⚠️ 參考圖最多只能上傳 14 張！系統自動擷取前 14 張。", "error");
+        // 🌟 角色 DNA 卡片動態生成器
+        function addCharacterSlot(name = "", personality = "", isReal = false) {
+            const list = document.getElementById('characterList');
+            if (list.children.length >= 5) {
+                alert("⚠️ 登場角色太多大腦會混亂喔！建議最多 5 人。");
+                return;
             }
 
-            const maxFiles = Math.min(files.length, 14);
-
-            for (let i = 0; i < maxFiles; i++) {
-                const file = files[i];
-                
-                // 檢查大小 (512KB)
-                if (file.size > 512 * 1024) {
-                    alert(`❌ 圖片 [${file.name}] 超過 512KB 限制，已自動忽略！請縮小後再上傳。`);
-                    continue; 
-                }
-
-                try {
-                    const base64Data = await convertFileToBase64(file);
-                    processedImages.push({
-                        mimeType: file.type,
-                        data: base64Data.split(',')[1] // 只取 data 部分
-                    });
-                } catch (err) {
-                    console.error("圖片轉檔失敗", err);
-                }
-            }
-            return processedImages;
+            const charCard = document.createElement('div');
+            charCard.className = 'char-item relative';
+            charCard.innerHTML = `
+                <button type="button" onclick="this.parentElement.remove()" class="absolute top-3 right-4 text-gray-400 hover:text-red-500 font-bold text-xl" title="移除角色">✕</button>
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div class="md:col-span-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">本名 (必填)</label>
+                        <input type="text" name="charName" value="${name}" placeholder="例：老K" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 font-bold focus:ring-blue-500 focus:border-blue-500" required>
+                    </div>
+                    <div class="md:col-span-8">
+                        <label class="block text-sm font-bold text-gray-700 mb-1">角色個性/設定</label>
+                        <input type="text" name="charPersona" value="${personality}" placeholder="例：幽默、容易受驚嚇" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 font-medium focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="md:col-span-12 mt-2">
+                        <label class="block text-sm font-bold text-blue-700 mb-1">🔗 上傳 DNA 照片 (若要鎖定長相請上傳)</label>
+                        <input type="file" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 border border-blue-200 rounded-xl p-1 bg-blue-50 cursor-pointer">
+                    </div>
+                </div>
+            `;
+            list.appendChild(charCard);
         }
 
-        function convertFileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = error => reject(error);
-            });
+        // 禁用角色清單
+        function toggleNoCharacterMode(checked) {
+            const list = document.getElementById('characterList');
+            list.style.opacity = checked ? '0.4' : '1';
+            list.style.pointerEvents = checked ? 'none' : 'auto';
         }
 
-        // ==========================================
-        // 🎨 UI 介面切換邏輯
-        // ==========================================
+        // 切換模式 (動漫/商業)
         function switchMode(toComic) {
             isComicModeActive = toComic;
             const btnStandard = document.getElementById('btnStandardMode');
             const btnComic = document.getElementById('btnComicMode');
-            const standardSettings = document.getElementById('standardSettings');
-            const comicSettings = document.getElementById('comicSettings');
+            const charSection = document.getElementById('characterSection');
+            const styleSelect = document.getElementById('comicStyleSelect');
 
             if (toComic) {
                 btnComic.classList.add('mode-active');
                 btnStandard.classList.remove('mode-active');
-                comicSettings.classList.remove('hidden');
-                standardSettings.classList.add('hidden');
+                charSection.classList.remove('hidden');
+                if (styleSelect.value === 'REALISTIC') styleSelect.value = 'TORIYAMA_HUMOR';
             } else {
                 btnStandard.classList.add('mode-active');
                 btnComic.classList.remove('mode-active');
-                standardSettings.classList.remove('hidden');
-                comicSettings.classList.add('hidden');
+                charSection.classList.add('hidden'); 
+                styleSelect.value = 'REALISTIC'; 
             }
         }
 
+        // 切換來源 (手動/RSS)
         function switchSource(type) {
             currentSourceType = type;
-            const tabManual = document.getElementById('tabManual');
-            const tabAutoRSS = document.getElementById('tabAutoRSS');
-            const sourceManual = document.getElementById('sourceManual');
-            const sourceAutoRSS = document.getElementById('sourceAutoRSS');
+            const manual = document.getElementById('sourceManual');
+            const rss = document.getElementById('sourceAutoRSS');
+            const submitText = document.getElementById('btnText');
 
             if (type === 'manual') {
-                tabManual.classList.add('bg-white', 'shadow', 'text-blue-600');
-                tabManual.classList.remove('text-gray-500');
-                tabAutoRSS.classList.remove('bg-white', 'shadow', 'text-blue-600');
-                tabAutoRSS.classList.add('text-gray-500');
-                sourceManual.classList.remove('hidden');
-                sourceAutoRSS.classList.add('hidden');
+                manual.classList.remove('hidden');
+                rss.classList.add('hidden');
+                submitText.innerText = '🚀 執行任務 / 傳送大腦';
             } else {
-                tabAutoRSS.classList.add('bg-white', 'shadow', 'text-blue-600');
-                tabAutoRSS.classList.remove('text-gray-500');
-                tabManual.classList.remove('bg-white', 'shadow', 'text-blue-600');
-                tabManual.classList.add('text-gray-500');
-                sourceAutoRSS.classList.remove('hidden');
-                sourceManual.classList.add('hidden');
+                rss.classList.remove('hidden');
+                manual.classList.add('hidden');
+                submitText.innerText = '📡 發送 RSS 排程規則';
             }
+        }
+
+        // 🌟 圖片轉 Base64 核心引擎 (防呆防超載)
+        async function processFileToBase64(file) {
+            if (!file || file.size === 0) return null;
+            if (file.size > 512 * 1024) {
+                alert(`❌ 圖片 [${file.name}] 太大了 (超過 512KB)，大腦吃不下，已自動忽略！`);
+                return null;
+            }
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1] });
+                reader.onerror = e => reject(e);
+            });
         }
 
         function showToast(msg, type = 'info') {
             const toast = document.getElementById('toast');
-            const toastMsg = document.getElementById('toastMsg');
-            const toastIcon = document.getElementById('toastIcon');
-            
-            toastMsg.innerText = msg;
-            if (type === 'success') { toastIcon.innerText = '✅'; toast.style.backgroundColor = '#10b981'; }
-            else if (type === 'error') { toastIcon.innerText = '❌'; toast.style.backgroundColor = '#ef4444'; }
-            else { toastIcon.innerText = '⏳'; toast.style.backgroundColor = '#3b82f6'; }
-
+            toast.innerText = msg;
+            toast.style.backgroundColor = type === 'success' ? '#10b981' : (type === 'error' ? '#ef4444' : '#3b82f6');
             toast.classList.remove('translate-y-20', 'opacity-0');
             if (type !== 'info') setTimeout(() => { toast.classList.add('translate-y-20', 'opacity-0'); }, 5000);
         }
 
         // ==========================================
-        // 🚀 API 發送邏輯 (結合影像進階參數)
+        // 🚀 API 發送與組裝資料邏輯
         // ==========================================
-        document.getElementById('agentForm').addEventListener('submit', async (e) => {
+        document.agentForm = document.getElementById('agentForm');
+        document.agentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const btn = document.getElementById('submitBtn');
             const btnText = document.getElementById('btnText');
 
-            // 🌟 1. 啟動圖片處理神經 (讀取檔案轉 Base64)
             btn.disabled = true;
-            btnText.innerText = '⚙️ 正在處理參考圖片...';
-            const refImages = await processReferenceImages('referenceImagesInput');
+            btnText.innerText = '⚙️ 正在打包 DNA 與設定檔...';
 
-            // 2. 基礎 Payload 打包
             const payload = {
-                client: document.getElementById('client').value,
                 platform: document.getElementById('platform').value,
-                mentionBrand: document.getElementById('mentionBrand').checked,
-                sourceType: currentSourceType 
-            };
-
-            // 🌟 3. 將進階生圖設定打包進去
-            payload.image_options = {
+                sourceType: currentSourceType,
+                isComicMode: isComicModeActive,
                 aspectRatio: document.getElementById('aspectRatioSelect').value,
-                resolution: document.getElementById('resolutionSelect').value,
-                referenceImages: refImages // 最多14張經過處理的圖片
+                style: document.getElementById('comicStyleSelect').value,
+                resolution: '2K' 
             };
 
-            // 4. 根據資料來源打包
+            // 1. 文字主題
             if (currentSourceType === 'manual') {
                 const topic = document.getElementById('topic').value.trim();
-                if (!topic) {
-                    btn.disabled = false;
-                    btnText.innerText = '🚀 執行任務 / 儲存排程';
-                    return showToast('請輸入企劃主題！', 'error');
-                }
+                if (!topic) return restoreUI('請輸入主題！');
                 payload.topic = topic;
             } else {
-                const keyword = document.getElementById('rssKeyword').value.trim();
-                if (!keyword) {
-                    btn.disabled = false;
-                    btnText.innerText = '🚀 執行任務 / 儲存排程';
-                    return showToast('請輸入追蹤關鍵字！', 'error');
-                }
-                payload.rssConfig = {
-                    keyword: keyword,
-                    timeframe: document.getElementById('rssTimeframe').value,
-                    category: document.getElementById('rssCategory').value
-                };
-                payload.topic = `[系統自動] 抓取關鍵字: ${keyword} 的最新新聞`; 
+                payload.rssKeyword = document.getElementById('rssKeyword').value.trim();
+                if (!payload.rssKeyword) return restoreUI('請輸入 RSS 關鍵字！');
             }
 
-            // 5. 根據大腦模式打包
-            payload.isComicMode = isComicModeActive;
-            if (isComicModeActive) {
-                payload.comicCharacters = Array.from(document.querySelectorAll('input[name="comicCharacters"]:checked')).map(cb => cb.value);
-                payload.comicStyle = document.getElementById('comicStyle').value;
-                if (payload.comicCharacters.length === 0) {
-                    btn.disabled = false;
-                    btnText.innerText = '🚀 執行任務 / 儲存排程';
-                    return showToast('請至少選擇一位登場角色！', 'error');
+            // 2. 收集圖片與角色 DNA
+            const isNoCharMode = document.getElementById('noCharacterMode').checked;
+            let referenceImages = []; 
+
+            if (isComicModeActive && !isNoCharMode) {
+                const charItems = document.querySelectorAll('#characterList .char-item');
+                payload.comicCharacters = []; 
+
+                for (let item of charItems) {
+                    const name = item.querySelector('[name="charName"]').value.trim();
+                    if (!name) continue; 
+                    const persona = item.querySelector('[name="charPersona"]').value.trim();
+                    
+                    const fileInput = item.querySelector('[name="charAvatar"]');
+                    const base64Img = fileInput.files.length > 0 ? await processFileToBase64(fileInput.files[0]) : null;
+
+                    payload.comicCharacters.push({ name, persona });
+
+                    if (base64Img) {
+                        referenceImages.push({
+                            type: 'character', 
+                            name: name,
+                            mimeType: base64Img.mimeType,
+                            data: base64Img.data
+                        });
+                    }
                 }
             } else {
-                payload.mediaType = 'image';
-                payload.persona = document.getElementById('persona').value;
-                payload.ctaGoal = document.getElementById('ctaGoal').value;
-                payload.wordLimit = 350; 
+                payload.comicCharacters = []; 
             }
 
-            // 鎖定 UI，準備發射
+            // 3. 收集場景物件圖
+            const sceneFiles = document.getElementById('referenceImagesInput').files;
+            if (sceneFiles.length > 0) {
+                if (referenceImages.length + sceneFiles.length > 10) {
+                    alert(`⚠️ 總圖片超過 10 張！系統將自動捨棄多餘的照片。`);
+                }
+                for (let i = 0; i < Math.min(sceneFiles.length, (10 - referenceImages.length)); i++) {
+                    const base64Img = await processFileToBase64(sceneFiles[i]);
+                    if (base64Img) {
+                        referenceImages.push({
+                            type: 'scene_object',
+                            mimeType: base64Img.mimeType,
+                            data: base64Img.data
+                        });
+                    }
+                }
+            }
+            
+            payload.image_options = {
+                aspectRatio: payload.aspectRatio,
+                resolution: payload.resolution,
+                style: payload.style,
+                referenceImages: referenceImages 
+            };
+
             btn.classList.replace('bg-blue-600', 'bg-gray-500');
-            btnText.innerText = currentSourceType === 'manual' ? '🧠 大腦高速運算中，請稍候...' : '⚙️ 正在儲存排程規則...';
-            showToast('正在與雲端神經網路連線...', 'info');
+            btnText.innerText = '🧠 傳送至雲端大腦...';
 
             try {
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/draft`, {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${globalAuthToken}` 
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${globalAuthToken}` },
                     body: JSON.stringify(payload)
                 });
-                
                 const result = await response.json();
-                
-                if (result.success) {
-                    showToast('✅ 任務處理成功！請查看結果', 'success');
-                } else {
-                    throw new Error(result.message);
-                }
+                if (result.success) showToast('✅ 任務處理成功！請查看 Telegram', 'success');
+                else throw new Error(result.message);
             } catch (error) {
                 console.error(error);
                 showToast(`發生錯誤: ${error.message}`, 'error');
             } finally {
+                restoreUI('🚀 執行任務 / 傳送大腦');
+            }
+
+            function restoreUI(text) {
                 btn.disabled = false;
                 btn.classList.replace('bg-gray-500', 'bg-blue-600');
-                btnText.innerText = '🚀 執行任務 / 儲存排程';
+                btnText.innerText = text;
             }
         });
     </script>
