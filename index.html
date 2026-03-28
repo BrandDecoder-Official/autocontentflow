@@ -192,6 +192,40 @@
                 </div>
             </div>
 
+            <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-6 md:p-8">
+                <h2 class="text-xl font-bold text-gray-800 mb-6 flex items-center border-b pb-3">
+                    <span class="bg-gray-100 p-2 rounded-lg mr-3">🖼️</span> 進階生圖設定 (Gemini 3.1)
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">📐 圖片比例</label>
+                        <select id="aspectRatioSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
+                            <option value="1:1" selected>1:1 (正方形 - 預設)</option>
+                            <option value="16:9">16:9 (橫式影片)</option>
+                            <option value="9:16">9:16 (直式短影音)</option>
+                            <option value="4:1">4:1 (橫幅 Banner)</option>
+                            <option value="1:4">1:4 (直式長圖)</option>
+                            <option value="8:1">8:1 (極限橫幅)</option>
+                            <option value="1:8">1:8 (極限長條漫)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2">🔍 解析度</label>
+                        <select id="resolutionSelect" class="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-xl focus:ring-blue-500 focus:border-blue-500 block p-3 font-medium transition-colors cursor-pointer">
+                            <option value="512">512 (0.5K - 快速預覽)</option>
+                            <option value="1K">1K</option>
+                            <option value="2K" selected>2K (標準高畫質)</option>
+                            <option value="4K">4K (極致畫質)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="mt-6">
+                    <label class="block text-sm font-bold text-gray-700 mb-2">📥 上傳參考圖 (最多14張，單張必須 < 512KB)</label>
+                    <input type="file" id="referenceImagesInput" accept="image/png, image/jpeg, image/webp" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-all cursor-pointer border border-gray-200 rounded-xl p-2 bg-white">
+                    <p class="text-xs text-gray-500 mt-2 font-medium">💡 可上傳角色設定圖、畫風參考圖，Gemini 3.1 引擎將自動提取 DNA 進行合成。</p>
+                </div>
+            </div>
+
             <button type="submit" id="submitBtn" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-2xl text-xl px-5 py-5 text-center transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex justify-center items-center">
                 <span id="btnText">🚀 執行任務 / 儲存排程</span>
             </button>
@@ -235,6 +269,51 @@
         };
 
         // ==========================================
+        // 🖼️ 圖片壓縮與 Base64 轉換神經
+        // ==========================================
+        async function processReferenceImages(fileInputId) {
+            const fileInput = document.getElementById(fileInputId);
+            const files = fileInput.files;
+            let processedImages = [];
+
+            if (files.length > 14) {
+                showToast("⚠️ 參考圖最多只能上傳 14 張！系統自動擷取前 14 張。", "error");
+            }
+
+            const maxFiles = Math.min(files.length, 14);
+
+            for (let i = 0; i < maxFiles; i++) {
+                const file = files[i];
+                
+                // 檢查大小 (512KB)
+                if (file.size > 512 * 1024) {
+                    alert(`❌ 圖片 [${file.name}] 超過 512KB 限制，已自動忽略！請縮小後再上傳。`);
+                    continue; 
+                }
+
+                try {
+                    const base64Data = await convertFileToBase64(file);
+                    processedImages.push({
+                        mimeType: file.type,
+                        data: base64Data.split(',')[1] // 只取 data 部分
+                    });
+                } catch (err) {
+                    console.error("圖片轉檔失敗", err);
+                }
+            }
+            return processedImages;
+        }
+
+        function convertFileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = error => reject(error);
+            });
+        }
+
+        // ==========================================
         // 🎨 UI 介面切換邏輯
         // ==========================================
         function switchMode(toComic) {
@@ -257,7 +336,6 @@
             }
         }
 
-        // 🌟 新增：靈感來源 Tab 切換邏輯
         function switchSource(type) {
             currentSourceType = type;
             const tabManual = document.getElementById('tabManual');
@@ -297,7 +375,7 @@
         }
 
         // ==========================================
-        // 🚀 API 發送邏輯 (已支援手動與 RSS 雙軌並行)
+        // 🚀 API 發送邏輯 (結合影像進階參數)
         // ==========================================
         document.getElementById('agentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -305,36 +383,60 @@
             const btn = document.getElementById('submitBtn');
             const btnText = document.getElementById('btnText');
 
-            // 1. 基礎 Payload 打包
+            // 🌟 1. 啟動圖片處理神經 (讀取檔案轉 Base64)
+            btn.disabled = true;
+            btnText.innerText = '⚙️ 正在處理參考圖片...';
+            const refImages = await processReferenceImages('referenceImagesInput');
+
+            // 2. 基礎 Payload 打包
             const payload = {
                 client: document.getElementById('client').value,
                 platform: document.getElementById('platform').value,
                 mentionBrand: document.getElementById('mentionBrand').checked,
-                sourceType: currentSourceType // 告訴後端這是手動還是 RSS
+                sourceType: currentSourceType 
             };
 
-            // 2. 根據資料來源打包
+            // 🌟 3. 將進階生圖設定打包進去
+            payload.image_options = {
+                aspectRatio: document.getElementById('aspectRatioSelect').value,
+                resolution: document.getElementById('resolutionSelect').value,
+                referenceImages: refImages // 最多14張經過處理的圖片
+            };
+
+            // 4. 根據資料來源打包
             if (currentSourceType === 'manual') {
                 const topic = document.getElementById('topic').value.trim();
-                if (!topic) return showToast('請輸入企劃主題！', 'error');
+                if (!topic) {
+                    btn.disabled = false;
+                    btnText.innerText = '🚀 執行任務 / 儲存排程';
+                    return showToast('請輸入企劃主題！', 'error');
+                }
                 payload.topic = topic;
             } else {
                 const keyword = document.getElementById('rssKeyword').value.trim();
-                if (!keyword) return showToast('請輸入追蹤關鍵字！', 'error');
+                if (!keyword) {
+                    btn.disabled = false;
+                    btnText.innerText = '🚀 執行任務 / 儲存排程';
+                    return showToast('請輸入追蹤關鍵字！', 'error');
+                }
                 payload.rssConfig = {
                     keyword: keyword,
                     timeframe: document.getElementById('rssTimeframe').value,
                     category: document.getElementById('rssCategory').value
                 };
-                payload.topic = `[系統自動] 抓取關鍵字: ${keyword} 的最新新聞`; // 暫時代替主題
+                payload.topic = `[系統自動] 抓取關鍵字: ${keyword} 的最新新聞`; 
             }
 
-            // 3. 根據大腦模式打包
+            // 5. 根據大腦模式打包
             payload.isComicMode = isComicModeActive;
             if (isComicModeActive) {
                 payload.comicCharacters = Array.from(document.querySelectorAll('input[name="comicCharacters"]:checked')).map(cb => cb.value);
                 payload.comicStyle = document.getElementById('comicStyle').value;
-                if (payload.comicCharacters.length === 0) return showToast('請至少選擇一位登場角色！', 'error');
+                if (payload.comicCharacters.length === 0) {
+                    btn.disabled = false;
+                    btnText.innerText = '🚀 執行任務 / 儲存排程';
+                    return showToast('請至少選擇一位登場角色！', 'error');
+                }
             } else {
                 payload.mediaType = 'image';
                 payload.persona = document.getElementById('persona').value;
@@ -343,14 +445,11 @@
             }
 
             // 鎖定 UI，準備發射
-            btn.disabled = true;
             btn.classList.replace('bg-blue-600', 'bg-gray-500');
             btnText.innerText = currentSourceType === 'manual' ? '🧠 大腦高速運算中，請稍候...' : '⚙️ 正在儲存排程規則...';
             showToast('正在與雲端神經網路連線...', 'info');
 
             try {
-                // ⚠️ 這裡要注意：如果未來 A 路線(存設定) 跟 B 路線(直接生成) 的 API 不同，可以在這裡加 if 判斷
-                // 目前我們還是先打向同一個 API 測試 payload
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/draft`, {
                     method: 'POST',
                     headers: { 
