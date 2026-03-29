@@ -115,7 +115,6 @@
                     </div>
                     <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
                     <div id="characterList" class="space-y-3"></div>
-                    <div id="characterList" class="space-y-3"></div>
                 </div>
 
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
@@ -183,11 +182,44 @@
                     <span class="text-gray-400 font-medium">圖片載入中...</span>
                 </div>
 
-                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10">
+                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10 mb-5">
                     <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
                     <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
                 </div>
-            </div>
+
+                <div class="text-left bg-indigo-50 p-4 rounded-xl border-2 border-indigo-100 shadow-inner relative z-10">
+                    <h2 class="text-md font-black text-indigo-800 flex items-center mb-3">
+                        <span class="mr-2">🎙️</span> 專屬配音與動態影片 <span class="text-xs text-indigo-500 ml-2">(全新功能)</span>
+                    </h2>
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-400 mb-1">性別</label>
+                            <select id="voiceGender" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
+                                <option value="M">👨 男聲</option>
+                                <option value="F">👩 女聲</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-400 mb-1">口音</label>
+                            <select id="voiceAccent" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
+                                <option value="TW">🇹🇼 台灣腔</option>
+                                <option value="CN">🇨🇳 大陸腔</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-indigo-400 mb-1">語氣</label>
+                            <select id="voiceTone" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
+                                <option value="沉穩">沉穩</option>
+                                <option value="激動">激動</option>
+                                <option value="厭世" selected>厭世</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" id="btnGenerateVideo" onclick="generateVideo()" class="w-full bg-white text-indigo-600 border-2 border-indigo-200 hover:bg-indigo-600 hover:text-white font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm">
+                        🎬 消耗點數，生成動態影片
+                    </button>
+                </div>
+                </div>
 
             <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
                 <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
@@ -586,6 +618,62 @@
         };
 
         // ==========================================
+        // 🎬 呼叫影音大腦 API (新增功能)
+        // ==========================================
+        window.generateVideo = async function() {
+            const btn = document.getElementById('btnGenerateVideo');
+            
+            // 抓取三重選單的值
+            const voiceProfile = {
+                gender: document.getElementById('voiceGender').value,
+                accent: document.getElementById('voiceAccent').value,
+                tone: document.getElementById('voiceTone').value
+            };
+
+            // 🚨 測試階段專用：因為您的資料庫尚未寫入真實腳本，所以這裡強制帶入 test_mock 避免後端當機
+            // 等未來您的資料庫串接完成，只要把這行改成 const targetTaskId = currentTaskId; 即可！
+            const targetTaskId = "test_mock"; 
+
+            try {
+                // 按鈕鎖定與視覺變化
+                btn.disabled = true;
+                btn.innerHTML = '⏳ 影片運算中，請留意 Telegram 通知...';
+                btn.classList.replace('bg-white', 'bg-indigo-100');
+                btn.classList.replace('text-indigo-600', 'text-indigo-400');
+
+                showToast('🎬 影音大腦已啟動，正在背景呼叫 Veo 引擎...', 'info');
+
+                const response = await fetch(`${CLOUD_RUN_URL}/api/generate-manga-video`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        taskId: targetTaskId,
+                        voiceProfile: voiceProfile
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    showToast('✅ ' + data.message, 'success');
+                    // 這裡刻意不把按鈕恢復，因為影片在背景生成，避免用戶重複點擊扣點數
+                } else {
+                    throw new Error(data.message || "生成失敗");
+                }
+
+            } catch (error) {
+                console.error("API 連線崩潰：", error);
+                showToast("❌ 無法連線到影音大腦，請檢查後端日誌。", "error");
+                
+                // 發生錯誤時將按鈕還原
+                btn.disabled = false;
+                btn.innerHTML = '🎬 消耗點數，生成動態影片';
+                btn.classList.replace('bg-indigo-100', 'bg-white');
+                btn.classList.replace('text-indigo-400', 'text-indigo-600');
+            }
+        };
+
+        // ==========================================
         // 🏠 閉環邏輯：回到第一步開啟新任務
         // ==========================================
         window.resetToStep1 = function() {
@@ -611,8 +699,17 @@
                 btnPublish.classList.replace('bg-gray-500', 'bg-green-600');
             }
             document.getElementById('btnRegenerate').classList.remove('hidden');
+
+            // 5. 洗白影音按鈕狀態
+            const btnVideo = document.getElementById('btnGenerateVideo');
+            if (btnVideo) {
+                btnVideo.disabled = false;
+                btnVideo.innerHTML = '🎬 消耗點數，生成動態影片';
+                btnVideo.classList.replace('bg-indigo-100', 'bg-white');
+                btnVideo.classList.replace('text-indigo-400', 'text-indigo-600');
+            }
             
-            // 5. 畫面捲回頂部
+            // 6. 畫面捲回頂部
             window.scrollTo({ top: 0, behavior: 'smooth' });
             showToast('🏠 已開啟新任務！場景已清空，請重新設定。', 'info');
         };
