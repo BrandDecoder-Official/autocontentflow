@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrandDecoder | 行動工作室 V8.24</title>
+    <title>BrandDecoder | 行動工作室 V8.25</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -14,7 +14,7 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        .char-item { border: 1px solid #e5e7eb; padding: 16px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; }
+        .char-item { border: 1px solid #e5e7eb; padding: 12px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; }
         .sticky-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid #e5e7eb; padding: 16px; z-index: 40; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); }
     </style>
 </head>
@@ -31,11 +31,12 @@
         
         <div id="step1-setup" class="space-y-6 animate-fade-in">
             <div class="w-full text-center mb-6">
-                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.24</span></h1>
-                <p class="text-gray-500 font-medium text-sm mt-1">微網紅行動工作室 ✕ 宇宙壓縮引擎</p>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.25</span></h1>
+                <p class="text-gray-500 font-medium text-sm mt-1">4-2-4 視覺引擎 ✕ 實境融合</p>
             </div>
 
             <form id="agentForm" class="w-full space-y-5">
+                
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                     <div class="space-y-5">
                         <div>
@@ -43,11 +44,11 @@
                             <div class="flex flex-wrap gap-4 bg-gray-50 p-3 rounded-xl border border-gray-200">
                                 <label class="flex items-center cursor-pointer">
                                     <input type="checkbox" id="platFB" value="FB" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                    <span class="ml-2 font-bold text-gray-800">📘 Facebook</span>
+                                    <span class="ml-2 font-bold text-gray-800">📘 FB</span>
                                 </label>
                                 <label class="flex items-center cursor-pointer">
                                     <input type="checkbox" id="platIG" value="IG" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
-                                    <span class="ml-2 font-bold text-gray-800">📸 Instagram</span>
+                                    <span class="ml-2 font-bold text-gray-800">📸 IG</span>
                                 </label>
                                 <label class="flex items-center cursor-pointer">
                                     <input type="checkbox" id="platThreads" value="THREADS" class="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
@@ -57,8 +58,8 @@
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-bold text-gray-700 mb-1">✍️ 輸入主題 (例如：在海底撈遇到老闆)</label>
-                            <textarea id="topic" rows="3" class="block p-3 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">✍️ 輸入主題 <span class="text-blue-600 text-xs ml-2">(場景 + 動作 + 情緒)</span></label>
+                            <textarea id="topic" rows="3" placeholder="例如：在海底撈門口，老K跟著人群乖乖排隊，但他等到滿頭大汗、表情非常無奈。" class="block p-3 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
                         </div>
                     </div>
                 </div>
@@ -76,11 +77,11 @@
                     </div>
                     <div class="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">🎨 畫風</label>
+                            <label class="block text-xs font-bold text-gray-500 mb-1">🎨 畫風模式</label>
                             <select id="comicStyleSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
-                                <option value="TORIYAMA_HUMOR" selected>🥚 鳥山明爆笑風</option>
-                                <option value="GHIBLI">🍃 吉卜力溫馨風</option>
-                                <option value="RETRO_HOKUTO_BW">⬛ 世紀末硬派風</option>
+                                <option value="MIXED_MEDIA" selected>🌍 2.5D (真實場景+動漫角色)</option>
+                                <option value="TORIYAMA_HUMOR">🥚 鳥山明爆笑風 (純漫畫)</option>
+                                <option value="GHIBLI">🍃 吉卜力溫馨風 (純漫畫)</option>
                                 <option value="REALISTIC" id="styleRealistic" class="hidden">📸 真實商業攝影</option>
                             </select>
                         </div>
@@ -96,7 +97,6 @@
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">🔍 解析度</label>
                                 <select id="resolutionSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
-                                    <option value="512">0.5K</option>
                                     <option value="1K" selected>1K (標準)</option>
                                     <option value="2K">2K (高清)</option>
                                     <option value="4K">4K (超清)</option>
@@ -109,7 +109,7 @@
                 <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-md font-bold text-gray-800 flex items-center">
-                            <span class="mr-2">👥</span> 登場人物 (最多4人)
+                            <span class="mr-2">👥</span> 登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                         </h2>
                         <button type="button" onclick="addCharacterSlot()" class="text-blue-600 text-sm font-bold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">+ 新增角色</button>
                     </div>
@@ -117,10 +117,27 @@
                 </div>
 
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
-                    <h2 class="text-md font-bold text-gray-800 mb-2 flex items-center">
-                        <span class="mr-2">🖼️</span> 現場/商品參考圖 (最多10張)
-                    </h2>
-                    <input type="file" id="referenceImagesInput" accept="image/png, image/jpeg, image/webp" multiple class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 bg-white border border-gray-200 rounded-xl p-1 cursor-pointer">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-md font-bold text-gray-800 flex items-center">
+                            <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張)</span>
+                        </h2>
+                    </div>
+                    <p class="text-xs text-red-500 font-bold mb-3">※ 第一張將作為合成主場景。</p>
+                    <input type="file" id="sceneInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="handleFileSelect(this, sceneFiles, 2, 'scenePreview')">
+                    <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
+                    <div id="scenePreview" class="flex flex-wrap gap-3"></div>
+                </div>
+
+                <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-md font-bold text-gray-800 flex items-center">
+                            <span class="mr-2">🍔</span> 道具與商品圖 <span class="text-xs text-gray-400 ml-1">(最多 4 張)</span>
+                        </h2>
+                    </div>
+                    <p class="text-xs text-gray-500 font-medium mb-3">手持物品、桌上餐點、服裝等細節參考。</p>
+                    <input type="file" id="objectInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="handleFileSelect(this, objectFiles, 4, 'objectPreview')">
+                    <button type="button" onclick="document.getElementById('objectInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇道具圖</button>
+                    <div id="objectPreview" class="flex flex-wrap gap-3"></div>
                 </div>
 
                 <div class="sticky-bottom-bar animate-slide-up">
@@ -136,23 +153,19 @@
                 <h2 class="text-xl font-black text-yellow-800 mb-2 flex items-center">
                     <span class="mr-2">💡</span> 步驟二：審核與修改腳本
                 </h2>
-                <p class="text-xs text-yellow-700 mb-4 font-medium">您可以直接在下方點擊修改文字。確認台詞無誤後再發包生圖，確保文字精準鎖定在圖上。</p>
-                
                 <div class="space-y-4">
                     <div>
-                        <label class="block text-sm font-bold text-gray-700 mb-1">社群貼文內容 (請加上 Hashtag)</label>
-                        <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-inner"></textarea>
+                        <label class="block text-sm font-bold text-gray-700 mb-1">社群貼文內容 (附 Hashtag)</label>
+                        <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner focus:ring-blue-500 focus:border-blue-500"></textarea>
                     </div>
-                    
-                    <div id="reviewPanelsContainer" class="space-y-3 hidden">
-                        </div>
+                    <div id="reviewPanelsContainer" class="space-y-3 hidden"></div>
                 </div>
             </div>
 
             <div class="sticky-bottom-bar flex gap-3 animate-slide-up">
-                <button type="button" onclick="backToStep1()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-md px-4 py-4 hover:bg-gray-300 transition-all">返回修改</button>
-                <button type="button" id="btnStep2Submit" onclick="submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 focus:ring-4 focus:ring-indigo-300 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
-                    <span id="btnTextStep2">🎨 2️⃣ 第二步：發包生成圖片</span>
+                <button type="button" onclick="window.backToStep1()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-md px-4 py-4 hover:bg-gray-300 transition-all">返回修改</button>
+                <button type="button" id="btnStep2Submit" onclick="submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                    <span id="btnTextStep2">🎨 2️⃣ 第二步：發包生圖</span>
                 </button>
             </div>
         </div>
@@ -167,19 +180,20 @@
                     <span class="text-gray-400 font-medium">圖片載入中...</span>
                 </div>
 
-                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 shadow-inner">
-                    <p id="finalCaptionDisplay">貼文預覽...</p>
+                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+                    <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
+                    <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
                 </div>
             </div>
 
             <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
-                <button type="button" onclick="resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
-                    🏠 開啟新任務 (回到第一步)
+                <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
+                    🏠 開啟新任務 (清除主題與場景，保留角色)
                 </button>
                 <div class="flex gap-3 w-full">
                     <button type="button" id="btnRegenerate" onclick="submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
-                    <button type="button" id="btnPublish" onclick="publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-black rounded-xl text-lg px-4 py-4 shadow-lg flex justify-center items-center transition-all">
-                        🚀 3️⃣ 確認無誤，發射！
+                    <button type="button" id="btnPublish" onclick="publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                        🚀 發射！
                     </button>
                 </div>
             </div>
@@ -196,26 +210,36 @@
         let isComicModeActive = true; 
         let globalAuthToken = ''; 
         let currentTaskId = ''; 
+        
+        // 🌟 自定義圖片陣列 (4-2-4 引擎)
+        let sceneFiles = [];
+        let objectFiles = [];
 
-        function handleCredentialResponse(response) {
-            globalAuthToken = response.credential;
-            document.getElementById('loginScreen').classList.add('hidden');
-            const mainApp = document.getElementById('mainApp');
-            mainApp.classList.remove('hidden');
-            setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
-            showToast('✅ 登入成功！工廠引擎已發動。', 'success');
-        }
-
+        // ==========================================
+        // 授權登入
+        // ==========================================
         window.onload = function () {
             google.accounts.id.initialize({
                 client_id: "217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com", 
-                callback: handleCredentialResponse
+                callback: function(response) {
+                    globalAuthToken = response.credential;
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    const mainApp = document.getElementById('mainApp');
+                    mainApp.classList.remove('hidden');
+                    setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
+                    showToast('✅ 登入成功！工廠引擎已發動。', 'success');
+                }
             });
             google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
-            addCharacterSlot("老K", "聰明、科技總編", true);
+            
+            // 預設加入老K
+            addCharacterSlot("老K", "戴墨鏡的大叔");
         };
 
-        function switchMode(toComic) {
+        // ==========================================
+        // UI 互動邏輯 (切換模式與提示)
+        // ==========================================
+        window.switchMode = function(toComic) {
             isComicModeActive = toComic;
             const btnStandard = document.getElementById('btnStandardMode');
             const btnComic = document.getElementById('btnComicMode');
@@ -226,79 +250,14 @@
                 btnComic.classList.add('mode-active');
                 btnStandard.classList.remove('mode-active');
                 styleRealistic.classList.add('hidden'); 
-                if (styleSelect.value === 'REALISTIC') styleSelect.value = 'TORIYAMA_HUMOR';
+                if (styleSelect.value === 'REALISTIC') styleSelect.value = 'MIXED_MEDIA';
             } else {
                 btnStandard.classList.add('mode-active');
                 btnComic.classList.remove('mode-active');
                 styleRealistic.classList.remove('hidden'); 
                 styleSelect.value = 'REALISTIC'; 
             }
-        }
-
-        function addCharacterSlot(name = "", personality = "") {
-            const list = document.getElementById('characterList');
-            if (list.children.length >= 4) { alert("⚠️ 最多4張角色圖"); return; }
-            const charCard = document.createElement('div');
-            charCard.className = 'char-item relative animate-fade-in shadow-sm';
-            charCard.innerHTML = `
-                <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-3 text-gray-400 font-bold text-lg hover:text-red-500">✕</button>
-                <div class="space-y-2">
-                    <input type="text" name="charName" value="${name}" placeholder="本名(必填，例：瓜哥)" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
-                    <input type="text" name="charPersona" value="${personality}" placeholder="特徵設定(例：愛戴墨鏡的男子)" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 font-bold focus:ring-blue-500 focus:border-blue-500 text-xs">
-                    <input type="file" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-1 cursor-pointer">
-                </div>
-            `;
-            list.appendChild(charCard);
-        }
-
-        // ==========================================
-        // 🚀 替換 index.html 裡的壓縮引擎參數
-        // ==========================================
-        async function processFileToBase64(file) {
-            if (!file || file.size === 0) return null;
-            
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.readAsDataURL(file);
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.src = event.target.result;
-                    img.onload = () => {
-                        // 🌟 把 1024 改成 800，品質改成 0.7
-                        // 這樣每張圖大約只剩 50KB~80KB，傳 10 張也才 0.8MB，絕對不會爆！
-                        const MAX_WIDTH = 800; 
-                        const MAX_HEIGHT = 800;
-                        let width = img.width;
-                        let height = img.height;
-
-                        if (width > height) {
-                            if (width > MAX_WIDTH) {
-                                height *= MAX_WIDTH / width;
-                                width = MAX_WIDTH;
-                            }
-                        } else {
-                            if (height > MAX_HEIGHT) {
-                                width *= MAX_HEIGHT / height;
-                                height = MAX_HEIGHT;
-                            }
-                        }
-
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-
-                        // 🌟 強制轉為 JPEG，品質 0.7
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-                        const base64Data = compressedBase64.split(',')[1];
-                        resolve({ mimeType: 'image/jpeg', data: base64Data });
-                    };
-                    img.onerror = e => reject(e);
-                };
-                reader.onerror = e => reject(e);
-            });
-        }
+        };
 
         function showToast(msg, type = 'info') {
             const toast = document.getElementById('toast');
@@ -309,21 +268,133 @@
         }
 
         // ==========================================
+        // 🌟 4-2-4 視覺引擎：縮圖與陣列管理
+        // ==========================================
+
+        // [4] 新增角色卡片 (帶有圖片預覽)
+        window.addCharacterSlot = function(name = "", personality = "") {
+            const list = document.getElementById('characterList');
+            if (list.children.length >= 4) { alert("⚠️ 最多 4 位登場角色"); return; }
+            const charId = 'char_' + Date.now();
+            const charCard = document.createElement('div');
+            charCard.className = 'char-item relative animate-fade-in shadow-sm border border-gray-200';
+            charCard.innerHTML = `
+                <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-2 text-gray-300 font-bold text-xl hover:text-red-500 z-10 transition-colors">✕</button>
+                <div class="flex gap-3 items-center">
+                    <div class="w-16 h-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group relative flex-shrink-0" onclick="document.getElementById('${charId}').click()">
+                        <span class="text-xs text-gray-400 font-bold group-hover:text-blue-500">+ 照片</span>
+                        <img id="${charId}_preview" class="absolute inset-0 w-full h-full object-cover hidden bg-white">
+                        <input type="file" id="${charId}" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="previewCharImage(this, '${charId}_preview')">
+                    </div>
+                    <div class="flex-grow space-y-2">
+                        <input type="text" name="charName" value="${name}" placeholder="本名(必填，例：瓜哥)" class="w-full bg-gray-50 border border-gray-300 rounded-md p-1.5 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
+                        <input type="text" name="charPersona" value="${personality}" placeholder="外觀特徵(例：戴紅色帽子)" class="w-full bg-gray-50 border border-gray-300 rounded-md p-1.5 font-medium focus:ring-blue-500 focus:border-blue-500 text-xs">
+                    </div>
+                </div>
+            `;
+            list.appendChild(charCard);
+        };
+
+        // 角色區的獨立預覽邏輯
+        window.previewCharImage = function(input, previewId) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById(previewId);
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        };
+
+        // [2] 與 [4] 場景/物件的陣列檔案管理
+        window.handleFileSelect = function(input, targetArray, maxCount, previewContainerId) {
+            const newFiles = Array.from(input.files);
+            if (targetArray.length + newFiles.length > maxCount) {
+                alert(`⚠️ 此區塊最多只能上傳 ${maxCount} 張圖片！`);
+                input.value = ''; // 清空選擇
+                return;
+            }
+            newFiles.forEach(file => targetArray.push(file));
+            input.value = ''; // 讓同一個檔案可以重複選取
+            renderThumbnails(targetArray, previewContainerId);
+        };
+
+        // 刪除陣列中的圖片
+        window.removeFileFromArray = function(index, arrayName, previewContainerId) {
+            const targetArray = arrayName === 'sceneFiles' ? sceneFiles : objectFiles;
+            targetArray.splice(index, 1);
+            renderThumbnails(targetArray, previewContainerId);
+        };
+
+        // 渲染方塊縮圖與 X 按鈕
+        function renderThumbnails(array, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            array.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const isMainBg = (containerId === 'scenePreview' && index === 0);
+                    const div = document.createElement('div');
+                    div.className = `relative w-20 h-20 rounded-lg shadow-sm overflow-hidden flex-shrink-0 animate-fade-in ${isMainBg ? 'border-2 border-blue-500' : 'border border-gray-200'}`;
+                    div.innerHTML = `
+                        <img src="${e.target.result}" class="w-full h-full object-cover">
+                        <button type="button" onclick="removeFileFromArray(${index}, '${containerId === 'scenePreview' ? 'sceneFiles' : 'objectFiles'}', '${containerId}')" class="absolute top-1 right-1 bg-red-500 bg-opacity-90 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-red-600 shadow-md">✕</button>
+                        ${isMainBg ? '<div class="absolute bottom-0 left-0 right-0 bg-blue-600 bg-opacity-90 text-white text-[10px] text-center font-bold py-0.5 tracking-widest">主背景</div>' : ''}
+                    `;
+                    container.appendChild(div);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 🌟 終極 Canvas 影像壓縮引擎 (800px)
+        async function processFileToBase64(file) {
+            if (!file || file.size === 0) return null;
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const MAX_WIDTH = 800; // 壓縮至 800px 確保輕量
+                        const MAX_HEIGHT = 800;
+                        let width = img.width;
+                        let height = img.height;
+                        if (width > height) {
+                            if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                        } else {
+                            if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width; canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                        resolve({ mimeType: 'image/jpeg', data: compressedBase64.split(',')[1] });
+                    };
+                    img.onerror = e => reject(e);
+                };
+                reader.onerror = e => reject(e);
+            });
+        }
+
+        // ==========================================
         // 🚀 API 管線邏輯
         // ==========================================
         
-        document.agentForm = document.getElementById('agentForm');
-        document.agentForm.addEventListener('submit', async (e) => {
+        // ⚡ 提交第一步
+        document.getElementById('agentForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('btnStep1Submit');
             const btnText = document.getElementById('btnTextStep1');
             
-            // 🌟 1. 抓取被勾選的平台
             const selectedPlatforms = [];
             if(document.getElementById('platFB').checked) selectedPlatforms.push('FB');
             if(document.getElementById('platIG').checked) selectedPlatforms.push('IG');
             if(document.getElementById('platThreads').checked) selectedPlatforms.push('THREADS');
-
             if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個目標發布平台！', 'error');
 
             const topic = document.getElementById('topic').value.trim();
@@ -344,26 +415,30 @@
                 image_options: { referenceImages: [] }
             };
 
+            // 1. 抓取角色區圖片
             const charItems = document.querySelectorAll('#characterList .char-item');
             for (let item of charItems) {
-                if (payload.comicCharacters.length >= 4) break; 
                 const name = item.querySelector('[name="charName"]').value.trim();
                 const persona = item.querySelector('[name="charPersona"]').value.trim();
                 if (!name) continue;
-                payload.comicCharacters.push({ name, persona }); // 🌟 現在會把 persona 也傳到後端了
+                payload.comicCharacters.push({ name, persona }); 
                 
                 const fileInput = item.querySelector('[name="charAvatar"]');
                 if(fileInput.files.length > 0) {
-                    // 🌟 呼叫全新壓縮引擎
                     const base64Img = await processFileToBase64(fileInput.files[0]);
                     if (base64Img) payload.image_options.referenceImages.push({ type: 'character', name, ...base64Img });
                 }
             }
 
-            const sceneFiles = document.getElementById('referenceImagesInput').files;
-            for (let i = 0; i < Math.min(sceneFiles.length, 10); i++) {
-                // 🌟 呼叫全新壓縮引擎
+            // 2. 抓取場景區圖片 (從我們管理的陣列拿)
+            for (let i = 0; i < sceneFiles.length; i++) {
                 const base64Img = await processFileToBase64(sceneFiles[i]);
+                if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
+            }
+
+            // 3. 抓取物件區圖片
+            for (let i = 0; i < objectFiles.length; i++) {
+                const base64Img = await processFileToBase64(objectFiles[i]);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
 
@@ -384,17 +459,15 @@
                 document.getElementById('step2-review').classList.remove('hidden');
                 document.getElementById('reviewCaption').value = draft.post_caption;
                 
-                // 顯示劇本
                 const panelsContainer = document.getElementById('reviewPanelsContainer');
                 if (result.isComicMode && draft.panels) {
                     panelsContainer.classList.remove('hidden');
-                    let panelsHtml = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡劇本審核 (僅開放修改台詞)</label>';
-                    
+                    let panelsHtml = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認 (可修改台詞)</label>';
                     draft.panels.forEach(p => {
                         panelsHtml += `
                         <div class="mb-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
                             <p class="text-xs text-gray-500 mb-1 leading-relaxed">🎥 <b>畫面：</b>${p.action_zh}</p>
-                            <p class="text-xs font-bold text-indigo-600 mb-3">🗣️ <b>說話者：</b>${p.speaker_zh}</p>
+                            <p class="text-xs font-bold text-indigo-600 mb-2">🗣️ <b>說話者：</b>${p.speaker_zh}</p>
                             <textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold text-gray-900 focus:ring-blue-500 focus:border-blue-500" rows="2" placeholder="請輸入台詞...">${p.dialogue}</textarea>
                         </div>`;
                     });
@@ -403,7 +476,7 @@
                     panelsContainer.classList.add('hidden'); 
                 }
                 showToast('✅ 腳本生成完畢，請進行最終確認或修改！', 'success');
-                window.scrollTo(0, 0);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (error) {
                 console.error(error);
@@ -415,18 +488,19 @@
             }
         });
 
-        function backToStep1() {
+        window.backToStep1 = function() {
             document.getElementById('step2-review').classList.add('hidden');
             document.getElementById('step1-setup').classList.remove('hidden');
-            window.scrollTo(0, 0);
-        }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
 
-        async function submitForImageGeneration() {
+        // 🎨 提交生圖
+        window.submitForImageGeneration = async function() {
             const btn = document.getElementById('btnStep2Submit');
             const btnText = document.getElementById('btnTextStep2');
             
             btn.disabled = true;
-            btnText.innerText = '🎨 正在極速生圖中 (呼叫AI圖形引擎，約15秒)...';
+            btnText.innerText = '🎨 正在極速生圖中 (約15秒)...';
             
             const editedCaption = document.getElementById('reviewCaption').value;
             const editedPanels = [];
@@ -434,12 +508,7 @@
             if (isComicModeActive) {
                 for(let i=1; i<=4; i++) {
                     const ta = document.getElementById(`panel_${i}`);
-                    if(ta) {
-                        editedPanels.push({
-                            panel_number: i,
-                            dialogue: ta.value 
-                        });
-                    }
+                    if(ta) editedPanels.push({ panel_number: i, dialogue: ta.value });
                 }
             }
 
@@ -456,31 +525,33 @@
                 document.getElementById('step2-review').classList.add('hidden');
                 document.getElementById('step3-publish').classList.remove('hidden');
                 
-                document.getElementById('finalImageContainer').innerHTML = `
-                    <img src="${result.imageUrl}" class="w-full h-auto object-cover rounded-xl shadow-md border border-gray-200 animate-fade-in">`;
-                document.getElementById('finalCaptionDisplay').innerText = editedCaption;
-                showToast('✅ 圖片生成完畢！請過目！', 'success');
-                window.scrollTo(0, 0);
+                document.getElementById('finalImageContainer').innerHTML = `<img src="${result.imageUrl}" class="w-full h-auto object-cover rounded-xl shadow-md border border-gray-200 animate-fade-in">`;
+                document.getElementById('finalCaptionDisplay').value = editedCaption;
+                showToast('✅ 圖片生成完畢！', 'success');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (error) {
                 console.error(error);
                 showToast(`❌ 生圖失敗: ${error.message}`, 'error');
             } finally {
                 btn.disabled = false;
-                btnText.innerText = '🎨 2️⃣ 第二步：發包生成圖片';
+                btnText.innerText = '🎨 2️⃣ 第二步：發包生圖';
             }
-        }
+        };
 
-        async function publishToSocial() {
+        // 🚀 發佈至社群
+        window.publishToSocial = async function() {
             const btn = document.getElementById('btnPublish');
             btn.disabled = true;
             btn.innerHTML = '🚀 正在發射至 Meta 宇宙...';
+            
+            const finalCaption = document.getElementById('finalCaptionDisplay').value;
             
             try {
                 const response = await fetch(`${CLOUD_RUN_URL}/api/content/publish`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${globalAuthToken}` },
-                    body: JSON.stringify({ taskId: currentTaskId })
+                    body: JSON.stringify({ taskId: currentTaskId, finalCaption: finalCaption })
                 });
                 const result = await response.json();
 
@@ -489,15 +560,47 @@
                 btn.innerHTML = '✅ 發布成功！圓滿達成！';
                 btn.classList.replace('bg-green-600', 'bg-gray-500');
                 document.getElementById('btnRegenerate').classList.add('hidden');
-                showToast('🎉 圖文已成功飛上社群平台！快去檢查！', 'success');
+                showToast('🎉 圖文已成功飛上社群平台！', 'success');
                 
             } catch (error) {
                 console.error(error);
                 showToast(`❌ 發佈失敗: ${error.message}`, 'error');
                 btn.disabled = false;
-                btn.innerHTML = '🚀 重試：發射至社群';
+                btn.innerHTML = '🚀 重試發射';
             }
-        }
+        };
+
+        // ==========================================
+        // 🏠 閉環邏輯：回到第一步開啟新任務
+        // ==========================================
+        window.resetToStep1 = function() {
+            // 1. 切換顯示視圖
+            document.getElementById('step3-publish').classList.add('hidden');
+            document.getElementById('step2-review').classList.add('hidden');
+            document.getElementById('step1-setup').classList.remove('hidden');
+            
+            // 2. 清空前一次的主題
+            document.getElementById('topic').value = '';
+            
+            // 3. 清空場景與物件圖 (強制洗牌)，但保留角色，方便網紅連發
+            sceneFiles = [];
+            objectFiles = [];
+            document.getElementById('scenePreview').innerHTML = '';
+            document.getElementById('objectPreview').innerHTML = '';
+            
+            // 4. 洗白發佈按鈕的狀態
+            const btnPublish = document.getElementById('btnPublish');
+            btnPublish.disabled = false;
+            btnPublish.innerHTML = '🚀 發射！';
+            if (btnPublish.classList.contains('bg-gray-500')) {
+                btnPublish.classList.replace('bg-gray-500', 'bg-green-600');
+            }
+            document.getElementById('btnRegenerate').classList.remove('hidden');
+            
+            // 5. 畫面捲回頂部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            showToast('🏠 已開啟新任務！場景已清空，請重新設定。', 'info');
+        };
     </script>
 </body>
 </html>
