@@ -113,6 +113,8 @@
                         </h2>
                         <button type="button" onclick="addCharacterSlot()" class="text-blue-600 text-sm font-bold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">+ 新增角色</button>
                     </div>
+                    <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
+                    <div id="characterList" class="space-y-3"></div>
                     <div id="characterList" class="space-y-3"></div>
                 </div>
 
@@ -122,7 +124,8 @@
                             <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張)</span>
                         </h2>
                     </div>
-                    <p class="text-xs text-red-500 font-bold mb-3">※ 第一張將作為合成主場景。</p>
+                    <p class="text-xs text-red-500 font-bold mb-1">※ 第一張將作為合成主場景。</p>
+                    <p id="realisticSceneWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳插畫/動漫背景，AI 將自動轉換為對應的「真實世界」攝影場景。</p>
                     <input type="file" id="sceneInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="handleFileSelect(this, sceneFiles, 2, 'scenePreview')">
                     <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
                     <div id="scenePreview" class="flex flex-wrap gap-3"></div>
@@ -170,7 +173,7 @@
             </div>
         </div>
 
-        <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-10">
+        <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
             <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
                 <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-center">
                     <span class="mr-2">🎉</span> 步驟三：圖文準備就緒！
@@ -180,7 +183,7 @@
                     <span class="text-gray-400 font-medium">圖片載入中...</span>
                 </div>
 
-                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner">
+                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10">
                     <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
                     <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
                 </div>
@@ -246,16 +249,28 @@
             const styleSelect = document.getElementById('comicStyleSelect');
             const styleRealistic = document.getElementById('styleRealistic');
 
+            // 🌟 抓取警告標語元素
+            const charWarning = document.getElementById('realisticCharWarning');
+            const sceneWarning = document.getElementById('realisticSceneWarning');
+
             if (toComic) {
                 btnComic.classList.add('mode-active');
                 btnStandard.classList.remove('mode-active');
                 styleRealistic.classList.add('hidden'); 
-                if (styleSelect.value === 'REALISTIC') styleSelect.value = 'MIXED_MEDIA';
+                if (styleSelect.value === 'REALISTIC') styleSelect.value = 'TORIYAMA_HUMOR'; // 退回純漫畫選項
+                
+                // 🌟 動漫模式：隱藏警告
+                if(charWarning) charWarning.classList.add('hidden');
+                if(sceneWarning) sceneWarning.classList.add('hidden');
             } else {
                 btnStandard.classList.add('mode-active');
                 btnComic.classList.remove('mode-active');
                 styleRealistic.classList.remove('hidden'); 
                 styleSelect.value = 'REALISTIC'; 
+                
+                // 🌟 寫實模式：顯示警告
+                if(charWarning) charWarning.classList.remove('hidden');
+                if(sceneWarning) sceneWarning.classList.remove('hidden');
             }
         };
 
