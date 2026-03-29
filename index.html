@@ -172,11 +172,16 @@
                 </div>
             </div>
 
-            <div class="sticky-bottom-bar flex gap-3 animate-slide-up">
-                <button type="button" id="btnRegenerate" onclick="submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
-                <button type="button" id="btnPublish" onclick="publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-black rounded-xl text-lg px-4 py-4 shadow-lg flex justify-center items-center transition-all">
-                    🚀 3️⃣ 確認無誤，發射！
+            <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
+                <button type="button" onclick="resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
+                    🏠 開啟新任務 (回到第一步)
                 </button>
+                <div class="flex gap-3 w-full">
+                    <button type="button" id="btnRegenerate" onclick="submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
+                    <button type="button" id="btnPublish" onclick="publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 focus:ring-4 focus:ring-green-300 font-black rounded-xl text-lg px-4 py-4 shadow-lg flex justify-center items-center transition-all">
+                        🚀 3️⃣ 確認無誤，發射！
+                    </button>
+                </div>
             </div>
         </div>
 
