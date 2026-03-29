@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BrandDecoder | 行動工作室 V8.23</title>
+    <title>BrandDecoder | 行動工作室 V8.24</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -31,8 +31,8 @@
         
         <div id="step1-setup" class="space-y-6 animate-fade-in">
             <div class="w-full text-center mb-6">
-                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.2</span></h1>
-                <p class="text-gray-500 font-medium text-sm mt-1">微網紅行動工作室 ✕ Checkbox 萬箭齊發</p>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.24</span></h1>
+                <p class="text-gray-500 font-medium text-sm mt-1">微網紅行動工作室 ✕ 宇宙壓縮引擎</p>
             </div>
 
             <form id="agentForm" class="w-full space-y-5">
@@ -214,20 +214,17 @@
             isComicModeActive = toComic;
             const btnStandard = document.getElementById('btnStandardMode');
             const btnComic = document.getElementById('btnComicMode');
-            const charSection = document.getElementById('characterSection');
             const styleSelect = document.getElementById('comicStyleSelect');
             const styleRealistic = document.getElementById('styleRealistic');
 
             if (toComic) {
                 btnComic.classList.add('mode-active');
                 btnStandard.classList.remove('mode-active');
-                charSection.classList.remove('hidden');
                 styleRealistic.classList.add('hidden'); 
                 if (styleSelect.value === 'REALISTIC') styleSelect.value = 'TORIYAMA_HUMOR';
             } else {
                 btnStandard.classList.add('mode-active');
                 btnComic.classList.remove('mode-active');
-                charSection.classList.add('hidden'); 
                 styleRealistic.classList.remove('hidden'); 
                 styleSelect.value = 'REALISTIC'; 
             }
@@ -242,19 +239,58 @@
                 <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-3 text-gray-400 font-bold text-lg hover:text-red-500">✕</button>
                 <div class="space-y-2">
                     <input type="text" name="charName" value="${name}" placeholder="本名(必填，例：瓜哥)" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
-                    <input type="file" name="charAvatar" accept="image/png, image/jpeg" class="block w-full text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-1 cursor-pointer">
+                    <input type="text" name="charPersona" value="${personality}" placeholder="特徵設定(例：愛戴墨鏡的男子)" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2 font-bold focus:ring-blue-500 focus:border-blue-500 text-xs">
+                    <input type="file" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="block w-full text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg p-1 cursor-pointer">
                 </div>
             `;
             list.appendChild(charCard);
         }
 
+        // 🌟 終極 Canvas 影像壓縮引擎 (破除 1MB 資料庫限制)
         async function processFileToBase64(file) {
             if (!file || file.size === 0) return null;
-            if (file.size > 512 * 1024) { alert(`❌ 圖片超過 512KB，已忽略`); return null; }
+            
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
-                reader.onload = () => resolve({ mimeType: file.type, data: reader.result.split(',')[1] });
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.src = event.target.result;
+                    img.onload = () => {
+                        const MAX_WIDTH = 1024; // 🌟 限制最大寬度為 1K
+                        const MAX_HEIGHT = 1024;
+                        let width = img.width;
+                        let height = img.height;
+
+                        // 計算等比例縮放
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        // 使用 Canvas 進行重新繪製與壓縮
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+
+                        // 🌟 強制轉為 JPEG，品質 0.8，將 5MB 的圖縮減至約 150KB
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                        
+                        // 把 'data:image/jpeg;base64,' 這段前綴切掉
+                        const base64Data = compressedBase64.split(',')[1];
+                        resolve({ mimeType: 'image/jpeg', data: base64Data });
+                    };
+                    img.onerror = e => reject(e);
+                };
                 reader.onerror = e => reject(e);
             });
         }
@@ -293,7 +329,7 @@
             btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
             
             const payload = {
-                platforms: selectedPlatforms, // 🌟 傳送陣列
+                platforms: selectedPlatforms, 
                 topic: topic,
                 isComicMode: isComicModeActive,
                 aspectRatio: document.getElementById('aspectRatioSelect').value,
@@ -307,16 +343,21 @@
             for (let item of charItems) {
                 if (payload.comicCharacters.length >= 4) break; 
                 const name = item.querySelector('[name="charName"]').value.trim();
+                const persona = item.querySelector('[name="charPersona"]').value.trim();
                 if (!name) continue;
-                payload.comicCharacters.push({ name, persona: "" });
+                payload.comicCharacters.push({ name, persona }); // 🌟 現在會把 persona 也傳到後端了
                 
                 const fileInput = item.querySelector('[name="charAvatar"]');
-                const base64Img = await processFileToBase64(fileInput.files[0]);
-                if (base64Img) payload.image_options.referenceImages.push({ type: 'character', name, ...base64Img });
+                if(fileInput.files.length > 0) {
+                    // 🌟 呼叫全新壓縮引擎
+                    const base64Img = await processFileToBase64(fileInput.files[0]);
+                    if (base64Img) payload.image_options.referenceImages.push({ type: 'character', name, ...base64Img });
+                }
             }
 
             const sceneFiles = document.getElementById('referenceImagesInput').files;
             for (let i = 0; i < Math.min(sceneFiles.length, 10); i++) {
+                // 🌟 呼叫全新壓縮引擎
                 const base64Img = await processFileToBase64(sceneFiles[i]);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
@@ -338,16 +379,13 @@
                 document.getElementById('step2-review').classList.remove('hidden');
                 document.getElementById('reviewCaption').value = draft.post_caption;
                 
-                // =================================
-                // 替換：產生分鏡 HTML 的邏輯 (使用中文變數)
-                // =================================
+                // 顯示劇本
                 const panelsContainer = document.getElementById('reviewPanelsContainer');
                 if (result.isComicMode && draft.panels) {
                     panelsContainer.classList.remove('hidden');
                     let panelsHtml = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡劇本審核 (僅開放修改台詞)</label>';
                     
                     draft.panels.forEach(p => {
-                        // 🌟 這裡完美套用大腦傳來的 _zh 中文變數！
                         panelsHtml += `
                         <div class="mb-4 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
                             <p class="text-xs text-gray-500 mb-1 leading-relaxed">🎥 <b>畫面：</b>${p.action_zh}</p>
@@ -392,7 +430,6 @@
                 for(let i=1; i<=4; i++) {
                     const ta = document.getElementById(`panel_${i}`);
                     if(ta) {
-                        // 🌟 乾淨版資料抓取
                         editedPanels.push({
                             panel_number: i,
                             dialogue: ta.value 
