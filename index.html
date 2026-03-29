@@ -246,7 +246,9 @@
             list.appendChild(charCard);
         }
 
-        // 🌟 終極 Canvas 影像壓縮引擎 (破除 1MB 資料庫限制)
+        // ==========================================
+        // 🚀 替換 index.html 裡的壓縮引擎參數
+        // ==========================================
         async function processFileToBase64(file) {
             if (!file || file.size === 0) return null;
             
@@ -257,12 +259,13 @@
                     const img = new Image();
                     img.src = event.target.result;
                     img.onload = () => {
-                        const MAX_WIDTH = 1024; // 🌟 限制最大寬度為 1K
-                        const MAX_HEIGHT = 1024;
+                        // 🌟 把 1024 改成 800，品質改成 0.7
+                        // 這樣每張圖大約只剩 50KB~80KB，傳 10 張也才 0.8MB，絕對不會爆！
+                        const MAX_WIDTH = 800; 
+                        const MAX_HEIGHT = 800;
                         let width = img.width;
                         let height = img.height;
 
-                        // 計算等比例縮放
                         if (width > height) {
                             if (width > MAX_WIDTH) {
                                 height *= MAX_WIDTH / width;
@@ -275,17 +278,14 @@
                             }
                         }
 
-                        // 使用 Canvas 進行重新繪製與壓縮
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
 
-                        // 🌟 強制轉為 JPEG，品質 0.8，將 5MB 的圖縮減至約 150KB
-                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                        
-                        // 把 'data:image/jpeg;base64,' 這段前綴切掉
+                        // 🌟 強制轉為 JPEG，品質 0.7
+                        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                         const base64Data = compressedBase64.split(',')[1];
                         resolve({ mimeType: 'image/jpeg', data: base64Data });
                     };
