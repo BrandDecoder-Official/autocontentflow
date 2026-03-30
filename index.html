@@ -31,7 +31,7 @@
         
         <div id="step1-setup" class="space-y-6 animate-fade-in">
             <div class="w-full text-center mb-6">
-                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.25</span></h1>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.27</span></h1>
                 <p class="text-gray-500 font-medium text-sm mt-1">4-2-4 視覺引擎 ✕ 實境融合</p>
             </div>
 
@@ -66,26 +66,32 @@
 
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                     <div class="grid grid-cols-2 gap-3 mb-4">
-                        <div id="btnComicMode" class="mode-active border-2 border-gray-200 rounded-xl p-3 cursor-pointer text-center transition-all" onclick="switchMode(true)">
+                        <div id="btnComicMode" class="mode-active border-2 border-gray-200 rounded-xl p-3 cursor-pointer text-center transition-all" onclick="window.switchMode(true)">
                             <div class="text-2xl mb-1">🦸‍♂️</div>
                             <div class="font-bold text-gray-800 text-sm">動漫宇宙</div>
                         </div>
-                        <div id="btnStandardMode" class="border-2 border-gray-200 rounded-xl p-3 cursor-pointer text-center transition-all" onclick="switchMode(false)">
+                        <div id="btnStandardMode" class="border-2 border-gray-200 rounded-xl p-3 cursor-pointer text-center transition-all" onclick="window.switchMode(false)">
                             <div class="text-2xl mb-1">📸</div>
                             <div class="font-bold text-gray-800 text-sm">真實攝影</div>
                         </div>
                     </div>
+                    
                     <div class="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-1">🎨 畫風模式</label>
-                            <select id="comicStyleSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
-                                <option value="MIXED_MEDIA" selected>🌍 2.5D (真實場景+動漫角色)</option>
-                                <option value="TORIYAMA_HUMOR">🥚 鳥山明爆笑風 (純漫畫)</option>
-                                <option value="GHIBLI">🍃 吉卜力溫馨風 (純漫畫)</option>
-                                <option value="REALISTIC" id="styleRealistic" class="hidden">📸 真實商業攝影</option>
+                            <label class="block text-xs font-bold text-gray-500 mb-2">🎨 畫風模式 (由資料庫載入)</label>
+                            <div id="styleRadioContainer" class="flex flex-wrap gap-3">
+                                <span class="text-xs text-gray-400">連線資料庫中...</span>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 mb-2">🎬 Veo 動態效果 (由資料庫載入)</label>
+                            <select id="motionSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
+                                <option value="">請先選擇畫風...</option>
                             </select>
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
+
+                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200">
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
                                 <select id="aspectRatioSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
@@ -111,7 +117,7 @@
                         <h2 class="text-md font-bold text-gray-800 flex items-center">
                             <span class="mr-2">👥</span> 登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                         </h2>
-                        <button type="button" onclick="addCharacterSlot()" class="text-blue-600 text-sm font-bold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">+ 新增角色</button>
+                        <button type="button" onclick="window.addCharacterSlot()" class="text-blue-600 text-sm font-bold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">+ 新增角色</button>
                     </div>
                     <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
                     <div id="characterList" class="space-y-3"></div>
@@ -122,12 +128,18 @@
                         <h2 class="text-md font-bold text-gray-800 flex items-center">
                             <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張)</span>
                         </h2>
+                        <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
+                            <input type="checkbox" id="skipScene" class="mr-1 w-4 h-4 rounded text-red-500 focus:ring-red-500 border-gray-300" onchange="window.toggleSection('sceneContainer', this.checked)">
+                            不使用背景
+                        </label>
                     </div>
-                    <p class="text-xs text-red-500 font-bold mb-1">※ 第一張將作為合成主場景。</p>
-                    <p id="realisticSceneWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳插畫/動漫背景，AI 將自動轉換為對應的「真實世界」攝影場景。</p>
-                    <input type="file" id="sceneInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
-                    <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
-                    <div id="scenePreview" class="flex flex-wrap gap-3"></div>
+                    <div id="sceneContainer" class="transition-opacity duration-300">
+                        <p class="text-xs text-red-500 font-bold mb-1">※ 第一張將作為合成主場景。</p>
+                        <p id="realisticSceneWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳插畫/動漫背景，AI 將自動轉換為對應的「真實世界」攝影場景。</p>
+                        <input type="file" id="sceneInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
+                        <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
+                        <div id="scenePreview" class="flex flex-wrap gap-3"></div>
+                    </div>
                 </div>
 
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
@@ -135,11 +147,17 @@
                         <h2 class="text-md font-bold text-gray-800 flex items-center">
                             <span class="mr-2">🍔</span> 道具與商品圖 <span class="text-xs text-gray-400 ml-1">(最多 4 張)</span>
                         </h2>
+                        <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
+                            <input type="checkbox" id="skipObject" class="mr-1 w-4 h-4 rounded text-red-500 focus:ring-red-500 border-gray-300" onchange="window.toggleSection('objectContainer', this.checked)">
+                            不使用道具
+                        </label>
                     </div>
-                    <p class="text-xs text-gray-500 font-medium mb-3">手持物品、桌上餐點、服裝等細節參考。</p>
-                    <input type="file" id="objectInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'object', 4, 'objectPreview')">
-                    <button type="button" onclick="document.getElementById('objectInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇道具圖</button>
-                    <div id="objectPreview" class="flex flex-wrap gap-3"></div>
+                    <div id="objectContainer" class="transition-opacity duration-300">
+                        <p class="text-xs text-gray-500 font-medium mb-3">手持物品、桌上餐點、服裝等細節參考。</p>
+                        <input type="file" id="objectInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'object', 4, 'objectPreview')">
+                        <button type="button" onclick="document.getElementById('objectInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇道具圖</button>
+                        <div id="objectPreview" class="flex flex-wrap gap-3"></div>
+                    </div>
                 </div>
 
                 <div class="sticky-bottom-bar animate-slide-up">
@@ -166,7 +184,7 @@
 
             <div class="sticky-bottom-bar flex gap-3 animate-slide-up">
                 <button type="button" onclick="window.backToStep1()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-md px-4 py-4 hover:bg-gray-300 transition-all">返回修改</button>
-                <button type="button" id="btnStep2Submit" onclick="submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                <button type="button" id="btnStep2Submit" onclick="window.submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
                     <span id="btnTextStep2">🎨 2️⃣ 第二步：發包生圖</span>
                 </button>
             </div>
@@ -215,19 +233,19 @@
                             </select>
                         </div>
                     </div>
-                    <button type="button" id="btnGenerateVideo" onclick="generateVideo()" class="w-full bg-white text-indigo-600 border-2 border-indigo-200 hover:bg-indigo-600 hover:text-white font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm">
+                    <button type="button" id="btnGenerateVideo" onclick="window.generateVideo()" class="w-full bg-white text-indigo-600 border-2 border-indigo-200 hover:bg-indigo-600 hover:text-white font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm">
                         🎬 消耗點數，生成動態影片
                     </button>
                 </div>
-                </div>
+            </div>
 
             <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
                 <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
                     🏠 開啟新任務 (清除主題與場景，保留角色)
                 </button>
                 <div class="flex gap-3 w-full">
-                    <button type="button" id="btnRegenerate" onclick="submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
-                    <button type="button" id="btnPublish" onclick="publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                    <button type="button" id="btnRegenerate" onclick="window.submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
+                    <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
                         🚀 發射！
                     </button>
                 </div>
@@ -239,6 +257,7 @@
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center z-50 text-sm whitespace-nowrap">
         <span id="toastMsg">系統訊息</span>
     </div> 
+    
     <script type="module" src="/js/main.js"></script>
     
 </body>
