@@ -59,15 +59,15 @@ export function renderDynamicOptions(mode, data) {
                 img.title = `🧬 AI 提取基因:\n${char.aiExtractedFeatures}`; // 滑鼠移上去能看見基因！
                 img.onclick = () => window.addCharacterFromDB(char);
 
-                // 🗑️ 刪除按鈕 (預設隱藏，滑鼠移入時顯示)
+                // 🗑️ 刪除按鈕 (移除 hidden，改為常駐顯示以支援手機版)
                 const delBtn = document.createElement('button');
-                delBtn.className = 'absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] hidden group-hover:flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors z-10';
+                delBtn.className = 'absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] flex items-center justify-center shadow-lg hover:bg-red-600 opacity-90 hover:opacity-100 transition-all z-10';
                 delBtn.innerHTML = '✕';
                 delBtn.title = '永久刪除此角色';
-                delBtn.type = 'button'; // 防止觸發表單送出
+                delBtn.type = 'button'; 
                 delBtn.onclick = (e) => {
-                    e.stopPropagation(); // 防止觸發到下方的點擊新增
-                    window.deleteChar(char.id); // 呼叫 main.js 的刪除邏輯
+                    e.stopPropagation(); 
+                    window.deleteChar(char.id); 
                 };
 
                 // 名字標籤
