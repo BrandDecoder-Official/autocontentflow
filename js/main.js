@@ -19,6 +19,34 @@ window.backToStep1 = function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+// 🌟 點擊角色庫按鈕時觸發 (新增功能)
+window.addCharacterFromDB = (dbChar) => {
+    const list = document.getElementById('characterList');
+    if (list.children.length >= 4) {
+        showToast('❌ 最多只能新增 4 位角色！', 'error');
+        return;
+    }
+
+    const item = document.createElement('div');
+    item.className = 'char-item relative animate-fade-in border-l-4 border-blue-500'; // 藍色邊框代表來自資料庫
+    
+    // 將資料庫特徵藏在 data-db-features 裡，並且給予 name 屬性讓後方迴圈可以抓到
+    item.innerHTML = `
+        <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xl leading-none">&times;</button>
+        <div class="flex items-center mb-2">
+            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mr-2">📚 專屬角色</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-2">
+            <input type="text" name="charName" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-bold text-gray-600 cursor-not-allowed" value="${dbChar.name}" readonly>
+            <input type="text" name="charPersona" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-medium text-gray-600 cursor-not-allowed" value="${dbChar.persona || ''}" readonly>
+        </div>
+        <div class="text-xs text-green-600 font-bold mt-1">✅ 已自動鎖定 AI 視覺特徵</div>
+        <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
+    `;
+    list.appendChild(item);
+    showToast(`✅ 已載入角色：${dbChar.name}`, 'success');
+};
+
 // 🌟 初始化
 window.onload = async function () {
     google.accounts.id.initialize({
@@ -33,14 +61,17 @@ window.onload = async function () {
         }
     });
     google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
-    UI.addCharacterSlot("老K", "戴墨鏡的大叔");
+    
+    // 移除舊的手動加老K (因為我們現在有資料庫了！)
+    // UI.addCharacterSlot("老K", "戴墨鏡的大叔"); 
 
     try {
         const result = await API.fetchSystemOptionsAPI();
         if (result.success) {
             STATE.globalSystemStyles = result.data.styles;
             STATE.globalSystemMotions = result.data.motions;
-            UI.renderDynamicOptions('ANIME');
+            // 🌟 將角色庫傳給 UI 渲染函數
+            UI.renderDynamicOptions('ANIME', result.data); 
         }
     } catch (error) {
         document.getElementById('styleRadioContainer').innerHTML = '<span class="text-red-500 font-bold">無法連線至選項庫</span>';
@@ -75,26 +106,43 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         negativeStyle = styleData.negative;
     }
 
+    // 🌟 獲取色彩模式 (如果有選擇的話)
+    const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
+    const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
+
     const payload = {
         platforms: selectedPlatforms, 
         topic: topic, 
         isComicMode: STATE.isComicModeActive,
+        colorMode: colorModeValue, // 👈 傳送色彩模式
         aspectRatio: document.getElementById('aspectRatioSelect').value,
-        style: promptStyle,             // 👈 正向咒語
-        negativePrompt: negativeStyle,  // 👈 新增：反向咒語一起送去後端！
+        style: promptStyle,             
+        negativePrompt: negativeStyle,  
         resolution: document.getElementById('resolutionSelect').value,
         comicCharacters: [], 
         image_options: { referenceImages: [] }
-    };;
+    };
 
+    // 🌟 處理角色資料 (兼容手動上傳與資料庫直接載入)
     const charItems = document.querySelectorAll('#characterList .char-item');
     for (let item of charItems) {
         const name = item.querySelector('[name="charName"]').value.trim();
         const persona = item.querySelector('[name="charPersona"]').value.trim();
         if (!name) continue;
-        payload.comicCharacters.push({ name, persona }); 
+
+        // 檢查是不是來自資料庫的角色
+        const dbFeaturesInput = item.querySelector('.char-db-features');
+        const dbFeatures = dbFeaturesInput ? dbFeaturesInput.value : undefined;
+
+        const charObj = { name, persona };
+        if (dbFeatures) {
+            charObj.aiExtractedFeatures = dbFeatures; // 把資料庫的特徵帶給後端
+        }
+        payload.comicCharacters.push(charObj); 
+
+        // 檢查是否有手動上傳圖片 (資料庫角色沒有上傳按鈕)
         const fileInput = item.querySelector('[name="charAvatar"]');
-        if(fileInput.files.length > 0) {
+        if(fileInput && fileInput.files.length > 0) {
             const base64Img = await processFileToBase64(fileInput.files[0]);
             if (base64Img) payload.image_options.referenceImages.push({ type: 'character', name, ...base64Img });
         }
