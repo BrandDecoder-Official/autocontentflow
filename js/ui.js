@@ -11,7 +11,11 @@ export function renderDynamicOptions(targetCategory) {
         wrapper.className = 'flex items-center cursor-pointer bg-white border border-gray-300 px-3 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition-colors';
         const radio = document.createElement('input');
         radio.type = 'radio'; radio.className = 'w-4 h-4 text-blue-600 focus:ring-blue-500';
-        radio.name = 'targetStyle'; radio.value = style.promptSuffix;
+        radio.name = 'targetStyle';
+        radio.value = JSON.stringify({ 
+                prefix: style.promptPrefix || '', 
+                negative: style.negativePrompt || '' 
+            });
         if (index === 0) radio.checked = true;
         const span = document.createElement('span');
         span.className = 'ml-2 text-sm font-bold text-gray-700'; span.innerText = style.name;
