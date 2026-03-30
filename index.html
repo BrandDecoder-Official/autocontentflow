@@ -151,10 +151,10 @@
                             <h2 class="text-md font-bold text-gray-800 flex items-center">
                                 <span class="mr-2">👥</span> 本次登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                             </h2>
-                            </div>
+                        </div>
                         <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
                         <div id="characterList" class="space-y-3">
-                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -205,8 +205,9 @@
 
         <div id="step2-review" class="hidden space-y-6 animate-fade-in pb-10">
             <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5 shadow-inner">
-                <h2 class="text-xl font-black text-yellow-800 mb-2 flex items-center">
-                    <span class="mr-2">💡</span> 步驟二：審核與修改腳本
+                <h2 class="text-xl font-black text-yellow-800 mb-2 flex items-center justify-between">
+                    <div><span class="mr-2">💡</span> 步驟二：審核與修改腳本</div>
+                    <span id="step2StyleBadge" class="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                 </h2>
                 <div class="space-y-4">
                     <div>
@@ -227,8 +228,9 @@
 
         <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
             <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
-                <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-center">
-                    <span class="mr-2">🎉</span> 步驟三：圖文準備就緒！
+                <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-between">
+                    <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
+                    <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                 </h2>
                 
                 <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner">
@@ -312,11 +314,7 @@
                     <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold focus:ring-blue-500 focus:border-blue-500">
                 </div> 
                 
-                <div>
-                    <label class="block text-xs font-bold text-gray-700 mb-1">補充外觀特徵 (選填)</label>
-                    <input type="text" id="newCharPersona" placeholder="例如：戴飛行護目鏡、微胖、有鬍渣" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
                 </div>
-            </div>
             
             <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl flex justify-end gap-3">
                 <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100">取消</button>
