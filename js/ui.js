@@ -20,10 +20,10 @@ export function renderDynamicOptions(mode, data) {
         } else {
             filteredStyles.forEach((style, index) => {
                 const isChecked = index === 0 ? 'checked' : '';
-                const val = JSON.stringify({ prefix: style.promptPrefix || '', negative: style.negativePrompt || '' });
+                // 🌟 修正：不再塞入 JSON，而是純粹塞入畫風的 id！
                 styleContainer.innerHTML += `
                     <label class="flex items-center cursor-pointer bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition-colors">
-                        <input type="radio" name="targetStyle" value='${val}' ${isChecked} class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <input type="radio" name="targetStyle" value="${style.id}" ${isChecked} class="w-4 h-4 text-blue-600 focus:ring-blue-500">
                         <span class="ml-2 text-sm font-bold text-gray-700">${style.name}</span>
                     </label>
                 `;
