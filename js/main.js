@@ -12,6 +12,8 @@ window.previewCharImage = UI.previewCharImage;
 window.handleFileSelect = UI.handleFileSelect;
 window.removeFileFromArray = UI.removeFileFromArray;
 window.resetToStep1 = UI.resetToStep1;
+window.openCreateCharModal = UI.openCreateCharModal;
+window.closeCreateCharModal = UI.closeCreateCharModal;
 
 window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
@@ -46,6 +48,67 @@ window.addCharacterFromDB = (dbChar) => {
     list.appendChild(item);
     showToast(`✅ 已載入角色：${dbChar.name}`, 'success');
 };
+
+// 🌟 提交建立新角色
+window.submitNewCharacter = async function() {
+    const name = document.getElementById('newCharName').value.trim();
+    const persona = document.getElementById('newCharPersona').value.trim();
+    const fileInput = document.getElementById('newCharImage');
+
+    if (!name) return showToast('❌ 請輸入角色名稱！', 'error');
+    if (!fileInput.files || fileInput.files.length === 0) return showToast('❌ 請上傳角色照片！', 'error');
+
+    const btn = document.getElementById('btnSubmitNewChar');
+    btn.disabled = true;
+    btn.innerHTML = '🧬 正在掃描基因...';
+
+    try {
+        // 圖片轉 Base64
+        const base64ImgInfo = await processFileToBase64(fileInput.files[0]);
+        
+        // 取得使用者的 Google 登入帳號 ID (假設先寫死防呆，日後串接真正的 Google UID)
+        // 解析 JWT 取得真正的使用者 ID (如果是正式 Google 登入的話)
+        let tenantId = 'test_user_001'; 
+        if (STATE.globalAuthToken) {
+            const base64Url = STATE.globalAuthToken.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+            const decoded = JSON.parse(jsonPayload);
+            tenantId = decoded.sub || decoded.email; // 使用 Google UID 或信箱作為唯一識別碼
+        }
+
+        const payload = {
+            name: name,
+            persona: persona,
+            imageBase64: base64ImgInfo.data,
+            mimeType: base64ImgInfo.mimeType,
+            tenantId: tenantId
+        };
+
+        // 呼叫後端建立角色 API
+        const result = await API.createCharacterAPI(payload);
+        
+        if (!result.success) throw new Error(result.message);
+        
+        showToast(result.message, 'success');
+        UI.closeCreateCharModal();
+        
+        // 🌟 建檔成功後，自動重新載入資料庫選項，讓剛建好的角色馬上出現在列表裡！
+        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        if(optionsRes.success) {
+            UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
+        }
+
+    } catch(error) {
+        showToast(`❌ 建立失敗: ${error.message}`, 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🧬 開始基因掃描';
+    }
+};
+
 
 // 🌟 初始化
 window.onload = async function () {
