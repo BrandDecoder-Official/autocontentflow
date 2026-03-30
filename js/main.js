@@ -52,7 +52,6 @@ window.addCharacterFromDB = (dbChar) => {
 // 🌟 提交建立新角色
 window.submitNewCharacter = async function() {
     const name = document.getElementById('newCharName').value.trim();
-    const persona = document.getElementById('newCharPersona').value.trim();
     const fileInput = document.getElementById('newCharImage');
 
     if (!name) return showToast('❌ 請輸入角色名稱！', 'error');
@@ -63,11 +62,8 @@ window.submitNewCharacter = async function() {
     btn.innerHTML = '🧬 正在掃描基因...';
 
     try {
-        // 圖片轉 Base64
         const base64ImgInfo = await processFileToBase64(fileInput.files[0]);
         
-        // 取得使用者的 Google 登入帳號 ID (假設先寫死防呆，日後串接真正的 Google UID)
-        // 解析 JWT 取得真正的使用者 ID (如果是正式 Google 登入的話)
         let tenantId = 'test_user_001'; 
         if (STATE.globalAuthToken) {
             const base64Url = STATE.globalAuthToken.split('.')[1];
@@ -76,18 +72,17 @@ window.submitNewCharacter = async function() {
                 return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
             }).join(''));
             const decoded = JSON.parse(jsonPayload);
-            tenantId = decoded.sub || decoded.email; // 使用 Google UID 或信箱作為唯一識別碼
+            tenantId = decoded.sub || decoded.email;
         }
 
         const payload = {
             name: name,
-            persona: persona,
+            // persona 已經被移除了
             imageBase64: base64ImgInfo.data,
             mimeType: base64ImgInfo.mimeType,
             tenantId: tenantId
         };
 
-        // 呼叫後端建立角色 API
         const result = await API.createCharacterAPI(payload);
         
         if (!result.success) throw new Error(result.message);
@@ -95,7 +90,6 @@ window.submitNewCharacter = async function() {
         showToast(result.message, 'success');
         UI.closeCreateCharModal();
         
-        // 🌟 建檔成功後，自動重新載入資料庫選項，讓剛建好的角色馬上出現在列表裡！
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
@@ -106,6 +100,35 @@ window.submitNewCharacter = async function() {
     } finally {
         btn.disabled = false;
         btn.innerHTML = '🧬 開始基因掃描';
+    }
+};
+
+// 🌟 刪除角色邏輯
+window.deleteChar = async function(charId) {
+    if (!confirm('⚠️ 確定要永久刪除這個角色嗎？\n雲端大頭照也會被同步清理喔！')) return;
+    
+    // 取得 tenantId (跟建立時的邏輯一樣)
+    let tenantId = 'test_user_001'; 
+    if (STATE.globalAuthToken) {
+        const base64Url = STATE.globalAuthToken.split('.')[1];
+        const decoded = JSON.parse(decodeURIComponent(atob(base64Url.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
+        tenantId = decoded.sub || decoded.email;
+    }
+
+    try {
+        showToast('🗑️ 正在清理雲端基因...', 'info');
+        const result = await API.deleteCharacterAPI({ charId, tenantId });
+        
+        if (!result.success) throw new Error(result.message);
+        showToast('✅ 角色已成功刪除！', 'success');
+        
+        // 重新載入畫面
+        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        if(optionsRes.success) {
+            UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
+        }
+    } catch(error) {
+        showToast(`❌ 刪除失敗: ${error.message}`, 'error');
     }
 };
 
