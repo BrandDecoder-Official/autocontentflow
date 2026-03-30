@@ -83,15 +83,29 @@
                                 <span class="text-xs text-gray-400">連線資料庫中...</span>
                             </div>
                         </div>
+
+                        <div id="colorModeContainer" class="mt-4 pt-4 border-t border-gray-200">
+                            <label class="block text-xs font-bold text-gray-500 mb-2">🖍️ 色彩模式 (動漫專用)</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="colorMode" value="COLOR" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                    <span class="ml-2 text-sm font-bold text-gray-800">🌈 彩色</span>
+                                </label>
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="radio" name="colorMode" value="BW" class="w-4 h-4 text-gray-800 border-gray-300 focus:ring-gray-800">
+                                    <span class="ml-2 text-sm font-bold text-gray-800">✒️ 經典黑白網點</span>
+                                </label>
+                            </div>
+                        </div>
                         
                         <div>
-                            <label class="block text-xs font-bold text-gray-500 mb-2">🎬 Veo 動態效果 (由資料庫載入)</label>
+                            <label class="block text-xs font-bold text-gray-500 mt-4 mb-2">🎬 Veo 動態效果 (由資料庫載入)</label>
                             <select id="motionSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
                                 <option value="">請先選擇畫風...</option>
                             </select>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200">
+                        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200">
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
                                 <select id="aspectRatioSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
@@ -113,12 +127,20 @@
                 </div>
 
                 <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center mb-3">
                         <h2 class="text-md font-bold text-gray-800 flex items-center">
                             <span class="mr-2">👥</span> 登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                         </h2>
-                        <button type="button" onclick="window.addCharacterSlot()" class="text-blue-600 text-sm font-bold bg-blue-50 px-3 py-1 rounded-lg hover:bg-blue-100 transition-colors">+ 新增角色</button>
+                        <button type="button" onclick="window.addCharacterSlot()" class="text-gray-600 text-sm font-bold bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors">+ 手動新增自訂角色</button>
                     </div>
+                    
+                    <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                        <label class="block text-xs font-bold text-blue-800 mb-2">📚 從專屬角色庫快速載入：</label>
+                        <div id="dbCharacterContainer" class="flex flex-wrap gap-2">
+                            <span class="text-xs text-blue-400">載入中...</span>
+                        </div>
+                    </div>
+
                     <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
                     <div id="characterList" class="space-y-3"></div>
                 </div>
