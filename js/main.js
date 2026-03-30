@@ -64,14 +64,28 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
     btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-500'); btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
     
+    // 🌟 獲取動態選中的畫風與反向提示詞
     const selectedStyleRadio = document.querySelector('input[name="targetStyle"]:checked');
+    let promptStyle = '';
+    let negativeStyle = '';
+    
+    if (selectedStyleRadio) {
+        const styleData = JSON.parse(selectedStyleRadio.value);
+        promptStyle = styleData.prefix;
+        negativeStyle = styleData.negative;
+    }
+
     const payload = {
-        platforms: selectedPlatforms, topic: topic, isComicMode: STATE.isComicModeActive,
+        platforms: selectedPlatforms, 
+        topic: topic, 
+        isComicMode: STATE.isComicModeActive,
         aspectRatio: document.getElementById('aspectRatioSelect').value,
-        style: selectedStyleRadio ? selectedStyleRadio.value : '', 
+        style: promptStyle,             // 👈 正向咒語
+        negativePrompt: negativeStyle,  // 👈 新增：反向咒語一起送去後端！
         resolution: document.getElementById('resolutionSelect').value,
-        comicCharacters: [], image_options: { referenceImages: [] }
-    };
+        comicCharacters: [], 
+        image_options: { referenceImages: [] }
+    };;
 
     const charItems = document.querySelectorAll('#characterList .char-item');
     for (let item of charItems) {
