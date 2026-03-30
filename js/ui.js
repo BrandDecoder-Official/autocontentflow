@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 import { showToast } from './utils.js';
 
-export function renderDynamicOptions(targetCategory) {
+export function renderDynamicOptions(targetCategory, data = null) {
     const container = document.getElementById('styleRadioContainer');
     container.innerHTML = ''; 
     const filteredStyles = STATE.globalSystemStyles.filter(s => s.category === targetCategory);
@@ -30,6 +30,28 @@ export function renderDynamicOptions(targetCategory) {
         option.value = motion.motionPrompt; option.innerText = motion.name; select.appendChild(option);
     });
     if (filteredMotions.length === 0) select.innerHTML = '<option value="">(目前無支援的動態)</option>';
+
+    // 🌟 3. 渲染專屬角色庫 (僅在初始化有傳入 data 時執行)
+    if (data && data.characters) {
+        const charContainer = document.getElementById('dbCharacterContainer');
+        if (charContainer) {
+            charContainer.innerHTML = ''; // 清空載入中
+            if (data.characters.length === 0) {
+                charContainer.innerHTML = '<span class="text-xs text-gray-400">角色庫尚無資料</span>';
+            } else {
+                data.characters.forEach(char => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'bg-white border border-blue-300 text-blue-700 hover:bg-blue-600 hover:text-white font-bold py-1 px-3 rounded-full text-xs transition-colors shadow-sm flex items-center';
+                    btn.innerHTML = `<span class="mr-1">➕</span> ${char.name}`;
+                    
+                    // 點擊後，呼叫 main.js 裡的專屬函數
+                    btn.onclick = () => window.addCharacterFromDB(char);
+                    charContainer.appendChild(btn);
+                });
+            }
+        }
+    }
 }
 
 export function switchMode(toComic) {
@@ -38,14 +60,17 @@ export function switchMode(toComic) {
     const btnComic = document.getElementById('btnComicMode');
     const charWarning = document.getElementById('realisticCharWarning');
     const sceneWarning = document.getElementById('realisticSceneWarning');
+    const colorModeContainer = document.getElementById('colorModeContainer'); // 🌟 新增：色彩開關區塊
 
     if (toComic) {
         btnComic.classList.add('mode-active'); btnStandard.classList.remove('mode-active');
         if(charWarning) charWarning.classList.add('hidden'); if(sceneWarning) sceneWarning.classList.add('hidden');
+        if(colorModeContainer) colorModeContainer.classList.remove('hidden'); // 🌟 動漫模式顯示色彩開關
         renderDynamicOptions('ANIME');
     } else {
         btnStandard.classList.add('mode-active'); btnComic.classList.remove('mode-active');
         if(charWarning) charWarning.classList.remove('hidden'); if(sceneWarning) sceneWarning.classList.remove('hidden');
+        if(colorModeContainer) colorModeContainer.classList.add('hidden'); // 🌟 真實模式隱藏色彩開關
         renderDynamicOptions('REALISTIC');
     }
 }
@@ -61,18 +86,22 @@ export function addCharacterSlot(name = "", personality = "") {
     if (list.children.length >= 4) { alert("⚠️ 最多 4 位登場角色"); return; }
     const charId = 'char_' + Date.now();
     const charCard = document.createElement('div');
-    charCard.className = 'char-item relative animate-fade-in shadow-sm border border-gray-200';
+    // 🌟 加上邊框顏色區分 (灰色代表手動新增)
+    charCard.className = 'char-item relative animate-fade-in shadow-sm border border-gray-200 border-l-4 border-l-gray-400';
     charCard.innerHTML = `
         <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-2 text-gray-300 font-bold text-xl hover:text-red-500 z-10 transition-colors">✕</button>
+        <div class="flex items-center mb-2">
+            <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded mr-2">✏️ 手動自訂角色</span>
+        </div>
         <div class="flex gap-3 items-center">
-            <div class="w-16 h-16 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group relative flex-shrink-0" onclick="document.getElementById('${charId}').click()">
+            <div class="w-16 h-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group relative flex-shrink-0" onclick="document.getElementById('${charId}').click()">
                 <span class="text-xs text-gray-400 font-bold group-hover:text-blue-500">+ 照片</span>
                 <img id="${charId}_preview" class="absolute inset-0 w-full h-full object-cover hidden bg-white">
                 <input type="file" id="${charId}" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="window.previewCharImage(this, '${charId}_preview')">
             </div>
             <div class="flex-grow space-y-2">
-                <input type="text" name="charName" value="${name}" placeholder="本名(必填)" class="w-full bg-gray-50 border border-gray-300 rounded-md p-1.5 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
-                <input type="text" name="charPersona" value="${personality}" placeholder="外觀特徵" class="w-full bg-gray-50 border border-gray-300 rounded-md p-1.5 font-medium focus:ring-blue-500 focus:border-blue-500 text-xs">
+                <input type="text" name="charName" value="${name}" placeholder="本名(必填)" class="w-full bg-white border border-gray-300 rounded-md p-1.5 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
+                <input type="text" name="charPersona" value="${personality}" placeholder="外觀特徵" class="w-full bg-white border border-gray-300 rounded-md p-1.5 font-medium focus:ring-blue-500 focus:border-blue-500 text-xs">
             </div>
         </div>`;
     list.appendChild(charCard);
@@ -133,6 +162,9 @@ export function resetToStep1() {
     document.getElementById('step1-setup').classList.remove('hidden');
     document.getElementById('topic').value = '';
     
+    // 🌟 不再清空角色列表，讓「開啟新任務」時可以保留剛剛設定好的角色陣列
+    // document.getElementById('characterList').innerHTML = '';
+    
     STATE.sceneFiles = []; STATE.objectFiles = [];
     document.getElementById('scenePreview').innerHTML = ''; document.getElementById('objectPreview').innerHTML = '';
     
@@ -150,5 +182,5 @@ export function resetToStep1() {
         btnVideo.classList.replace('bg-indigo-100', 'bg-white'); btnVideo.classList.replace('text-indigo-400', 'text-indigo-600');
     }
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast('🏠 已開啟新任務！場景已清空，請重新設定。', 'info');
+    showToast('🏠 已開啟新任務！場景已清空，角色設定已保留。', 'info');
 }
