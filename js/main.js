@@ -42,7 +42,7 @@ window.backToStep1 = function() {
 // 🌟 角色庫相關操作
 // ==========================================
 
-// 從資料庫加入角色到清單
+// 從資料庫加入角色到清單 (視覺化卡片升級版)
 window.addCharacterFromDB = (dbChar) => {
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) {
@@ -51,22 +51,30 @@ window.addCharacterFromDB = (dbChar) => {
     }
 
     const item = document.createElement('div');
-    item.className = 'char-item relative animate-fade-in border-l-4 border-blue-500'; 
+    // 🌟 改用更緊湊、帶有陰影的卡片設計
+    item.className = 'char-item relative animate-fade-in flex items-start gap-3 bg-white p-3 border border-blue-200 rounded-xl shadow-sm mb-3 group'; 
     
     item.innerHTML = `
-        <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xl leading-none">&times;</button>
-        <div class="flex items-center mb-2">
-            <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded mr-2">📚 專屬角色</span>
+        <button type="button" onclick="this.closest('.char-item').remove()" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>
+        
+        <img src="${dbChar.imageUrl || 'https://via.placeholder.com/150'}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0 shadow-sm">
+        
+        <div class="flex-grow">
+            <div class="flex items-center mb-1.5">
+                <span class="font-black text-gray-800 text-sm mr-2">${dbChar.name}</span>
+                <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
+                    <span class="mr-1">🔒</span> 基因鎖定
+                </span>
+            </div>
+            
+            <input type="hidden" name="charName" value="${dbChar.name}">
+            <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
+            
+            <input type="text" name="charPersona" class="w-full p-1.5 border border-gray-200 rounded-md text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="可在此微調當前服裝/表情 (例如：穿著西裝、正在生氣)" value="${dbChar.persona || ''}">
         </div>
-        <div class="grid grid-cols-2 gap-3 mb-2">
-            <input type="text" name="charName" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-bold text-gray-600 cursor-not-allowed" value="${dbChar.name}" readonly>
-            <input type="text" name="charPersona" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-medium text-gray-600 cursor-not-allowed" placeholder="可在此微調當前服裝/表情" value="${dbChar.persona || ''}">
-        </div>
-        <div class="text-xs text-green-600 font-bold mt-1">✅ 已自動鎖定 AI 視覺特徵</div>
-        <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
     `;
     list.appendChild(item);
-    showToast(`✅ 已載入角色：${dbChar.name}`, 'success');
+    showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
 };
 
 // 提交建立新角色
