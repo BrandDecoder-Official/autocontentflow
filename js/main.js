@@ -59,7 +59,7 @@ window.addCharacterFromDB = (dbChar) => {
         
         <img src="${dbChar.imageUrl || 'https://via.placeholder.com/150'}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0 shadow-sm">
         
-        <div class="flex-grow">
+       <div class="flex-grow">
             <div class="flex items-center mb-1.5">
                 <span class="font-black text-gray-800 text-sm mr-2">${dbChar.name}</span>
                 <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
@@ -69,6 +69,7 @@ window.addCharacterFromDB = (dbChar) => {
             
             <input type="hidden" name="charName" value="${dbChar.name}">
             <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
+            <input type="hidden" class="char-image-url" value="${dbChar.imageUrl || ''}">
             
             <input type="text" name="charPersona" class="w-full p-1.5 border border-gray-200 rounded-md text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="可在此微調當前服裝/表情 (例如：穿著西裝、正在生氣)" value="${dbChar.persona || ''}">
         </div>
