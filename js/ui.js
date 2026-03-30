@@ -2,54 +2,84 @@
 import { STATE } from './config.js';
 import { showToast } from './utils.js';
 
-export function renderDynamicOptions(targetCategory, data = null) {
-    const container = document.getElementById('styleRadioContainer');
-    container.innerHTML = ''; 
-    const filteredStyles = STATE.globalSystemStyles.filter(s => s.category === targetCategory);
-    filteredStyles.forEach((style, index) => {
-        const wrapper = document.createElement('label');
-        wrapper.className = 'flex items-center cursor-pointer bg-white border border-gray-300 px-3 py-2 rounded-lg shadow-sm hover:bg-blue-50 transition-colors';
-        const radio = document.createElement('input');
-        radio.type = 'radio'; radio.className = 'w-4 h-4 text-blue-600 focus:ring-blue-500';
-        radio.name = 'targetStyle';
-        radio.value = JSON.stringify({ 
-                prefix: style.promptPrefix || '', 
-                negative: style.negativePrompt || '' 
+// 🌟 動態渲染選項 (畫風、動態、角色)
+export function renderDynamicOptions(mode, data) {
+    const styleContainer = document.getElementById('styleRadioContainer');
+    const motionSelect = document.getElementById('motionSelect');
+    const charContainer = document.getElementById('dbCharacterContainer');
+    const countLabel = document.getElementById('dbCharCount');
+
+    if (!data) return;
+
+    // 1. 畫風渲染
+    if (styleContainer && data.styles) {
+        styleContainer.innerHTML = '';
+        const filteredStyles = data.styles.filter(s => s.category === mode || s.category === 'ALL');
+        if (filteredStyles.length === 0) {
+            styleContainer.innerHTML = '<span class="text-xs text-gray-400">此模式尚無畫風選項</span>';
+        } else {
+            filteredStyles.forEach((style, index) => {
+                const isChecked = index === 0 ? 'checked' : '';
+                const val = JSON.stringify({ prefix: style.promptPrefix || '', negative: style.negativePrompt || '' });
+                styleContainer.innerHTML += `
+                    <label class="flex items-center cursor-pointer bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition-colors">
+                        <input type="radio" name="targetStyle" value='${val}' ${isChecked} class="w-4 h-4 text-blue-600 focus:ring-blue-500">
+                        <span class="ml-2 text-sm font-bold text-gray-700">${style.name}</span>
+                    </label>
+                `;
             });
-        if (index === 0) radio.checked = true;
-        const span = document.createElement('span');
-        span.className = 'ml-2 text-sm font-bold text-gray-700'; span.innerText = style.name;
-        wrapper.appendChild(radio); wrapper.appendChild(span); container.appendChild(wrapper);
-    });
+        }
+    }
 
-    const select = document.getElementById('motionSelect');
-    select.innerHTML = ''; 
-    const filteredMotions = STATE.globalSystemMotions.filter(m => m.supportedCategories.includes(targetCategory) || m.supportedCategories.includes('ALL'));
-    filteredMotions.forEach(motion => {
-        const option = document.createElement('option');
-        option.value = motion.motionPrompt; option.innerText = motion.name; select.appendChild(option);
-    });
-    if (filteredMotions.length === 0) select.innerHTML = '<option value="">(目前無支援的動態)</option>';
+    // 2. 動態渲染
+    if (motionSelect && data.motions) {
+        motionSelect.innerHTML = '<option value="">不使用動態 (純圖片)</option>';
+        data.motions.forEach(motion => {
+            motionSelect.innerHTML += `<option value="${motion.prompt}">${motion.name}</option>`;
+        });
+    }
 
-    // 🌟 3. 渲染專屬角色庫 (僅在初始化有傳入 data 時執行)
-    if (data && data.characters) {
-        const charContainer = document.getElementById('dbCharacterContainer');
-        if (charContainer) {
-            charContainer.innerHTML = ''; // 清空載入中
-            if (data.characters.length === 0) {
-                charContainer.innerHTML = '<span class="text-xs text-gray-400">角色庫尚無資料</span>';
-            } else {
-                data.characters.forEach(char => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'bg-white border border-blue-300 text-blue-700 hover:bg-blue-600 hover:text-white font-bold py-1 px-3 rounded-full text-xs transition-colors shadow-sm flex items-center';
-                    btn.innerHTML = `<span class="mr-1">➕</span> ${char.name}`;
-                    
-                    // 點擊後，呼叫 main.js 裡的專屬函數
-                    btn.onclick = () => window.addCharacterFromDB(char);
-                    charContainer.appendChild(btn);
-                });
-            }
+    // 🌟 3. 專屬角色庫渲染 (這裡換上全新的大頭照 UI 邏輯！)
+    if (charContainer && data.characters) {
+        charContainer.innerHTML = ''; // 清空載入中
+        if (countLabel) countLabel.innerText = `(${data.characters.length}/10)`;
+
+        if (data.characters.length === 0) {
+            charContainer.innerHTML = '<span class="text-xs text-gray-400">角色庫尚無資料，請點擊右上方新增。</span>';
+        } else {
+            data.characters.forEach(char => {
+                // 建立外層卡片
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative group flex flex-col items-center w-16';
+                
+                // 🌟 角色頭像 (顯示 GCS 圖片，滑鼠懸浮顯示 AI 基因)
+                const img = document.createElement('img');
+                img.src = char.imageUrl || 'https://via.placeholder.com/150'; // 顯示大頭照
+                img.className = 'w-16 h-16 rounded-full border-2 border-white shadow-md cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all object-cover bg-gray-100';
+                img.title = `🧬 AI 提取基因:\n${char.aiExtractedFeatures}`; // 滑鼠移上去能看見基因！
+                img.onclick = () => window.addCharacterFromDB(char);
+
+                // 🗑️ 刪除按鈕 (預設隱藏，滑鼠移入時顯示)
+                const delBtn = document.createElement('button');
+                delBtn.className = 'absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] hidden group-hover:flex items-center justify-center shadow-lg hover:bg-red-600 transition-colors z-10';
+                delBtn.innerHTML = '✕';
+                delBtn.title = '永久刪除此角色';
+                delBtn.type = 'button'; // 防止觸發表單送出
+                delBtn.onclick = (e) => {
+                    e.stopPropagation(); // 防止觸發到下方的點擊新增
+                    window.deleteChar(char.id); // 呼叫 main.js 的刪除邏輯
+                };
+
+                // 名字標籤
+                const nameLabel = document.createElement('span');
+                nameLabel.className = 'text-[10px] mt-1.5 font-bold text-gray-700 truncate w-full text-center bg-white px-1 rounded';
+                nameLabel.innerText = char.name;
+
+                wrapper.appendChild(img);
+                wrapper.appendChild(delBtn);
+                wrapper.appendChild(nameLabel);
+                charContainer.appendChild(wrapper);
+            });
         }
     }
 }
