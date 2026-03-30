@@ -184,3 +184,26 @@ export function resetToStep1() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('🏠 已開啟新任務！場景已清空，角色設定已保留。', 'info');
 }
+// ==========================================
+// 🌟 專屬角色 Modal 控制
+// ==========================================
+export function openCreateCharModal() {
+    const modal = document.getElementById('createCharModal');
+    modal.classList.remove('hidden');
+    // 給予微小延遲以觸發 CSS 漸層動畫
+    setTimeout(() => modal.classList.remove('opacity-0'), 10);
+}
+
+export function closeCreateCharModal() {
+    const modal = document.getElementById('createCharModal');
+    modal.classList.add('opacity-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        // 關閉時清空表單，確保下次打開是乾淨的
+        document.getElementById('newCharName').value = '';
+        document.getElementById('newCharPersona').value = '';
+        document.getElementById('newCharImage').value = '';
+        document.getElementById('newCharPreview').classList.add('hidden');
+        document.getElementById('newCharPreview').src = '';
+    }, 300); // 300ms 剛好是動畫退場時間
+}
