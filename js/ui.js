@@ -111,32 +111,6 @@ export function toggleSection(containerId, isSkipped) {
     else container.classList.remove('opacity-30', 'pointer-events-none');
 }
 
-export function addCharacterSlot(name = "", personality = "") {
-    const list = document.getElementById('characterList');
-    if (list.children.length >= 4) { alert("⚠️ 最多 4 位登場角色"); return; }
-    const charId = 'char_' + Date.now();
-    const charCard = document.createElement('div');
-    // 🌟 加上邊框顏色區分 (灰色代表手動新增)
-    charCard.className = 'char-item relative animate-fade-in shadow-sm border border-gray-200 border-l-4 border-l-gray-400';
-    charCard.innerHTML = `
-        <button type="button" onclick="this.parentElement.remove()" class="absolute top-1 right-2 text-gray-300 font-bold text-xl hover:text-red-500 z-10 transition-colors">✕</button>
-        <div class="flex items-center mb-2">
-            <span class="bg-gray-100 text-gray-600 text-xs font-bold px-2 py-1 rounded mr-2">✏️ 手動自訂角色</span>
-        </div>
-        <div class="flex gap-3 items-center">
-            <div class="w-16 h-16 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group relative flex-shrink-0" onclick="document.getElementById('${charId}').click()">
-                <span class="text-xs text-gray-400 font-bold group-hover:text-blue-500">+ 照片</span>
-                <img id="${charId}_preview" class="absolute inset-0 w-full h-full object-cover hidden bg-white">
-                <input type="file" id="${charId}" name="charAvatar" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="window.previewCharImage(this, '${charId}_preview')">
-            </div>
-            <div class="flex-grow space-y-2">
-                <input type="text" name="charName" value="${name}" placeholder="本名(必填)" class="w-full bg-white border border-gray-300 rounded-md p-1.5 font-bold focus:ring-blue-500 focus:border-blue-500 text-sm" required>
-                <input type="text" name="charPersona" value="${personality}" placeholder="外觀特徵" class="w-full bg-white border border-gray-300 rounded-md p-1.5 font-medium focus:ring-blue-500 focus:border-blue-500 text-xs">
-            </div>
-        </div>`;
-    list.appendChild(charCard);
-}
-
 export function previewCharImage(input, previewId) {
     if (input.files && input.files[0]) {
         const reader = new FileReader();
