@@ -16,6 +16,10 @@
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
         .char-item { border: 1px solid #e5e7eb; padding: 12px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; }
         .sticky-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid #e5e7eb; padding: 16px; z-index: 40; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); }
+        
+        /* Modal 專用樣式 */
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+        .modal-content { max-height: 90vh; overflow-y: auto; }
     </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center pt-8 px-4">
@@ -31,7 +35,7 @@
         
         <div id="step1-setup" class="space-y-6 animate-fade-in">
             <div class="w-full text-center mb-6">
-                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.27</span></h1>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.28</span></h1>
                 <p class="text-gray-500 font-medium text-sm mt-1">4-2-4 視覺引擎 ✕ 實境融合</p>
             </div>
 
@@ -127,22 +131,32 @@
                 </div>
 
                 <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
-                    <div class="flex justify-between items-center mb-3">
-                        <h2 class="text-md font-bold text-gray-800 flex items-center">
-                            <span class="mr-2">👥</span> 登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
-                        </h2>
-                        <button type="button" onclick="window.addCharacterSlot()" class="text-gray-600 text-sm font-bold bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors">+ 手動新增自訂角色</button>
-                    </div>
                     
-                    <div class="mb-4 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                        <label class="block text-xs font-bold text-blue-800 mb-2">📚 從專屬角色庫快速載入：</label>
-                        <div id="dbCharacterContainer" class="flex flex-wrap gap-2">
-                            <span class="text-xs text-blue-400">載入中...</span>
+                    <div class="mb-5 pb-5 border-b border-gray-200">
+                        <div class="flex justify-between items-center mb-3">
+                            <h2 class="text-md font-bold text-blue-800 flex items-center">
+                                <span class="mr-2">📚</span> 我的專屬角色庫 <span id="dbCharCount" class="text-xs text-blue-500 ml-2">(載入中)</span>
+                            </h2>
+                            <button type="button" onclick="window.openCreateCharModal()" class="text-white text-xs font-bold bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">+ 新增專屬角色</button>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-3">已建檔的角色將鎖死 AI 視覺特徵，確保每格畫面長相一致。</p>
+                        
+                        <div id="dbCharacterContainer" class="flex flex-wrap gap-4">
+                            <span class="text-xs text-gray-400">連線資料庫中...</span>
                         </div>
                     </div>
 
-                    <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
-                    <div id="characterList" class="space-y-3"></div>
+                    <div>
+                        <div class="flex justify-between items-center mb-3">
+                            <h2 class="text-md font-bold text-gray-800 flex items-center">
+                                <span class="mr-2">👥</span> 本次登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
+                            </h2>
+                            <button type="button" onclick="window.addCharacterSlot()" class="text-gray-600 text-sm font-bold bg-gray-100 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors">+ 臨時手動角色</button>
+                        </div>
+                        <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
+                        <div id="characterList" class="space-y-3">
+                            </div>
+                    </div>
                 </div>
 
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
@@ -276,11 +290,47 @@
 
     </div>
 
+    <div id="createCharModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm modal-content transform scale-95 transition-transform duration-300">
+            <div class="p-5 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-black text-blue-800">✨ 建立新專屬角色</h3>
+                <button onclick="window.closeCreateCharModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
+            </div>
+            
+            <div class="p-5 space-y-4">
+                <p class="text-xs text-gray-500 font-medium">上傳清晰的頭像或全身照，AI 將自動解析並鎖定其視覺特徵基因。</p>
+                
+                <div class="w-full flex justify-center">
+                    <div class="relative w-28 h-28 bg-blue-50 rounded-full border-2 border-dashed border-blue-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group shadow-inner" onclick="document.getElementById('newCharImage').click()">
+                        <span class="text-xs text-blue-500 font-bold group-hover:text-blue-700 z-10">+ 點擊上傳圖片</span>
+                        <img id="newCharPreview" class="absolute inset-0 w-full h-full object-cover hidden z-20 bg-white">
+                        <input type="file" id="newCharImage" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="window.previewCharImage(this, 'newCharPreview')">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">角色名稱 (必填)</label>
+                    <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">補充外觀特徵 (選填)</label>
+                    <input type="text" id="newCharPersona" placeholder="例如：戴飛行護目鏡、微胖、有鬍渣" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
+            
+            <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl flex justify-end gap-3">
+                <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100">取消</button>
+                <button type="button" id="btnSubmitNewChar" onclick="window.submitNewCharacter()" class="px-5 py-2 text-sm font-black text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md transition-all flex items-center">
+                    🧬 開始基因掃描
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center z-50 text-sm whitespace-nowrap">
         <span id="toastMsg">系統訊息</span>
     </div> 
-    
     <script type="module" src="/js/main.js"></script>
-    
 </body>
 </html>
