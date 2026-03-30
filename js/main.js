@@ -4,7 +4,9 @@ import { showToast, processFileToBase64 } from './utils.js';
 import * as API from './api.js';
 import * as UI from './ui.js';
 
-// 🌟 把被 HTML 呼叫的函數掛載到全域 (Window)
+// ==========================================
+// 🌟 綁定 UI 函數到全域 (Window)
+// ==========================================
 window.switchMode = UI.switchMode;
 window.toggleSection = UI.toggleSection;
 window.addCharacterSlot = UI.addCharacterSlot;
@@ -15,13 +17,32 @@ window.resetToStep1 = UI.resetToStep1;
 window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
+// 🌟 解析 Google JWT Token 取得 User ID (共用小工具)
+function getTenantIdFromToken() {
+    if (!STATE.globalAuthToken) return 'test_user_001'; // 預設防呆
+    try {
+        const base64Url = STATE.globalAuthToken.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+        const decoded = JSON.parse(jsonPayload);
+        return decoded.sub || decoded.email;
+    } catch (e) {
+        return 'test_user_001';
+    }
+}
+
+// 🌟 返回第一步
 window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// 🌟 點擊角色庫按鈕時觸發 (新增功能)
+// ==========================================
+// 🌟 角色庫相關操作
+// ==========================================
+
+// 從資料庫加入角色到清單
 window.addCharacterFromDB = (dbChar) => {
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) {
@@ -30,9 +51,8 @@ window.addCharacterFromDB = (dbChar) => {
     }
 
     const item = document.createElement('div');
-    item.className = 'char-item relative animate-fade-in border-l-4 border-blue-500'; // 藍色邊框代表來自資料庫
+    item.className = 'char-item relative animate-fade-in border-l-4 border-blue-500'; 
     
-    // 將資料庫特徵藏在 data-db-features 裡，並且給予 name 屬性讓後方迴圈可以抓到
     item.innerHTML = `
         <button type="button" onclick="this.parentElement.remove()" class="absolute top-2 right-2 text-red-400 hover:text-red-600 font-bold text-xl leading-none">&times;</button>
         <div class="flex items-center mb-2">
@@ -40,7 +60,7 @@ window.addCharacterFromDB = (dbChar) => {
         </div>
         <div class="grid grid-cols-2 gap-3 mb-2">
             <input type="text" name="charName" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-bold text-gray-600 cursor-not-allowed" value="${dbChar.name}" readonly>
-            <input type="text" name="charPersona" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-medium text-gray-600 cursor-not-allowed" value="${dbChar.persona || ''}" readonly>
+            <input type="text" name="charPersona" class="p-2 border border-gray-300 rounded-lg text-sm bg-gray-50 font-medium text-gray-600 cursor-not-allowed" placeholder="可在此微調當前服裝/表情" value="${dbChar.persona || ''}">
         </div>
         <div class="text-xs text-green-600 font-bold mt-1">✅ 已自動鎖定 AI 視覺特徵</div>
         <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
@@ -49,7 +69,7 @@ window.addCharacterFromDB = (dbChar) => {
     showToast(`✅ 已載入角色：${dbChar.name}`, 'success');
 };
 
-// 🌟 提交建立新角色
+// 提交建立新角色
 window.submitNewCharacter = async function() {
     const name = document.getElementById('newCharName').value.trim();
     const fileInput = document.getElementById('newCharImage');
@@ -63,21 +83,10 @@ window.submitNewCharacter = async function() {
 
     try {
         const base64ImgInfo = await processFileToBase64(fileInput.files[0]);
-        
-        let tenantId = 'test_user_001'; 
-        if (STATE.globalAuthToken) {
-            const base64Url = STATE.globalAuthToken.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            }).join(''));
-            const decoded = JSON.parse(jsonPayload);
-            tenantId = decoded.sub || decoded.email;
-        }
+        const tenantId = getTenantIdFromToken();
 
         const payload = {
             name: name,
-            // persona 已經被移除了
             imageBase64: base64ImgInfo.data,
             mimeType: base64ImgInfo.mimeType,
             tenantId: tenantId
@@ -90,6 +99,7 @@ window.submitNewCharacter = async function() {
         showToast(result.message, 'success');
         UI.closeCreateCharModal();
         
+        // 重新載入畫面
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
@@ -103,17 +113,11 @@ window.submitNewCharacter = async function() {
     }
 };
 
-// 🌟 刪除角色邏輯
+// 刪除角色邏輯
 window.deleteChar = async function(charId) {
     if (!confirm('⚠️ 確定要永久刪除這個角色嗎？\n雲端大頭照也會被同步清理喔！')) return;
     
-    // 取得 tenantId (跟建立時的邏輯一樣)
-    let tenantId = 'test_user_001'; 
-    if (STATE.globalAuthToken) {
-        const base64Url = STATE.globalAuthToken.split('.')[1];
-        const decoded = JSON.parse(decodeURIComponent(atob(base64Url.replace(/-/g, '+').replace(/_/g, '/')).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')));
-        tenantId = decoded.sub || decoded.email;
-    }
+    const tenantId = getTenantIdFromToken();
 
     try {
         showToast('🗑️ 正在清理雲端基因...', 'info');
@@ -132,39 +136,43 @@ window.deleteChar = async function(charId) {
     }
 };
 
-
-// 🌟 初始化
+// ==========================================
+// 🌟 系統初始化
+// ==========================================
 window.onload = async function () {
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
-        callback: function(response) {
+        callback: async function(response) {
             STATE.globalAuthToken = response.credential;
             document.getElementById('loginScreen').classList.add('hidden');
             const mainApp = document.getElementById('mainApp');
             mainApp.classList.remove('hidden');
             setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
-            showToast('✅ 登入成功！工廠引擎已發動。', 'success');
+            
+            showToast('✅ 登入成功！正在載入您的專屬工作室...', 'success');
+
+            // 🌟 登入成功後，帶著 User ID 去撈取「專屬角色庫」與「系統選項」
+            const tenantId = getTenantIdFromToken();
+            try {
+                const result = await API.fetchSystemOptionsAPI(tenantId);
+                if (result.success) {
+                    STATE.globalSystemStyles = result.data.styles;
+                    STATE.globalSystemMotions = result.data.motions;
+                    UI.renderDynamicOptions('ANIME', result.data); 
+                }
+            } catch (error) {
+                document.getElementById('styleRadioContainer').innerHTML = '<span class="text-red-500 font-bold">無法連線至選項庫</span>';
+            }
         }
     });
     google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
-    
-    // 移除舊的手動加老K (因為我們現在有資料庫了！)
-    // UI.addCharacterSlot("老K", "戴墨鏡的大叔"); 
-
-    try {
-        const result = await API.fetchSystemOptionsAPI();
-        if (result.success) {
-            STATE.globalSystemStyles = result.data.styles;
-            STATE.globalSystemMotions = result.data.motions;
-            // 🌟 將角色庫傳給 UI 渲染函數
-            UI.renderDynamicOptions('ANIME', result.data); 
-        }
-    } catch (error) {
-        document.getElementById('styleRadioContainer').innerHTML = '<span class="text-red-500 font-bold">無法連線至選項庫</span>';
-    }
 };
 
-// 🌟 提交步驟一
+// ==========================================
+// 🌟 流程提交控制
+// ==========================================
+
+// 提交步驟一：生成腳本
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnStep1Submit');
@@ -181,7 +189,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
     btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-500'); btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
     
-    // 🌟 獲取動態選中的畫風與反向提示詞
     const selectedStyleRadio = document.querySelector('input[name="targetStyle"]:checked');
     let promptStyle = '';
     let negativeStyle = '';
@@ -192,7 +199,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         negativeStyle = styleData.negative;
     }
 
-    // 🌟 獲取色彩模式 (如果有選擇的話)
     const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
     const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
 
@@ -200,7 +206,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         platforms: selectedPlatforms, 
         topic: topic, 
         isComicMode: STATE.isComicModeActive,
-        colorMode: colorModeValue, // 👈 傳送色彩模式
+        colorMode: colorModeValue, 
         aspectRatio: document.getElementById('aspectRatioSelect').value,
         style: promptStyle,             
         negativePrompt: negativeStyle,  
@@ -209,24 +215,20 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         image_options: { referenceImages: [] }
     };
 
-    // 🌟 處理角色資料 (兼容手動上傳與資料庫直接載入)
     const charItems = document.querySelectorAll('#characterList .char-item');
     for (let item of charItems) {
         const name = item.querySelector('[name="charName"]').value.trim();
         const persona = item.querySelector('[name="charPersona"]').value.trim();
         if (!name) continue;
 
-        // 檢查是不是來自資料庫的角色
         const dbFeaturesInput = item.querySelector('.char-db-features');
         const dbFeatures = dbFeaturesInput ? dbFeaturesInput.value : undefined;
 
         const charObj = { name, persona };
-        if (dbFeatures) {
-            charObj.aiExtractedFeatures = dbFeatures; // 把資料庫的特徵帶給後端
-        }
+        if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
+        
         payload.comicCharacters.push(charObj); 
 
-        // 檢查是否有手動上傳圖片 (資料庫角色沒有上傳按鈕)
         const fileInput = item.querySelector('[name="charAvatar"]');
         if(fileInput && fileInput.files.length > 0) {
             const base64Img = await processFileToBase64(fileInput.files[0]);
@@ -275,7 +277,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// 🌟 發包生圖
+// 提交步驟二：發包生圖
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 正在極速生圖中...';
@@ -304,7 +306,7 @@ window.submitForImageGeneration = async function() {
     }
 };
 
-// 🌟 發布社群
+// 發布社群
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
     btn.disabled = true; btn.innerHTML = '🚀 發射中...';
@@ -319,7 +321,7 @@ window.publishToSocial = async function() {
     }
 };
 
-// 🌟 生成影片
+// 生成動態影片
 window.generateVideo = async function() {
     const btn = document.getElementById('btnGenerateVideo');
     if (!STATE.currentTaskId) return showToast('❌ 找不到任務 ID！', 'error');
