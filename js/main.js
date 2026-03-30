@@ -232,16 +232,24 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const dbFeaturesInput = item.querySelector('.char-db-features');
         const dbFeatures = dbFeaturesInput ? dbFeaturesInput.value : undefined;
+        
+        // 🌟 新增：把剛剛藏起來的圖片網址挖出來
+        const imageUrlInput = item.querySelector('.char-image-url');
+        const imageUrl = imageUrlInput ? imageUrlInput.value : undefined;
 
         const charObj = { name, persona };
         if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
         
         payload.comicCharacters.push(charObj); 
 
-        const fileInput = item.querySelector('[name="charAvatar"]');
-        if(fileInput && fileInput.files.length > 0) {
-            const base64Img = await processFileToBase64(fileInput.files[0]);
-            if (base64Img) payload.image_options.referenceImages.push({ type: 'character', name, ...base64Img });
+        // 🌟 關鍵修正：如果這個角色有資料庫網址，直接塞進 referenceImages 陣列！
+        // (我們已經把舊的 fileInput 判斷徹底刪除了，因為再也沒有手動上傳角色了)
+        if (imageUrl) {
+            payload.image_options.referenceImages.push({ 
+                type: 'character', 
+                name: name, 
+                imageUrl: imageUrl // 傳送 GCS 網址給後端
+            });
         }
     }
 
