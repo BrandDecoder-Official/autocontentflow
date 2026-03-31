@@ -175,59 +175,63 @@ window.deleteChar = async function(charId) {
 // ==========================================
 // 🌟 系統初始化
 // ==========================================
-// js/main.js
-
 window.onload = async function () {
+    // 🚀 初始化 Google 登入
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
         callback: async function(response) {
-            // 1. 拿到 Google Token，先不要直接放行，顯示載入中
             const loginMsg = document.getElementById('loginMessage');
+            
+            // 1. 顯示載入中狀態
             loginMsg.innerHTML = '🔄 正在驗證您的身分與權限...';
-            loginMsg.className = 'text-blue-600 font-bold mt-4';
+            loginMsg.className = 'text-blue-600 font-bold mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200';
             
             try {
-                // 2. 送去後端驗證
+                // 2. 將 Google 給的 Token 送到我們的後端驗證
                 const result = await API.verifyLoginAPI(response.credential);
                 
                 if (!result.success) {
                     throw new Error(result.message);
                 }
 
+                // 3. 根據後端回傳的狀態決定下一步
                 if (result.status === 'PENDING') {
                     // ⛔ 待審核狀態：停留在登入頁，顯示提示
                     loginMsg.innerHTML = `⏳ ${result.message}`;
                     loginMsg.className = 'text-orange-600 font-bold mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200';
-                    return; // 中斷執行，不顯示主程式
+                    return; // 中斷執行，不進入工作室
                 }
 
                 if (result.status === 'ACTIVE') {
-                    // ✅ 審核通過：把 Token 存起來，並載入主畫面
+                    // ✅ 審核通過：儲存全域變數
                     STATE.globalAuthToken = response.credential;
-                    STATE.tenantUid = result.uid; // 儲存真實的 UID
+                    STATE.tenantUid = result.uid; // 🌟 這是非常重要的租戶 ID！
                     
+                    // 隱藏登入頁，顯示主程式
                     document.getElementById('loginScreen').classList.add('hidden');
                     const mainApp = document.getElementById('mainApp');
                     mainApp.classList.remove('hidden');
                     setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
                     
-                    showToast(`✅ 登入成功！目前剩餘點數：${result.totalPoints}`, 'success');
+                    showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
 
-                    // 載入系統選項...
-                    const optionsRes = await API.fetchSystemOptionsAPI(STATE.tenantUid);
-                    if (optionsRes.success) {
-                        STATE.globalSystemStyles = optionsRes.data.styles;
-                        UI.renderDynamicOptions('ANIME', optionsRes.data); 
-                    }
+                    // 載入系統選項與角色 (現在會帶入正確的 tenantUid)
+                    await initSystemData(); 
                 }
 
             } catch (error) {
-                loginMsg.innerHTML = `❌ ${error.message}`;
-                loginMsg.className = 'text-red-600 font-bold mt-4';
+                // ❌ 發生錯誤
+                loginMsg.innerHTML = `❌ 登入失敗：${error.message}`;
+                loginMsg.className = 'text-red-600 font-bold mt-4 p-3 bg-red-50 rounded-lg border border-red-200';
             }
         }
     });
-    google.accounts.id.renderButton(document.getElementById("googleButtonDiv"),{ theme: "outline", size: "large", width: 300, shape: "pill" });
+
+    // 渲染 Google 按鈕
+    google.accounts.id.renderButton(
+        document.getElementById("googleButtonDiv"),
+        { theme: "outline", size: "large", width: 300, shape: "pill" }
+    );
 };
 
 // ==========================================
