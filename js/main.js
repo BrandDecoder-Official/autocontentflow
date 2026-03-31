@@ -175,28 +175,55 @@ window.deleteChar = async function(charId) {
 // ==========================================
 // 🌟 系統初始化
 // ==========================================
+// js/main.js
+
 window.onload = async function () {
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
         callback: async function(response) {
-            STATE.globalAuthToken = response.credential;
-            document.getElementById('loginScreen').classList.add('hidden');
-            const mainApp = document.getElementById('mainApp');
-            mainApp.classList.remove('hidden');
-            setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
+            // 1. 拿到 Google Token，先不要直接放行，顯示載入中
+            const loginMsg = document.getElementById('loginMessage');
+            loginMsg.innerHTML = '🔄 正在驗證您的身分與權限...';
+            loginMsg.className = 'text-blue-600 font-bold mt-4';
             
-            showToast('✅ 登入成功！正在載入您的專屬工作室...', 'success');
-
-            const tenantId = getTenantIdFromToken();
             try {
-                const result = await API.fetchSystemOptionsAPI(tenantId);
-                if (result.success) {
-                    STATE.globalSystemStyles = result.data.styles;
-                    STATE.globalSystemMotions = result.data.motions;
-                    UI.renderDynamicOptions('ANIME', result.data); 
+                // 2. 送去後端驗證
+                const result = await API.verifyLoginAPI(response.credential);
+                
+                if (!result.success) {
+                    throw new Error(result.message);
                 }
+
+                if (result.status === 'PENDING') {
+                    // ⛔ 待審核狀態：停留在登入頁，顯示提示
+                    loginMsg.innerHTML = `⏳ ${result.message}`;
+                    loginMsg.className = 'text-orange-600 font-bold mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200';
+                    return; // 中斷執行，不顯示主程式
+                }
+
+                if (result.status === 'ACTIVE') {
+                    // ✅ 審核通過：把 Token 存起來，並載入主畫面
+                    STATE.globalAuthToken = response.credential;
+                    STATE.tenantUid = result.uid; // 儲存真實的 UID
+                    
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    const mainApp = document.getElementById('mainApp');
+                    mainApp.classList.remove('hidden');
+                    setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
+                    
+                    showToast(`✅ 登入成功！目前剩餘點數：${result.totalPoints}`, 'success');
+
+                    // 載入系統選項...
+                    const optionsRes = await API.fetchSystemOptionsAPI(STATE.tenantUid);
+                    if (optionsRes.success) {
+                        STATE.globalSystemStyles = optionsRes.data.styles;
+                        UI.renderDynamicOptions('ANIME', optionsRes.data); 
+                    }
+                }
+
             } catch (error) {
-                document.getElementById('styleRadioContainer').innerHTML = '<span class="text-red-500 font-bold">無法連線至選項庫</span>';
+                loginMsg.innerHTML = `❌ ${error.message}`;
+                loginMsg.className = 'text-red-600 font-bold mt-4';
             }
         }
     });
