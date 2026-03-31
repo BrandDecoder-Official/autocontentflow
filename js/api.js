@@ -70,15 +70,28 @@ export async function generateVideoAPI(payload) {
     return response.json();
 }
 
+// js/api.js
+// ... 原本的其他 API (例如 generateDraftAPI) 保持不動 ...
+
+/**
+ * 🔐 傳送 Google 憑證到後端進行驗證與註冊
+ */
 export async function verifyLoginAPI(credential) {
     try {
         const response = await fetch(`${CONFIG.API_BASE_URL}/api/auth/verify`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json' 
+            },
             body: JSON.stringify({ credential })
         });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         return await response.json();
     } catch (error) {
-        throw new Error('無法連線到登入伺服器');
+        console.error('API 呼叫錯誤 (verifyLoginAPI):', error);
+        throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試');
     }
 }
