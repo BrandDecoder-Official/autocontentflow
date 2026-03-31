@@ -78,7 +78,7 @@ export async function generateVideoAPI(payload) {
  */
 export async function verifyLoginAPI(credential) {
     try {
-        const response = await fetch(`${CONFIG.API_BASE_URL}/api/auth/verify`, {
+        const response = await fetch(`/api/auth/verify`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json' 
