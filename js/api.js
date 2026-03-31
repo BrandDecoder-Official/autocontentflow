@@ -1,5 +1,5 @@
 // js/api.js
-import { CONFIG, STATE } from './config.js';
+import { CONFIG } from './config.js'; // 確保檔案最上面有引入 CONFIG
 
 // 🌟 1. 修改：加入 tenantId 參數，透過 Query String 傳給後端撈取專屬角色
 export async function fetchSystemOptionsAPI(tenantId = '') {
@@ -78,7 +78,8 @@ export async function generateVideoAPI(payload) {
  */
 export async function verifyLoginAPI(credential) {
     try {
-        const response = await fetch(`/api/auth/verify`, {
+        // 🌟 正確使用 Cloud Run 的網址變數
+        const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/auth/verify`, {
             method: 'POST',
             headers: { 
                 'Content-Type': 'application/json' 
