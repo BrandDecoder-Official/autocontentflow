@@ -1,6 +1,6 @@
 // js/main.js
 import { CONFIG, STATE } from './config.js';
-import { showToast, processFileToBase64 } from './utils.js';
+import { showToast } from './utils.js'; // 移除了舊的 processFileToBase64
 import * as API from './api.js';
 import * as UI from './ui.js';
 
@@ -9,7 +9,6 @@ import * as UI from './ui.js';
 // ==========================================
 window.switchMode = UI.switchMode;
 window.toggleSection = UI.toggleSection;
-window.addCharacterSlot = UI.addCharacterSlot;
 window.previewCharImage = UI.previewCharImage;
 window.handleFileSelect = UI.handleFileSelect;
 window.removeFileFromArray = UI.removeFileFromArray;
@@ -17,9 +16,50 @@ window.resetToStep1 = UI.resetToStep1;
 window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
-// 🌟 解析 Google JWT Token 取得 User ID (共用小工具)
+// ==========================================
+// 🚀 新增：手機防當機「前端圖片壓縮引擎」
+// ==========================================
+// 這個引擎會將手機的巨大照片，在前端瞬間壓縮並轉為輕量級 Base64
+function compressImageToBase64(file, maxWidth = 1024) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = function (event) {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = function () {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // 等比例縮小計算
+                if (width > maxWidth) {
+                    height = Math.round((height * maxWidth) / width);
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // 壓縮為 JPEG，品質 0.8 (大幅降低體積，肉眼看不出差異)
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                
+                resolve({
+                    data: compressedDataUrl.replace(/^data:image\/\w+;base64,/, ""),
+                    mimeType: 'image/jpeg'
+                });
+            };
+            img.onerror = (err) => reject(err);
+        };
+        reader.onerror = (err) => reject(err);
+    });
+}
+
+// 🌟 解析 Google JWT Token 取得 User ID 
 function getTenantIdFromToken() {
-    if (!STATE.globalAuthToken) return 'test_user_001'; // 預設防呆
+    if (!STATE.globalAuthToken) return 'test_user_001'; 
     try {
         const base64Url = STATE.globalAuthToken.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -51,26 +91,19 @@ window.addCharacterFromDB = (dbChar) => {
     }
 
     const item = document.createElement('div');
-    // 🌟 改用更緊湊、帶有陰影的卡片設計
     item.className = 'char-item relative animate-fade-in flex items-start gap-3 bg-white p-3 border border-blue-200 rounded-xl shadow-sm mb-3 group'; 
     
     item.innerHTML = `
         <button type="button" onclick="this.closest('.char-item').remove()" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>
-        
         <img src="${dbChar.imageUrl || 'https://via.placeholder.com/150'}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0 shadow-sm">
-        
-       <div class="flex-grow">
+        <div class="flex-grow">
             <div class="flex items-center mb-1.5">
                 <span class="font-black text-gray-800 text-sm mr-2">${dbChar.name}</span>
-                <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">
-                    <span class="mr-1">🔒</span> 基因鎖定
-                </span>
+                <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center"><span class="mr-1">🔒</span> 基因鎖定</span>
             </div>
-            
             <input type="hidden" name="charName" value="${dbChar.name}">
             <input type="hidden" class="char-db-features" value="${dbChar.aiExtractedFeatures || ''}">
             <input type="hidden" class="char-image-url" value="${dbChar.imageUrl || ''}">
-            
             <input type="text" name="charPersona" class="w-full p-1.5 border border-gray-200 rounded-md text-xs bg-gray-50 focus:bg-white focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="可在此微調當前服裝/表情 (例如：穿著西裝、正在生氣)" value="${dbChar.persona || ''}">
         </div>
     `;
@@ -91,7 +124,8 @@ window.submitNewCharacter = async function() {
     btn.innerHTML = '🧬 正在掃描基因...';
 
     try {
-        const base64ImgInfo = await processFileToBase64(fileInput.files[0]);
+        // 🌟 使用新版壓縮引擎，將大頭照壓縮至 800px，光速上傳
+        const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800);
         const tenantId = getTenantIdFromToken();
 
         const payload = {
@@ -108,12 +142,10 @@ window.submitNewCharacter = async function() {
         showToast(result.message, 'success');
         UI.closeCreateCharModal();
         
-        // 重新載入畫面
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
         }
-
     } catch(error) {
         showToast(`❌ 建立失敗: ${error.message}`, 'error');
     } finally {
@@ -125,17 +157,12 @@ window.submitNewCharacter = async function() {
 // 刪除角色邏輯
 window.deleteChar = async function(charId) {
     if (!confirm('⚠️ 確定要永久刪除這個角色嗎？\n雲端大頭照也會被同步清理喔！')) return;
-    
     const tenantId = getTenantIdFromToken();
-
     try {
         showToast('🗑️ 正在清理雲端基因...', 'info');
         const result = await API.deleteCharacterAPI({ charId, tenantId });
-        
         if (!result.success) throw new Error(result.message);
         showToast('✅ 角色已成功刪除！', 'success');
-        
-        // 重新載入畫面
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
@@ -160,7 +187,6 @@ window.onload = async function () {
             
             showToast('✅ 登入成功！正在載入您的專屬工作室...', 'success');
 
-            // 🌟 登入成功後，帶著 User ID 去撈取「專屬角色庫」與「系統選項」
             const tenantId = getTenantIdFromToken();
             try {
                 const result = await API.fetchSystemOptionsAPI(tenantId);
@@ -182,7 +208,6 @@ window.onload = async function () {
 // ==========================================
 
 // 提交步驟一：生成腳本
-// 🌟 提交步驟一：生成腳本
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnStep1Submit');
@@ -197,12 +222,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const topic = document.getElementById('topic').value.trim();
     if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
-    // 鎖定按鈕狀態
     btn.disabled = true; 
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
-    btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
+    btnText.innerText = '🧠 壓縮圖片並呼叫大腦中...';
     
-    // 🌟 將防護網 (try) 擴大到包含收集資料的階段，任何錯誤都會跳出提示！
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
         let promptStyle = '';
@@ -237,7 +260,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const charItems = document.querySelectorAll('#characterList .char-item');
         for (let item of charItems) {
-            // 🛡️ 加上問號防呆，避免找不到欄位而死當
             const name = item.querySelector('[name="charName"]')?.value.trim() || '';
             const persona = item.querySelector('[name="charPersona"]')?.value.trim() || '';
             if (!name) continue;
@@ -247,33 +269,29 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
             const charObj = { name, persona };
             if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
-            
             payload.comicCharacters.push(charObj); 
 
             if (imageUrl) {
-                payload.image_options.referenceImages.push({ 
-                    type: 'character', 
-                    name: name, 
-                    imageUrl: imageUrl 
-                });
+                payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
             }
         }
 
-        // 🛡️ 加上 (STATE.sceneFiles || []) 防呆，避免未上傳圖片時變數未定義
+        // 🌟 手機救星：將上傳的場景與道具圖，透過壓縮引擎縮小後再發送！
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
-                const base64Img = await processFileToBase64(file);
+                showToast('📐 正在壓縮場景圖片...', 'info');
+                const base64Img = await compressImageToBase64(file, 1024);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
-                const base64Img = await processFileToBase64(file);
+                showToast('📐 正在壓縮道具圖片...', 'info');
+                const base64Img = await compressImageToBase64(file, 1024);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
         }
 
-        // 🚀 發送給後端
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
         
@@ -281,7 +299,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         document.getElementById('step1-setup').classList.add('hidden');
         document.getElementById('step2-review').classList.remove('hidden');
         
-        // 更新畫風標籤
         const badge2 = document.getElementById('step2StyleBadge');
         if (badge2) badge2.innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
@@ -303,11 +320,9 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
     } catch (error) {
-        // 如果上面有任何錯，就會跳這個紅框提示，而不會死當！
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
-        console.error(error); // 在主控台印出詳細錯誤方便追蹤
+        console.error(error); 
     } finally {
-        // 無論成功或失敗，必定解除按鈕鎖定！
         btn.disabled = false; 
         btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
         btnText.innerText = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
@@ -331,8 +346,13 @@ window.submitForImageGeneration = async function() {
     try {
         const result = await API.generateImageAPI({ taskId: STATE.currentTaskId, editedCaption, editedPanels });
         if (!result.success) throw new Error(result.message);
+        
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
+        
+        const badge3 = document.getElementById('step3StyleBadge');
+        if (badge3) badge3.innerText = `🎨 畫風：${STATE.currentStyleName}`;
+        
         document.getElementById('finalImageContainer').innerHTML = `<img src="${result.imageUrl}" class="w-full rounded-xl shadow-md border animate-fade-in">`;
         document.getElementById('finalCaptionDisplay').value = editedCaption;
         showToast('✅ 圖片生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
