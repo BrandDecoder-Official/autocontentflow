@@ -182,6 +182,7 @@ window.onload = async function () {
 // ==========================================
 
 // 提交步驟一：生成腳本
+// 🌟 提交步驟一：生成腳本
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnStep1Submit');
@@ -196,82 +197,94 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const topic = document.getElementById('topic').value.trim();
     if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
-    btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-500'); btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
+    // 鎖定按鈕狀態
+    btn.disabled = true; 
+    btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
+    btnText.innerText = '🧠 大腦正在思考腳本 (約10秒)...';
     
-    const selectedStyleRadio = document.querySelector('input[name="targetStyle"]:checked');
-    let promptStyle = '';
-    let negativeStyle = '';
-    
-    if (selectedStyleRadio) {
-        const styleData = JSON.parse(selectedStyleRadio.value);
-        promptStyle = styleData.prefix;
-        negativeStyle = styleData.negative;
-    }
-
-    const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
-    const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
-
-    const payload = {
-        platforms: selectedPlatforms, 
-        topic: topic, 
-        isComicMode: STATE.isComicModeActive,
-        colorMode: colorModeValue, 
-        aspectRatio: document.getElementById('aspectRatioSelect').value,
-        style: promptStyle,             
-        negativePrompt: negativeStyle,  
-        resolution: document.getElementById('resolutionSelect').value,
-        comicCharacters: [], 
-        image_options: { referenceImages: [] }
-    };
-
-    const charItems = document.querySelectorAll('#characterList .char-item');
-    for (let item of charItems) {
-        const name = item.querySelector('[name="charName"]').value.trim();
-        const persona = item.querySelector('[name="charPersona"]').value.trim();
-        if (!name) continue;
-
-        const dbFeaturesInput = item.querySelector('.char-db-features');
-        const dbFeatures = dbFeaturesInput ? dbFeaturesInput.value : undefined;
-        
-        // 🌟 新增：把剛剛藏起來的圖片網址挖出來
-        const imageUrlInput = item.querySelector('.char-image-url');
-        const imageUrl = imageUrlInput ? imageUrlInput.value : undefined;
-
-        const charObj = { name, persona };
-        if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
-        
-        payload.comicCharacters.push(charObj); 
-
-        // 🌟 關鍵修正：如果這個角色有資料庫網址，直接塞進 referenceImages 陣列！
-        // (我們已經把舊的 fileInput 判斷徹底刪除了，因為再也沒有手動上傳角色了)
-        if (imageUrl) {
-            payload.image_options.referenceImages.push({ 
-                type: 'character', 
-                name: name, 
-                imageUrl: imageUrl // 傳送 GCS 網址給後端
-            });
-        }
-    }
-
-    if (!document.getElementById('skipScene').checked) {
-        for (let file of STATE.sceneFiles) {
-            const base64Img = await processFileToBase64(file);
-            if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
-        }
-    }
-    if (!document.getElementById('skipObject').checked) {
-        for (let file of STATE.objectFiles) {
-            const base64Img = await processFileToBase64(file);
-            if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
-        }
-    }
-
+    // 🌟 將防護網 (try) 擴大到包含收集資料的階段，任何錯誤都會跳出提示！
     try {
+        const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
+        let promptStyle = '';
+        let negativeStyle = '';
+        let styleName = '預設風格';
+        
+        if (selectedStyleId && STATE.globalSystemStyles) {
+            const styleObj = STATE.globalSystemStyles.find(s => s.id === selectedStyleId);
+            if (styleObj) {
+                promptStyle = styleObj.promptPrefix || '';
+                negativeStyle = styleObj.negativePrompt || '';
+                styleName = styleObj.name || '預設風格';
+            }
+        }
+        STATE.currentStyleName = styleName;
+
+        const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
+        const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
+
+        const payload = {
+            platforms: selectedPlatforms, 
+            topic: topic, 
+            isComicMode: STATE.isComicModeActive,
+            colorMode: colorModeValue, 
+            aspectRatio: document.getElementById('aspectRatioSelect').value,
+            style: promptStyle,             
+            negativePrompt: negativeStyle,  
+            resolution: document.getElementById('resolutionSelect').value,
+            comicCharacters: [], 
+            image_options: { referenceImages: [] }
+        };
+
+        const charItems = document.querySelectorAll('#characterList .char-item');
+        for (let item of charItems) {
+            // 🛡️ 加上問號防呆，避免找不到欄位而死當
+            const name = item.querySelector('[name="charName"]')?.value.trim() || '';
+            const persona = item.querySelector('[name="charPersona"]')?.value.trim() || '';
+            if (!name) continue;
+
+            const dbFeatures = item.querySelector('.char-db-features')?.value;
+            const imageUrl = item.querySelector('.char-image-url')?.value;
+
+            const charObj = { name, persona };
+            if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
+            
+            payload.comicCharacters.push(charObj); 
+
+            if (imageUrl) {
+                payload.image_options.referenceImages.push({ 
+                    type: 'character', 
+                    name: name, 
+                    imageUrl: imageUrl 
+                });
+            }
+        }
+
+        // 🛡️ 加上 (STATE.sceneFiles || []) 防呆，避免未上傳圖片時變數未定義
+        if (!document.getElementById('skipScene').checked) {
+            for (let file of (STATE.sceneFiles || [])) {
+                const base64Img = await processFileToBase64(file);
+                if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
+            }
+        }
+        if (!document.getElementById('skipObject').checked) {
+            for (let file of (STATE.objectFiles || [])) {
+                const base64Img = await processFileToBase64(file);
+                if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
+            }
+        }
+
+        // 🚀 發送給後端
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
+        
         STATE.currentTaskId = result.taskId; 
         document.getElementById('step1-setup').classList.add('hidden');
         document.getElementById('step2-review').classList.remove('hidden');
+        
+        // 更新畫風標籤
+        const badge2 = document.getElementById('step2StyleBadge');
+        if (badge2) badge2.innerText = `🎨 畫風：${STATE.currentStyleName}`;
+        
         document.getElementById('reviewCaption').value = result.draftContent.post_caption;
         
         const panelsContainer = document.getElementById('reviewPanelsContainer');
@@ -285,12 +298,19 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             });
             panelsContainer.innerHTML = panelsHtml;
         } else { panelsContainer.classList.add('hidden'); }
+        
         showToast('✅ 腳本生成完畢，請進行最終確認！', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+
     } catch (error) {
+        // 如果上面有任何錯，就會跳這個紅框提示，而不會死當！
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
+        console.error(error); // 在主控台印出詳細錯誤方便追蹤
     } finally {
-        btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-blue-600'); btnText.innerText = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
+        // 無論成功或失敗，必定解除按鈕鎖定！
+        btn.disabled = false; 
+        btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
+        btnText.innerText = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
     }
 });
 
