@@ -69,3 +69,16 @@ export async function generateVideoAPI(payload) {
     });
     return response.json();
 }
+
+export async function verifyLoginAPI(credential) {
+    try {
+        const response = await fetch(`${CONFIG.API_BASE_URL}/api/auth/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential })
+        });
+        return await response.json();
+    } catch (error) {
+        throw new Error('無法連線到登入伺服器');
+    }
+}
