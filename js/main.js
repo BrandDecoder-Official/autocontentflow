@@ -1,6 +1,6 @@
 // js/main.js
 import { CONFIG, STATE } from './config.js';
-import { showToast } from './utils.js'; // 移除了舊的 processFileToBase64
+import { showToast } from './utils.js'; 
 import * as API from './api.js';
 import * as UI from './ui.js';
 
@@ -19,7 +19,6 @@ window.closeCreateCharModal = UI.closeCreateCharModal;
 // ==========================================
 // 🚀 新增：手機防當機「前端圖片壓縮引擎」
 // ==========================================
-// 這個引擎會將手機的巨大照片，在前端瞬間壓縮並轉為輕量級 Base64
 function compressImageToBase64(file, maxWidth = 1024) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -32,7 +31,6 @@ function compressImageToBase64(file, maxWidth = 1024) {
                 let width = img.width;
                 let height = img.height;
 
-                // 等比例縮小計算
                 if (width > maxWidth) {
                     height = Math.round((height * maxWidth) / width);
                     width = maxWidth;
@@ -43,7 +41,6 @@ function compressImageToBase64(file, maxWidth = 1024) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 壓縮為 JPEG，品質 0.8 (大幅降低體積，肉眼看不出差異)
                 const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                 
                 resolve({
@@ -82,7 +79,6 @@ window.backToStep1 = function() {
 // 🌟 角色庫相關操作
 // ==========================================
 
-// 從資料庫加入角色到清單 (視覺化卡片升級版)
 window.addCharacterFromDB = (dbChar) => {
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) {
@@ -111,7 +107,6 @@ window.addCharacterFromDB = (dbChar) => {
     showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
 };
 
-// 提交建立新角色
 window.submitNewCharacter = async function() {
     const name = document.getElementById('newCharName').value.trim();
     const fileInput = document.getElementById('newCharImage');
@@ -124,7 +119,6 @@ window.submitNewCharacter = async function() {
     btn.innerHTML = '🧬 正在掃描基因...';
 
     try {
-        // 🌟 使用新版壓縮引擎，將大頭照壓縮至 800px，光速上傳
         const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800);
         const tenantId = getTenantIdFromToken();
 
@@ -154,7 +148,6 @@ window.submitNewCharacter = async function() {
     }
 };
 
-// 刪除角色邏輯
 window.deleteChar = async function(charId) {
     if (!confirm('⚠️ 確定要永久刪除這個角色嗎？\n雲端大頭照也會被同步清理喔！')) return;
     const tenantId = getTenantIdFromToken();
@@ -176,38 +169,27 @@ window.deleteChar = async function(charId) {
 // 🌟 系統初始化
 // ==========================================
 window.onload = async function () {
-    // 🚀 初始化 Google 登入
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
         callback: async function(response) {
             const loginMsg = document.getElementById('loginMessage');
-            
-            // 1. 顯示載入中狀態
             loginMsg.innerHTML = '🔄 正在驗證您的身分與權限...';
             loginMsg.className = 'text-blue-600 font-bold mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200';
             
             try {
-                // 2. 將 Google 給的 Token 送到我們的後端驗證
                 const result = await API.verifyLoginAPI(response.credential);
-                
-                if (!result.success) {
-                    throw new Error(result.message);
-                }
+                if (!result.success) throw new Error(result.message);
 
-                // 3. 根據後端回傳的狀態決定下一步
                 if (result.status === 'PENDING') {
-                    // ⛔ 待審核狀態：停留在登入頁，顯示提示
                     loginMsg.innerHTML = `⏳ ${result.message}`;
                     loginMsg.className = 'text-orange-600 font-bold mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200';
-                    return; // 中斷執行，不進入工作室
+                    return; 
                 }
 
                 if (result.status === 'ACTIVE') {
-                    // ✅ 審核通過：儲存全域變數
                     STATE.globalAuthToken = response.credential;
-                    STATE.tenantUid = result.uid; // 🌟 這是非常重要的租戶 ID！
+                    STATE.tenantUid = result.uid; 
                     
-                    // 隱藏登入頁，顯示主程式
                     document.getElementById('loginScreen').classList.add('hidden');
                     const mainApp = document.getElementById('mainApp');
                     mainApp.classList.remove('hidden');
@@ -215,24 +197,115 @@ window.onload = async function () {
                     
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
 
-                    // 載入系統選項與角色 (現在會帶入正確的 tenantUid)
-                    await initSystemData(); 
-                }
+                    // 若要啟動管理員介面，可在此呼叫檢查
+                    // if(result.role === 'ADMIN') document.getElementById('adminDashboard').classList.remove('hidden');
 
+                    if (typeof window.initSystemData === 'function') {
+                        await window.initSystemData(); 
+                    }
+                }
             } catch (error) {
-                // ❌ 發生錯誤
                 loginMsg.innerHTML = `❌ 登入失敗：${error.message}`;
                 loginMsg.className = 'text-red-600 font-bold mt-4 p-3 bg-red-50 rounded-lg border border-red-200';
             }
         }
     });
 
-    // 渲染 Google 按鈕
     google.accounts.id.renderButton(
         document.getElementById("googleButtonDiv"),
         { theme: "outline", size: "large", width: 300, shape: "pill" }
     );
 };
+
+
+// ==========================================
+// 🌟 新增：多圖混搭狀態管理與渲染引擎
+// ==========================================
+window.renderMultiImages = function() {
+    const container = document.getElementById('multiImageContainer');
+    const countDisplay = document.getElementById('multiImageCountDisplay');
+    if(!STATE.multiImages) STATE.multiImages = [];
+
+    // 若為 0，預設會算 1 張 AI 圖
+    countDisplay.innerText = STATE.multiImages.length === 0 ? 1 : STATE.multiImages.length; 
+
+    if (STATE.multiImages.length === 0) {
+        container.innerHTML = `
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-indigo-100 flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500 text-xl mr-3">🤖</div>
+                    <div>
+                        <h4 class="font-bold text-gray-800 text-sm">預設 AI 算圖</h4>
+                        <p class="text-xs text-gray-500">將根據您的腳本生成 1 張圖片</p>
+                    </div>
+                </div>
+                <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded">AI 合成</span>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = '';
+    STATE.multiImages.forEach((img, index) => {
+        const isAI = img.processType === 'AI_SYNTHESIS';
+        const div = document.createElement('div');
+        div.className = "bg-white p-3 rounded-xl shadow-sm border border-indigo-100 flex items-center gap-3 relative animate-fade-in";
+        div.innerHTML = `
+            <button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>
+            <img src="${img.originalUrl}" class="w-16 h-16 object-cover rounded-lg border border-gray-200">
+            <div class="flex-grow">
+                <h4 class="font-bold text-gray-800 text-sm mb-1">圖片 ${index + 1}</h4>
+                <div class="flex bg-gray-100 rounded-lg p-1 w-max">
+                    <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
+                    <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+};
+
+window.handleMultiImageSelect = async function(input) {
+    const maxAllowed = 10;
+    const currentCount = STATE.multiImages ? STATE.multiImages.length : 0;
+    const newFiles = Array.from(input.files);
+
+    if (currentCount + newFiles.length > maxAllowed) {
+        showToast(`❌ 最多只能上傳 ${maxAllowed} 張圖片！`, 'error');
+        return;
+    }
+
+    if (!STATE.multiImages) STATE.multiImages = [];
+
+    for (let file of newFiles) {
+        showToast('📐 正在壓縮並載入圖片...', 'info');
+        try {
+            const compressed = await compressImageToBase64(file, 1024);
+            STATE.multiImages.push({
+                id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+                originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
+                processType: 'AI_SYNTHESIS' // 預設進來都是 AI 算圖，讓用戶自己切
+            });
+        } catch(e) {
+            console.error(e);
+            showToast('❌ 圖片壓縮失敗', 'error');
+        }
+    }
+    input.value = ''; 
+    window.renderMultiImages();
+};
+
+window.removeMultiImage = function(id) {
+    STATE.multiImages = STATE.multiImages.filter(img => img.id !== id);
+    window.renderMultiImages();
+};
+
+window.toggleMultiImageType = function(id, type) {
+    const img = STATE.multiImages.find(i => i.id === id);
+    if(img) img.processType = type;
+    window.renderMultiImages();
+};
+
 
 // ==========================================
 // 🌟 流程提交控制
@@ -307,7 +380,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        // 🌟 手機救星：將上傳的場景與道具圖，透過壓縮引擎縮小後再發送！
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
                 showToast('📐 正在壓縮場景圖片...', 'info');
@@ -327,6 +399,11 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         if (!result.success) throw new Error(result.message);
         
         STATE.currentTaskId = result.taskId; 
+        
+        // 🌟 核心：進入第二步前，清空多圖狀態並渲染預設介面
+        STATE.multiImages = [];
+        window.renderMultiImages();
+
         document.getElementById('step1-setup').classList.add('hidden');
         document.getElementById('step2-review').classList.remove('hidden');
         
@@ -360,7 +437,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// 提交步驟二：發包生圖
+// 🌟 修改：提交步驟二 (發包生圖，包含多圖陣列傳輸)
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 正在極速生圖中...';
@@ -374,8 +451,21 @@ window.submitForImageGeneration = async function() {
         }
     }
 
+    // 🌟 提取使用者設定好的多圖清單
+    const incomingImagesPayload = (STATE.multiImages && STATE.multiImages.length > 0) 
+        ? STATE.multiImages.map(img => ({
+            processType: img.processType,
+            originalUrl: img.originalUrl
+        })) 
+        : []; // 若為空，後端會自動墊一張預設 AI 圖
+
     try {
-        const result = await API.generateImageAPI({ taskId: STATE.currentTaskId, editedCaption, editedPanels });
+        const result = await API.generateImageAPI({ 
+            taskId: STATE.currentTaskId, 
+            editedCaption, 
+            editedPanels,
+            incomingImages: incomingImagesPayload // 👈 新增的秘密武器！
+        });
         if (!result.success) throw new Error(result.message);
         
         document.getElementById('step2-review').classList.add('hidden');
@@ -384,7 +474,18 @@ window.submitForImageGeneration = async function() {
         const badge3 = document.getElementById('step3StyleBadge');
         if (badge3) badge3.innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
-        document.getElementById('finalImageContainer').innerHTML = `<img src="${result.imageUrl}" class="w-full rounded-xl shadow-md border animate-fade-in">`;
+        // 🌟 渲染生圖結果：將所有圖片以 Grid 方式呈現
+        let imagesHtml = '';
+        if (result.images && result.images.length > 0) {
+            result.images.forEach(img => {
+                imagesHtml += `<img src="${img.finalUrl}" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 animate-fade-in" style="aspect-ratio: 1/1;">`;
+            });
+            document.getElementById('finalImageContainer').innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-3">${imagesHtml}</div>`;
+        } else {
+            // 相容舊後端格式
+            document.getElementById('finalImageContainer').innerHTML = `<img src="${result.imageUrl}" class="w-full rounded-xl shadow-md border animate-fade-in">`;
+        }
+
         document.getElementById('finalCaptionDisplay').value = editedCaption;
         showToast('✅ 圖片生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
