@@ -3,7 +3,8 @@ import { CONFIG, STATE } from './config.js';
 import { showToast } from './utils.js'; 
 import * as API from './api.js';
 import * as UI from './ui.js';
-
+window.initSystemData = async function() {
+    
 // ==========================================
 // 🌟 綁定 UI 函數到全域 (Window)
 // ==========================================
@@ -165,6 +166,36 @@ window.deleteChar = async function(charId) {
     }
 };
 
+// ==========================================
+// 🌟 系統資料初始化引擎 (負責載入畫風、角色與動態選項)
+// ==========================================
+window.initSystemData = async function() {
+    try {
+        const tenantId = getTenantIdFromToken();
+        // showToast('🔄 正在同步雲端畫風與角色資料...', 'info'); // 視需求決定要不要跳通知
+        
+        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        
+        if (optionsRes.success) {
+            // 1. 🌟 關鍵：將畫風資料存入全域 STATE，這樣送出任務時才抓得到咒語！
+            STATE.globalSystemStyles = optionsRes.data.styles || [];
+            
+            // 2. 呼叫 UI 渲染引擎，把畫風、Veo選項、角色畫到畫面上
+            if (typeof UI.renderDynamicOptions === 'function') {
+                UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
+            } else {
+                console.error("找不到 UI.renderDynamicOptions 函數！");
+            }
+        } else {
+            showToast('❌ 畫風載入失敗: ' + optionsRes.message, 'error');
+        }
+    } catch (error) {
+        console.error('初始化系統資料錯誤:', error);
+        showToast('❌ 無法連線資料庫，請檢查網路', 'error');
+    }
+};
+
+    
 // ==========================================
 // 🌟 系統初始化
 // ==========================================
