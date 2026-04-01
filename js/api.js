@@ -1,7 +1,8 @@
 // js/api.js
-import { CONFIG } from './config.js'; // 確保檔案最上面有引入 CONFIG
+// 🌟 修正：補上 STATE 的引入，確保能抓到 globalAuthToken
+import { CONFIG, STATE } from './config.js'; 
 
-// 🌟 1. 修改：加入 tenantId 參數，透過 Query String 傳給後端撈取專屬角色
+// 🌟 1. 取得系統選項 (包含專屬角色)
 export async function fetchSystemOptionsAPI(tenantId = '') {
     const url = tenantId 
         ? `${CONFIG.CLOUD_RUN_URL}/api/system-options?tenantId=${tenantId}` 
@@ -10,43 +11,56 @@ export async function fetchSystemOptionsAPI(tenantId = '') {
     return response.json();
 }
 
-// 🌟 2. 新增：建立專屬角色 API (上傳圖片與基因)
+// 🌟 2. 建立專屬角色 API (上傳圖片與基因)
 export async function createCharacterAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/create-character`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
 }
 
-// 🌟 3. 新增：刪除專屬角色 API (清理雲端與資料庫)
+// 🌟 3. 刪除專屬角色 API (清理雲端與資料庫)
 export async function deleteCharacterAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/delete-character`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
 }
 
 // ==========================================
-// 👇 以下為原有的發文與生圖流程 API (維持不變)
+// 🚀 核心流程 API (發文、生圖、發布)
 // ==========================================
 
 export async function createDraftAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/draft`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
 }
 
+// 🌟 這裡會自動把前端包裝好的多圖陣列 (incomingImages) 送往後端
 export async function generateImageAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
@@ -55,7 +69,10 @@ export async function generateImageAPI(payload) {
 export async function publishContentAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/publish`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
@@ -64,21 +81,21 @@ export async function publishContentAPI(payload) {
 export async function generateVideoAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/generate-interpolation-video`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+            "Content-Type": "application/json",
+            // 視後端需求，決定是否需要加上 Authorization
+            // 'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
         body: JSON.stringify(payload)
     });
     return response.json();
 }
 
-// js/api.js
-// ... 原本的其他 API (例如 generateDraftAPI) 保持不動 ...
-
-/**
- * 🔐 傳送 Google 憑證到後端進行驗證與註冊
- */
+// ==========================================
+// 🔐 身分驗證與註冊 API
+// ==========================================
 export async function verifyLoginAPI(credential) {
     try {
-        // 🌟 正確使用 Cloud Run 的網址變數
         const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/auth/verify`, {
             method: 'POST',
             headers: { 
