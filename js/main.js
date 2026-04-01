@@ -242,47 +242,59 @@ window.onload = async function () {
 
 
 // ==========================================
-// 🌟 新增：多圖混搭狀態管理與渲染引擎
+// 🌟 升級版：多圖混搭狀態管理與渲染引擎 (防呆鎖定主視覺)
 // ==========================================
 window.renderMultiImages = function() {
     const container = document.getElementById('multiImageContainer');
     const countDisplay = document.getElementById('multiImageCountDisplay');
-    if(!STATE.multiImages) STATE.multiImages = [];
-
-    countDisplay.innerText = STATE.multiImages.length === 0 ? 1 : STATE.multiImages.length; 
-
-    if (STATE.multiImages.length === 0) {
-        container.innerHTML = `
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-indigo-100 flex items-center justify-between">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-500 text-xl mr-3">🤖</div>
-                    <div>
-                        <h4 class="font-bold text-gray-800 text-sm">預設 AI 算圖</h4>
-                        <p class="text-xs text-gray-500">將根據您的腳本生成 1 張圖片</p>
-                    </div>
-                </div>
-                <span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded">AI 合成</span>
-            </div>
-        `;
-        return;
+    
+    // 🛡️ 防呆：確保永遠有第 1 張「主視覺」存在
+    if (!STATE.multiImages || STATE.multiImages.length === 0) {
+        STATE.multiImages = [{
+            id: 'main_ai_cover',
+            originalUrl: '', // 主圖不需要原圖路徑
+            processType: 'AI_SYNTHESIS',
+            isMain: true // 🌟 標記為主視覺
+        }];
     }
 
+    countDisplay.innerText = STATE.multiImages.length; 
     container.innerHTML = '';
+
     STATE.multiImages.forEach((img, index) => {
         const isAI = img.processType === 'AI_SYNTHESIS';
+        const isMain = img.isMain;
+        
         const div = document.createElement('div');
-        div.className = "bg-white p-3 rounded-xl shadow-sm border border-indigo-100 flex items-center gap-3 relative animate-fade-in";
-        div.innerHTML = `
-            <button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>
-            <img src="${img.originalUrl}" class="w-16 h-16 object-cover rounded-lg border border-gray-200">
-            <div class="flex-grow">
-                <h4 class="font-bold text-gray-800 text-sm mb-1">圖片 ${index + 1}</h4>
-                <div class="flex bg-gray-100 rounded-lg p-1 w-max">
-                    <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
-                    <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>
-                </div>
-            </div>
-        `;
+        div.className = `bg-white p-3 rounded-xl shadow-sm border ${isMain ? 'border-indigo-400 bg-indigo-50/30' : 'border-gray-200'} flex items-center gap-3 relative animate-fade-in`;
+        
+        let html = '';
+        
+        // 🗑️ 只有「非主視覺」的額外圖片才可以刪除
+        if (!isMain) {
+            html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
+        }
+        
+        // 🖼️ 縮圖顯示 (主視覺給個 Icon，原圖則顯示縮圖)
+        html += `<img src="${isMain ? 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png' : img.originalUrl}" class="w-16 h-16 object-cover rounded-lg border ${isMain ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
+        
+        html += `<div class="flex-grow">`;
+        html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${isMain ? '🌟 貼文主視覺 (根據腳本生成)' : '附加圖片 ' + index}</h4>`;
+        
+        // 🔘 切換按鈕
+        if (isMain) {
+            html += `<span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded">🤖 強制 AI 算圖</span>`;
+            html += `<p class="text-[10px] text-indigo-500 mt-1">包含四格漫畫或攝影主圖</p>`;
+        } else {
+            html += `
+            <div class="flex bg-gray-100 rounded-lg p-1 w-max">
+                <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
+                <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>
+            </div>`;
+        }
+        
+        html += `</div>`;
+        div.innerHTML = html;
         container.appendChild(div);
     });
 };
@@ -306,7 +318,7 @@ window.handleMultiImageSelect = async function(input) {
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'AI_SYNTHESIS' 
+                processType: 'ORIGINAL' // 🛡️ 關鍵修正：上傳的圖預設為「原圖直發」
             });
         } catch(e) {
             console.error(e);
@@ -422,6 +434,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         STATE.currentTaskId = result.taskId; 
         
+        // 🌟 核心修正：回到第二步時，重置圖片陣列並強制載入防呆主視覺
         STATE.multiImages = [];
         window.renderMultiImages();
 
