@@ -3,8 +3,7 @@ import { CONFIG, STATE } from './config.js';
 import { showToast } from './utils.js'; 
 import * as API from './api.js';
 import * as UI from './ui.js';
-window.initSystemData = async function() {
-    
+
 // ==========================================
 // 🌟 綁定 UI 函數到全域 (Window)
 // ==========================================
@@ -74,6 +73,33 @@ window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+// ==========================================
+// 🌟 系統資料初始化引擎 (負責載入畫風、角色與動態選項)
+// ==========================================
+window.initSystemData = async function() {
+    try {
+        const tenantId = getTenantIdFromToken();
+        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        
+        if (optionsRes.success) {
+            // 🌟 關鍵：將畫風資料存入全域 STATE，這樣送出任務時才抓得到咒語！
+            STATE.globalSystemStyles = optionsRes.data.styles || [];
+            
+            // 呼叫 UI 渲染引擎，把畫風、Veo選項、角色畫到畫面上
+            if (typeof UI.renderDynamicOptions === 'function') {
+                UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
+            } else {
+                console.error("找不到 UI.renderDynamicOptions 函數！");
+            }
+        } else {
+            showToast('❌ 畫風載入失敗: ' + optionsRes.message, 'error');
+        }
+    } catch (error) {
+        console.error('初始化系統資料錯誤:', error);
+        showToast('❌ 無法連線資料庫，請檢查網路', 'error');
+    }
 };
 
 // ==========================================
@@ -167,36 +193,6 @@ window.deleteChar = async function(charId) {
 };
 
 // ==========================================
-// 🌟 系統資料初始化引擎 (負責載入畫風、角色與動態選項)
-// ==========================================
-window.initSystemData = async function() {
-    try {
-        const tenantId = getTenantIdFromToken();
-        // showToast('🔄 正在同步雲端畫風與角色資料...', 'info'); // 視需求決定要不要跳通知
-        
-        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
-        
-        if (optionsRes.success) {
-            // 1. 🌟 關鍵：將畫風資料存入全域 STATE，這樣送出任務時才抓得到咒語！
-            STATE.globalSystemStyles = optionsRes.data.styles || [];
-            
-            // 2. 呼叫 UI 渲染引擎，把畫風、Veo選項、角色畫到畫面上
-            if (typeof UI.renderDynamicOptions === 'function') {
-                UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
-            } else {
-                console.error("找不到 UI.renderDynamicOptions 函數！");
-            }
-        } else {
-            showToast('❌ 畫風載入失敗: ' + optionsRes.message, 'error');
-        }
-    } catch (error) {
-        console.error('初始化系統資料錯誤:', error);
-        showToast('❌ 無法連線資料庫，請檢查網路', 'error');
-    }
-};
-
-    
-// ==========================================
 // 🌟 系統初始化
 // ==========================================
 window.onload = async function () {
@@ -228,12 +224,8 @@ window.onload = async function () {
                     
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
 
-                    // 若要啟動管理員介面，可在此呼叫檢查
-                    // if(result.role === 'ADMIN') document.getElementById('adminDashboard').classList.remove('hidden');
-
-                    if (typeof window.initSystemData === 'function') {
-                        await window.initSystemData(); 
-                    }
+                    // 登入成功後，初始化資料庫設定
+                    await window.initSystemData(); 
                 }
             } catch (error) {
                 loginMsg.innerHTML = `❌ 登入失敗：${error.message}`;
@@ -257,7 +249,6 @@ window.renderMultiImages = function() {
     const countDisplay = document.getElementById('multiImageCountDisplay');
     if(!STATE.multiImages) STATE.multiImages = [];
 
-    // 若為 0，預設會算 1 張 AI 圖
     countDisplay.innerText = STATE.multiImages.length === 0 ? 1 : STATE.multiImages.length; 
 
     if (STATE.multiImages.length === 0) {
@@ -315,7 +306,7 @@ window.handleMultiImageSelect = async function(input) {
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'AI_SYNTHESIS' // 預設進來都是 AI 算圖，讓用戶自己切
+                processType: 'AI_SYNTHESIS' 
             });
         } catch(e) {
             console.error(e);
@@ -431,7 +422,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         STATE.currentTaskId = result.taskId; 
         
-        // 🌟 核心：進入第二步前，清空多圖狀態並渲染預設介面
         STATE.multiImages = [];
         window.renderMultiImages();
 
@@ -468,7 +458,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// 🌟 修改：提交步驟二 (發包生圖，包含多圖陣列傳輸)
+// 提交步驟二：發包生圖
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 正在極速生圖中...';
@@ -482,20 +472,19 @@ window.submitForImageGeneration = async function() {
         }
     }
 
-    // 🌟 提取使用者設定好的多圖清單
     const incomingImagesPayload = (STATE.multiImages && STATE.multiImages.length > 0) 
         ? STATE.multiImages.map(img => ({
             processType: img.processType,
             originalUrl: img.originalUrl
         })) 
-        : []; // 若為空，後端會自動墊一張預設 AI 圖
+        : [];
 
     try {
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
             editedCaption, 
             editedPanels,
-            incomingImages: incomingImagesPayload // 👈 新增的秘密武器！
+            incomingImages: incomingImagesPayload
         });
         if (!result.success) throw new Error(result.message);
         
@@ -505,7 +494,6 @@ window.submitForImageGeneration = async function() {
         const badge3 = document.getElementById('step3StyleBadge');
         if (badge3) badge3.innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
-        // 🌟 渲染生圖結果：將所有圖片以 Grid 方式呈現
         let imagesHtml = '';
         if (result.images && result.images.length > 0) {
             result.images.forEach(img => {
@@ -513,7 +501,6 @@ window.submitForImageGeneration = async function() {
             });
             document.getElementById('finalImageContainer').innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-3">${imagesHtml}</div>`;
         } else {
-            // 相容舊後端格式
             document.getElementById('finalImageContainer').innerHTML = `<img src="${result.imageUrl}" class="w-full rounded-xl shadow-md border animate-fade-in">`;
         }
 
