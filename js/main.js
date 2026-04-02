@@ -76,7 +76,7 @@ window.backToStep1 = function() {
 };
 
 // ==========================================
-// 🌟 系統資料初始化引擎 (負責載入畫風、角色與動態選項)
+// 🌟 系統資料初始化引擎
 // ==========================================
 window.initSystemData = async function() {
     try {
@@ -103,7 +103,6 @@ window.initSystemData = async function() {
 // ==========================================
 // 🌟 角色庫相關操作
 // ==========================================
-
 window.addCharacterFromDB = (dbChar) => {
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) {
@@ -237,7 +236,6 @@ window.onload = async function () {
     );
 };
 
-
 // ==========================================
 // 🌟 升級版：多圖混搭狀態管理與渲染引擎
 // ==========================================
@@ -333,7 +331,6 @@ window.toggleMultiImageType = function(id, type) {
     window.renderMultiImages();
 };
 
-
 // ==========================================
 // 🌟 流程提交控制
 // ==========================================
@@ -377,6 +374,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
 
         const payload = {
+            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
             platforms: selectedPlatforms, 
             topic: topic, 
             isComicMode: STATE.isComicModeActive,
@@ -487,6 +485,7 @@ window.submitForImageGeneration = async function() {
     try {
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
+            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
             editedCaption, 
             editedPanels,
             incomingImages: incomingImagesPayload
@@ -518,14 +517,11 @@ window.submitForImageGeneration = async function() {
     }
 };
 
-// ==========================================
-// 🌟 提交步驟三：發包社群 (升級動態安撫器)
-// ==========================================
+// 提交步驟三：發包社群
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
     btn.disabled = true;
     
-    // 定義安撫用戶的輪播訊息 (大約 30~40 秒的過程)
     const loadingMessages = [
         '🚀 正在啟動發射程序...',
         '📦 正在打包您的精美圖片...',
@@ -538,13 +534,11 @@ window.publishToSocial = async function() {
     let msgIndex = 0;
     btn.innerHTML = loadingMessages[0];
     
-    // 每 6 秒換一句話
     const loadingInterval = setInterval(() => {
         msgIndex++;
         if (msgIndex < loadingMessages.length) {
             btn.innerHTML = loadingMessages[msgIndex];
         } else {
-            // 如果等超級久，就在最後一句加上動態的 "..."
             const dots = '.'.repeat((msgIndex - loadingMessages.length) % 4);
             btn.innerHTML = loadingMessages[loadingMessages.length - 1].replace('...', '') + dots;
         }
@@ -553,15 +547,14 @@ window.publishToSocial = async function() {
     try {
         const result = await API.publishContentAPI({ 
             taskId: STATE.currentTaskId, 
+            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
             finalCaption: document.getElementById('finalCaptionDisplay').value 
         });
         
-        // 收到成功回應，立刻清除計時器
         clearInterval(loadingInterval);
         
         if (!result.success) throw new Error(result.message);
         
-        // UI 變綠色成功狀態
         btn.innerHTML = '✅ 發布成功！'; 
         btn.classList.replace('bg-green-600', 'bg-gray-500');
         
@@ -571,7 +564,6 @@ window.publishToSocial = async function() {
         showToast('🎉 圖文已成功飛上社群平台！', 'success');
 
     } catch (error) {
-        // 發生錯誤，清除計時器，恢復按鈕
         clearInterval(loadingInterval);
         showToast(`❌ 發佈失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
@@ -579,7 +571,7 @@ window.publishToSocial = async function() {
     }
 };
 
-// 生成動態影片
+// 生成動態影片 (保留結構，雖暫不重點發展)
 window.generateVideo = async function() {
     const btn = document.getElementById('btnGenerateVideo');
     if (!STATE.currentTaskId) return showToast('❌ 找不到任務 ID！', 'error');
@@ -588,6 +580,7 @@ window.generateVideo = async function() {
         showToast('🎬 正在呼叫 Veo 引擎...', 'info');
         const result = await API.generateVideoAPI({
             taskId: STATE.currentTaskId,
+            tenantId: getTenantIdFromToken(), // 🌟 也順便補上
             motionPrompt: document.getElementById('motionSelect').value,
             voiceProfile: {
                 gender: document.getElementById('voiceGender').value,
