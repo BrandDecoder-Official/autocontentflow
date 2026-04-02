@@ -84,10 +84,8 @@ window.initSystemData = async function() {
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         
         if (optionsRes.success) {
-            // 🌟 關鍵：將畫風資料存入全域 STATE，這樣送出任務時才抓得到咒語！
             STATE.globalSystemStyles = optionsRes.data.styles || [];
             
-            // 呼叫 UI 渲染引擎，把畫風、Veo選項、角色畫到畫面上
             if (typeof UI.renderDynamicOptions === 'function') {
                 UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
             } else {
@@ -224,7 +222,6 @@ window.onload = async function () {
                     
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
 
-                    // 登入成功後，初始化資料庫設定
                     await window.initSystemData(); 
                 }
             } catch (error) {
@@ -242,19 +239,18 @@ window.onload = async function () {
 
 
 // ==========================================
-// 🌟 升級版：多圖混搭狀態管理與渲染引擎 (防呆鎖定主視覺)
+// 🌟 升級版：多圖混搭狀態管理與渲染引擎
 // ==========================================
 window.renderMultiImages = function() {
     const container = document.getElementById('multiImageContainer');
     const countDisplay = document.getElementById('multiImageCountDisplay');
     
-    // 🛡️ 防呆：確保永遠有第 1 張「主視覺」存在
     if (!STATE.multiImages || STATE.multiImages.length === 0) {
         STATE.multiImages = [{
             id: 'main_ai_cover',
-            originalUrl: '', // 主圖不需要原圖路徑
+            originalUrl: '', 
             processType: 'AI_SYNTHESIS',
-            isMain: true // 🌟 標記為主視覺
+            isMain: true 
         }];
     }
 
@@ -270,18 +266,15 @@ window.renderMultiImages = function() {
         
         let html = '';
         
-        // 🗑️ 只有「非主視覺」的額外圖片才可以刪除
         if (!isMain) {
             html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
         }
         
-        // 🖼️ 縮圖顯示 (主視覺給個 Icon，原圖則顯示縮圖)
         html += `<img src="${isMain ? 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png' : img.originalUrl}" class="w-16 h-16 object-cover rounded-lg border ${isMain ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
         
         html += `<div class="flex-grow">`;
         html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${isMain ? '🌟 貼文主視覺 (根據腳本生成)' : '附加圖片 ' + index}</h4>`;
         
-        // 🔘 切換按鈕
         if (isMain) {
             html += `<span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded">🤖 強制 AI 算圖</span>`;
             html += `<p class="text-[10px] text-indigo-500 mt-1">包含四格漫畫或攝影主圖</p>`;
@@ -318,7 +311,7 @@ window.handleMultiImageSelect = async function(input) {
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'ORIGINAL' // 🛡️ 關鍵修正：上傳的圖預設為「原圖直發」
+                processType: 'ORIGINAL'
             });
         } catch(e) {
             console.error(e);
@@ -434,7 +427,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         STATE.currentTaskId = result.taskId; 
         
-        // 🌟 核心修正：回到第二步時，重置圖片陣列並強制載入防呆主視覺
         STATE.multiImages = [];
         window.renderMultiImages();
 
@@ -518,7 +510,7 @@ window.submitForImageGeneration = async function() {
         }
 
         document.getElementById('finalCaptionDisplay').value = editedCaption;
-        showToast('✅ 圖片生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
@@ -526,18 +518,64 @@ window.submitForImageGeneration = async function() {
     }
 };
 
-// 發布社群
+// ==========================================
+// 🌟 提交步驟三：發包社群 (升級動態安撫器)
+// ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
-    btn.disabled = true; btn.innerHTML = '🚀 發射中...';
+    btn.disabled = true;
+    
+    // 定義安撫用戶的輪播訊息 (大約 30~40 秒的過程)
+    const loadingMessages = [
+        '🚀 正在啟動發射程序...',
+        '📦 正在打包您的精美圖片...',
+        '⏳ 圖片傳輸至 Meta 伺服器中...',
+        '☕ 圖片數量越多需要越久，請耐心等候...',
+        '🧵 正在為 IG/Threads 建立輪播相簿...',
+        '✨ 進入最後發佈階段，請勿關閉網頁！...'
+    ];
+    
+    let msgIndex = 0;
+    btn.innerHTML = loadingMessages[0];
+    
+    // 每 6 秒換一句話
+    const loadingInterval = setInterval(() => {
+        msgIndex++;
+        if (msgIndex < loadingMessages.length) {
+            btn.innerHTML = loadingMessages[msgIndex];
+        } else {
+            // 如果等超級久，就在最後一句加上動態的 "..."
+            const dots = '.'.repeat((msgIndex - loadingMessages.length) % 4);
+            btn.innerHTML = loadingMessages[loadingMessages.length - 1].replace('...', '') + dots;
+        }
+    }, 6000);
+
     try {
-        const result = await API.publishContentAPI({ taskId: STATE.currentTaskId, finalCaption: document.getElementById('finalCaptionDisplay').value });
+        const result = await API.publishContentAPI({ 
+            taskId: STATE.currentTaskId, 
+            finalCaption: document.getElementById('finalCaptionDisplay').value 
+        });
+        
+        // 收到成功回應，立刻清除計時器
+        clearInterval(loadingInterval);
+        
         if (!result.success) throw new Error(result.message);
-        btn.innerHTML = '✅ 發布成功！'; btn.classList.replace('bg-green-600', 'bg-gray-500');
-        document.getElementById('btnRegenerate').classList.add('hidden');
+        
+        // UI 變綠色成功狀態
+        btn.innerHTML = '✅ 發布成功！'; 
+        btn.classList.replace('bg-green-600', 'bg-gray-500');
+        
+        const btnRegenerate = document.getElementById('btnRegenerate');
+        if (btnRegenerate) btnRegenerate.classList.add('hidden');
+        
         showToast('🎉 圖文已成功飛上社群平台！', 'success');
+
     } catch (error) {
-        showToast(`❌ 發佈失敗: ${error.message}`, 'error'); btn.disabled = false; btn.innerHTML = '🚀 重試發射';
+        // 發生錯誤，清除計時器，恢復按鈕
+        clearInterval(loadingInterval);
+        showToast(`❌ 發佈失敗: ${error.message}`, 'error'); 
+        btn.disabled = false; 
+        btn.innerHTML = '🚀 重試發射';
     }
 };
 
