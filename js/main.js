@@ -17,9 +17,9 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
-// 🚀 新增：手機防當機「前端圖片壓縮引擎」
+// 🚀 升級：手機防當機「前端圖片壓縮 & 濾鏡引擎」
 // ==========================================
-function compressImageToBase64(file, maxWidth = 1024) {
+function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -40,6 +40,24 @@ function compressImageToBase64(file, maxWidth = 1024) {
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
+
+                // 🌟 核心升級：如果選擇黑白模式，啟動像素級抽色引擎！
+                if (forceGrayscale) {
+                    // 取得畫布上所有的像素資料
+                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const data = imageData.data;
+                    
+                    // 掃描每一個像素 (R, G, B, Alpha)
+                    for (let i = 0; i < data.length; i += 4) {
+                        // 採用符合人眼視覺感知的灰階公式 (Luminance)
+                        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                        data[i] = luminance;     // Red 變成灰階
+                        data[i + 1] = luminance; // Green 變成灰階
+                        data[i + 2] = luminance; // Blue 變成灰階
+                    }
+                    // 將抽色後的像素貼回畫布
+                    ctx.putImageData(imageData, 0, 0);
+                }
 
                 const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
                 
@@ -143,7 +161,8 @@ window.submitNewCharacter = async function() {
     btn.innerHTML = '🧬 正在掃描基因...';
 
     try {
-        const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800);
+        // 角色庫的圖片我們一律保留彩色，這樣以後客戶選彩色模式才能用
+        const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800, false);
         const tenantId = getTenantIdFromToken();
 
         const payload = {
@@ -302,10 +321,15 @@ window.handleMultiImageSelect = async function(input) {
 
     if (!STATE.multiImages) STATE.multiImages = [];
 
+    // 🌟 檢查目前的色彩模式
+    const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
+    const isBW = colorModeElement ? colorModeElement.value === 'BW' : false;
+
     for (let file of newFiles) {
-        showToast('📐 正在壓縮並載入圖片...', 'info');
+        showToast(isBW ? '📐 正在啟動黑白濾鏡並壓縮...' : '📐 正在壓縮圖片...', 'info');
         try {
-            const compressed = await compressImageToBase64(file, 1024);
+            // 如果是黑白模式，強制傳遞 true 啟動抽色引擎
+            const compressed = await compressImageToBase64(file, 1024, isBW);
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
@@ -372,9 +396,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
         const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
+        const isBW = colorModeValue === 'BW'; // 🌟 判斷是否為黑白模式
 
         const payload = {
-            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
+            tenantId: getTenantIdFromToken(),
             platforms: selectedPlatforms, 
             topic: topic, 
             isComicMode: STATE.isComicModeActive,
@@ -408,14 +433,16 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
                 showToast('📐 正在壓縮場景圖片...', 'info');
-                const base64Img = await compressImageToBase64(file, 1024);
+                // 🌟 場景圖也套用黑白濾鏡
+                const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
                 showToast('📐 正在壓縮道具圖片...', 'info');
-                const base64Img = await compressImageToBase64(file, 1024);
+                // 🌟 道具圖也套用黑白濾鏡
+                const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
         }
@@ -485,7 +512,7 @@ window.submitForImageGeneration = async function() {
     try {
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
+            tenantId: getTenantIdFromToken(), 
             editedCaption, 
             editedPanels,
             incomingImages: incomingImagesPayload
@@ -547,7 +574,7 @@ window.publishToSocial = async function() {
     try {
         const result = await API.publishContentAPI({ 
             taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), // 🌟 關鍵新增：附上租戶 ID
+            tenantId: getTenantIdFromToken(), 
             finalCaption: document.getElementById('finalCaptionDisplay').value 
         });
         
@@ -571,7 +598,7 @@ window.publishToSocial = async function() {
     }
 };
 
-// 生成動態影片 (保留結構，雖暫不重點發展)
+// 生成動態影片
 window.generateVideo = async function() {
     const btn = document.getElementById('btnGenerateVideo');
     if (!STATE.currentTaskId) return showToast('❌ 找不到任務 ID！', 'error');
@@ -580,7 +607,7 @@ window.generateVideo = async function() {
         showToast('🎬 正在呼叫 Veo 引擎...', 'info');
         const result = await API.generateVideoAPI({
             taskId: STATE.currentTaskId,
-            tenantId: getTenantIdFromToken(), // 🌟 也順便補上
+            tenantId: getTenantIdFromToken(),
             motionPrompt: document.getElementById('motionSelect').value,
             voiceProfile: {
                 gender: document.getElementById('voiceGender').value,
