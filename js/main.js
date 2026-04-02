@@ -43,19 +43,14 @@ function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
 
                 // 🌟 核心升級：如果選擇黑白模式，啟動像素級抽色引擎！
                 if (forceGrayscale) {
-                    // 取得畫布上所有的像素資料
                     const imageData = ctx.getImageData(0, 0, width, height);
                     const data = imageData.data;
-                    
-                    // 掃描每一個像素 (R, G, B, Alpha)
                     for (let i = 0; i < data.length; i += 4) {
-                        // 採用符合人眼視覺感知的灰階公式 (Luminance)
                         const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                        data[i] = luminance;     // Red 變成灰階
-                        data[i + 1] = luminance; // Green 變成灰階
-                        data[i + 2] = luminance; // Blue 變成灰階
+                        data[i] = luminance;     
+                        data[i + 1] = luminance; 
+                        data[i + 2] = luminance; 
                     }
-                    // 將抽色後的像素貼回畫布
                     ctx.putImageData(imageData, 0, 0);
                 }
 
@@ -103,11 +98,8 @@ window.initSystemData = async function() {
         
         if (optionsRes.success) {
             STATE.globalSystemStyles = optionsRes.data.styles || [];
-            
             if (typeof UI.renderDynamicOptions === 'function') {
                 UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
-            } else {
-                console.error("找不到 UI.renderDynamicOptions 函數！");
             }
         } else {
             showToast('❌ 畫風載入失敗: ' + optionsRes.message, 'error');
@@ -161,19 +153,14 @@ window.submitNewCharacter = async function() {
     btn.innerHTML = '🧬 正在掃描基因...';
 
     try {
-        // 角色庫的圖片我們一律保留彩色，這樣以後客戶選彩色模式才能用
         const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800, false);
         const tenantId = getTenantIdFromToken();
 
         const payload = {
-            name: name,
-            imageBase64: base64ImgInfo.data,
-            mimeType: base64ImgInfo.mimeType,
-            tenantId: tenantId
+            name: name, imageBase64: base64ImgInfo.data, mimeType: base64ImgInfo.mimeType, tenantId: tenantId
         };
 
         const result = await API.createCharacterAPI(payload);
-        
         if (!result.success) throw new Error(result.message);
         
         showToast(result.message, 'success');
@@ -186,8 +173,7 @@ window.submitNewCharacter = async function() {
     } catch(error) {
         showToast(`❌ 建立失敗: ${error.message}`, 'error');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '🧬 開始基因掃描';
+        btn.disabled = false; btn.innerHTML = '🧬 開始基因掃描';
     }
 };
 
@@ -239,7 +225,6 @@ window.onload = async function () {
                     setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
                     
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
-
                     await window.initSystemData(); 
                 }
             } catch (error) {
@@ -256,57 +241,64 @@ window.onload = async function () {
 };
 
 // ==========================================
-// 🌟 升級版：多圖混搭狀態管理與渲染引擎
+// 🌟 升級解鎖版：完全自由配置的多圖渲染引擎
 // ==========================================
 window.renderMultiImages = function() {
     const container = document.getElementById('multiImageContainer');
     const countDisplay = document.getElementById('multiImageCountDisplay');
     
-    if (!STATE.multiImages || STATE.multiImages.length === 0) {
-        STATE.multiImages = [{
-            id: 'main_ai_cover',
-            originalUrl: '', 
-            processType: 'AI_SYNTHESIS',
-            isMain: true 
-        }];
-    }
-
     countDisplay.innerText = STATE.multiImages.length; 
     container.innerHTML = '';
 
     STATE.multiImages.forEach((img, index) => {
         const isAI = img.processType === 'AI_SYNTHESIS';
-        const isMain = img.isMain;
+        const hasOriginal = !!img.originalUrl;
         
         const div = document.createElement('div');
-        div.className = `bg-white p-3 rounded-xl shadow-sm border ${isMain ? 'border-indigo-400 bg-indigo-50/30' : 'border-gray-200'} flex items-center gap-3 relative animate-fade-in`;
+        div.className = `bg-white p-3 rounded-xl shadow-sm border ${!hasOriginal ? 'border-indigo-400 bg-indigo-50/30' : 'border-gray-200'} flex items-center gap-3 relative animate-fade-in`;
         
         let html = '';
         
-        if (!isMain) {
-            html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
-        }
+        // 🔓 關鍵解鎖：現在【所有】圖片都可以刪除了！
+        html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
         
-        html += `<img src="${isMain ? 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png' : img.originalUrl}" class="w-16 h-16 object-cover rounded-lg border ${isMain ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
+        html += `<img src="${hasOriginal ? img.originalUrl : 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png'}" class="w-16 h-16 object-cover rounded-lg border ${!hasOriginal ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
         
         html += `<div class="flex-grow">`;
-        html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${isMain ? '🌟 貼文主視覺 (根據腳本生成)' : '附加圖片 ' + index}</h4>`;
+        html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${!hasOriginal ? '🌟 AI 腳本配圖' : '附加圖片 ' + (index + 1)}</h4>`;
         
-        if (isMain) {
-            html += `<span class="bg-indigo-100 text-indigo-800 text-xs font-bold px-2 py-1 rounded">🤖 強制 AI 算圖</span>`;
-            html += `<p class="text-[10px] text-indigo-500 mt-1">包含四格漫畫或攝影主圖</p>`;
-        } else {
-            html += `
-            <div class="flex bg-gray-100 rounded-lg p-1 w-max">
-                <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
-                <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>
-            </div>`;
+        // 🔘 切換按鈕
+        html += `
+        <div class="flex bg-gray-100 rounded-lg p-1 w-max">
+            <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
+        `;
+        // 如果客戶沒有上傳原圖，就不能選「原圖直發」
+        if (hasOriginal) {
+            html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>`;
         }
+        html += `</div></div>`;
         
-        html += `</div>`;
         div.innerHTML = html;
         container.appendChild(div);
     });
+
+    // ➕ 動態加入「新增 AI 算圖」按鈕
+    if (STATE.multiImages.length < 10) {
+        const addBtnDiv = document.createElement('div');
+        addBtnDiv.className = "w-full mt-2 animate-fade-in";
+        addBtnDiv.innerHTML = `<button type="button" onclick="window.addAITemplate()" class="w-full py-2 border-2 border-dashed border-indigo-300 text-indigo-500 rounded-xl hover:bg-indigo-50 text-sm font-bold transition-colors">➕ 新增一張 AI 算圖卡位</button>`;
+        container.appendChild(addBtnDiv);
+    }
+};
+
+window.addAITemplate = function() {
+    if (STATE.multiImages.length >= 10) return showToast('❌ 最多只能 10 張圖片！', 'error');
+    STATE.multiImages.push({
+        id: `img_ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        originalUrl: '',
+        processType: 'AI_SYNTHESIS'
+    });
+    window.renderMultiImages();
 };
 
 window.handleMultiImageSelect = async function(input) {
@@ -321,14 +313,12 @@ window.handleMultiImageSelect = async function(input) {
 
     if (!STATE.multiImages) STATE.multiImages = [];
 
-    // 🌟 檢查目前的色彩模式
     const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
     const isBW = colorModeElement ? colorModeElement.value === 'BW' : false;
 
     for (let file of newFiles) {
         showToast(isBW ? '📐 正在啟動黑白濾鏡並壓縮...' : '📐 正在壓縮圖片...', 'info');
         try {
-            // 如果是黑白模式，強制傳遞 true 啟動抽色引擎
             const compressed = await compressImageToBase64(file, 1024, isBW);
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -359,7 +349,6 @@ window.toggleMultiImageType = function(id, type) {
 // 🌟 流程提交控制
 // ==========================================
 
-// 提交步驟一：生成腳本
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('btnStep1Submit');
@@ -396,7 +385,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
         const colorModeValue = colorModeElement ? colorModeElement.value : 'COLOR';
-        const isBW = colorModeValue === 'BW'; // 🌟 判斷是否為黑白模式
+        const isBW = colorModeValue === 'BW'; 
 
         const payload = {
             tenantId: getTenantIdFromToken(),
@@ -433,7 +422,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
                 showToast('📐 正在壓縮場景圖片...', 'info');
-                // 🌟 場景圖也套用黑白濾鏡
                 const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
@@ -441,7 +429,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
                 showToast('📐 正在壓縮道具圖片...', 'info');
-                // 🌟 道具圖也套用黑白濾鏡
                 const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
@@ -452,7 +439,12 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         STATE.currentTaskId = result.taskId; 
         
-        STATE.multiImages = [];
+        // 🌟 進入第二步時，預設先給 1 張 AI 卡位，但客戶現在可以自由刪除它了！
+        STATE.multiImages = [{
+            id: `img_ai_cover_${Date.now()}`,
+            originalUrl: '',
+            processType: 'AI_SYNTHESIS'
+        }];
         window.renderMultiImages();
 
         document.getElementById('step1-setup').classList.add('hidden');
@@ -491,7 +483,13 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 // 提交步驟二：發包生圖
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
-    btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 正在極速生圖中...';
+    
+    // 🛡️ 發包前防呆：社群貼文至少要有一張圖
+    if (!STATE.multiImages || STATE.multiImages.length === 0) {
+        return showToast('❌ 貼文至少需要 1 張圖片！請上傳原圖或新增 AI 算圖。', 'error');
+    }
+
+    btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 處理圖片中...';
     
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -502,12 +500,10 @@ window.submitForImageGeneration = async function() {
         }
     }
 
-    const incomingImagesPayload = (STATE.multiImages && STATE.multiImages.length > 0) 
-        ? STATE.multiImages.map(img => ({
-            processType: img.processType,
-            originalUrl: img.originalUrl
-        })) 
-        : [];
+    const incomingImagesPayload = STATE.multiImages.map(img => ({
+        processType: img.processType,
+        originalUrl: img.originalUrl
+    }));
 
     try {
         const result = await API.generateImageAPI({ 
