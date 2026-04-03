@@ -573,20 +573,31 @@ window.publishToSocial = async function() {
     }
 
     try {
-        const result = await API.publishContentAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), 
-            finalCaption: document.getElementById('finalCaptionDisplay').value, 
-            scheduledAt: scheduledAt 
-        });
-        
+        const result = await API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt: scheduledAt });
         if (window.loadingInterval) clearInterval(window.loadingInterval);
-        
         if (!result.success) throw new Error(result.message);
         
         btn.innerHTML = isScheduled ? '✅ 預約排程成功！' : '✅ 發布成功！'; 
         btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
         showToast(isScheduled ? '🗓️ 任務已加入排程隊列！機器人會準時發射！' : '🎉 圖文已成功飛上社群平台！', 'success');
+
+        // 👇👇👇 🌟 這裡開始是新增的 UX 魔法 👇👇👇
+        setTimeout(() => {
+            btn.disabled = false; // 解除封印
+            btn.classList.replace('bg-gray-500', 'bg-blue-600'); // 變成耀眼的藍色
+            btn.innerHTML = '✨ 太棒了！再來寫一篇新貼文！';
+            btn.onclick = window.resetToStep1; // 暫時把按鈕的發射功能，換成「回到第一步」
+
+            // 任務已經完成，隱藏「返回修改」按鈕
+            const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
+            if (backBtn) backBtn.classList.add('hidden');
+            
+            // 隱藏原本上方那條容易誤會的「捨棄進度」按鈕，讓畫面更乾淨
+            const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
+            if (topResetBtn && topResetBtn !== btn) topResetBtn.classList.add('hidden');
+        }, 2500); // 讓客戶欣賞「發布成功」 2.5 秒後變身
+        // 👆👆👆 🌟 魔法結束 👆👆👆
+
     } catch (error) {
         if (window.loadingInterval) clearInterval(window.loadingInterval);
         showToast(`❌ 發佈/排程失敗: ${error.message}`, 'error'); 
