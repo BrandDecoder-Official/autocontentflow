@@ -292,11 +292,15 @@ window.addAITemplate = function() {
     window.renderMultiImages();
 };
 
+// ==========================================
+// 📸 處理第二步 (Step 2) 輪播圖上傳的專屬函數
+// ==========================================
 window.handleMultiImageSelect = async function(input) {
     const maxAllowed = 10;
     const currentCount = STATE.multiImages ? STATE.multiImages.length : 0;
     const newFiles = Array.from(input.files);
 
+    // 🛡️ 防呆機制：限制總圖片張數不可超過 Meta 社群上限 (10張)
     if (currentCount + newFiles.length > maxAllowed) {
         showToast(`❌ 最多只能上傳 ${maxAllowed} 張圖片！`, 'error');
         return;
@@ -304,24 +308,35 @@ window.handleMultiImageSelect = async function(input) {
 
     if (!STATE.multiImages) STATE.multiImages = [];
 
-    const colorModeElement = document.querySelector('input[name="colorMode"]:checked');
-    const isBW = colorModeElement ? colorModeElement.value === 'BW' : false;
-
+    // 🌟 【重大商業邏輯修正】
+    // 這裡「不要」去讀取第一步的色彩模式 (colorMode)。
+    // 因為客戶在第二步上傳的圖片，通常是「真實商品照/實境照」(例如火鍋實拍)，
+    // 這些圖片必須「100% 保留原始彩色」，供後續「原圖直發」使用。
+    // 如果把實拍圖也變成黑白，發到 IG/Threads 上商品就不吸睛了！
+    // (註：第一步上傳給 AI 當作「參考圖」的場景/道具，才需要在第一步被強制轉黑白)
+    
     for (let file of newFiles) {
-        showToast(isBW ? '📐 正在啟動黑白濾鏡並壓縮...' : '📐 正在壓縮圖片...', 'info');
+        showToast('📐 正在壓縮附加實拍圖片...', 'info');
         try {
-            const compressed = await compressImageToBase64(file, 1024, isBW);
+            // 💡 參數 1: file (原始檔案)
+            // 💡 參數 2: 1024 (最大寬度 1024px，符合社群標準並加速上傳)
+            // 💡 參數 3: false (【絕對不啟動】黑白抽色濾鏡，確保原圖保持彩色！)
+            const compressed = await compressImageToBase64(file, 1024, false);
+            
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'ORIGINAL'
+                processType: 'ORIGINAL' // 預設標記為「原圖直發」，不扣 AI 點數
             });
         } catch(e) {
             console.error(e);
             showToast('❌ 圖片壓縮失敗', 'error');
         }
     }
+    
+    // 清空 input，允許客戶重複選擇同一張(或同檔名)的圖片
     input.value = ''; 
+    // 重新渲染畫面，把新加入的彩色圖片顯示在畫面上
     window.renderMultiImages();
 };
 
