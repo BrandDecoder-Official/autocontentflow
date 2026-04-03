@@ -15,15 +15,17 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-        /* 專為對話牆設計的隱藏式滾動條 */
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         .char-item { border: 1px solid #e5e7eb; padding: 12px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; }
         .sticky-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid #e5e7eb; padding: 16px; z-index: 40; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); }
-        
-        /* Modal 專用樣式 */
         .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
         .modal-content { max-height: 90vh; overflow-y: auto; }
+        /* 正在輸入中的跳動點點特效 */
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
     </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center pt-8 px-4">
@@ -32,9 +34,7 @@
         <div class="text-6xl mb-4">🤖</div>
         <h1 class="text-3xl font-black text-gray-900 mb-2">系統登入</h1>
         <p class="text-gray-500 mb-8 text-center font-medium">BrandDecoder 行動工作室</p>
-        
         <div id="googleButtonDiv"></div>
-        
         <div id="loginMessage" class="text-center text-sm transition-all duration-300 w-full mt-2"></div>
     </div>
 
@@ -47,7 +47,7 @@
                 </h3>
                 <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded font-bold border border-gray-700">BrandDecoder Agent Engine</span>
             </div>
-            <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar pb-2">
+            <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar pb-2 scroll-smooth">
             </div>
         </div>
 
@@ -58,7 +58,6 @@
             </div>
 
             <form id="agentForm" class="w-full space-y-5">
-                
                 <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                     <div class="space-y-5">
                         <div>
@@ -78,7 +77,6 @@
                                 </label>
                             </div>
                         </div>
-                        
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">✍️ 輸入主題 <span class="text-blue-600 text-xs ml-2">(場景 + 動作 + 情緒)</span></label>
                             <textarea id="topic" rows="3" placeholder="例如：在海底撈門口，老K跟著人群乖乖排隊，但他等到滿頭大汗、表情非常無奈。" class="block p-3 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
@@ -119,15 +117,8 @@
                                 </label>
                             </div>
                         </div>
-                        
-                        <div>
-                            <label class="block text-xs font-bold text-gray-500 mt-4 mb-2">🎬 Veo 動態效果 (由資料庫載入)</label>
-                            <select id="motionSelect" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
-                                <option value="">請先選擇畫風...</option>
-                            </select>
-                        </div>
 
-                        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200">
+                        <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200 mt-4">
                             <div>
                                 <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
                                 <select id="aspectRatioSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-medium text-sm cursor-pointer">
@@ -149,7 +140,6 @@
                 </div>
 
                 <div id="characterSection" class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
-                    
                     <div class="mb-5 pb-5 border-b border-gray-200">
                         <div class="flex justify-between items-center mb-3">
                             <h2 class="text-md font-bold text-blue-800 flex items-center">
@@ -158,7 +148,6 @@
                             <button type="button" onclick="window.openCreateCharModal()" class="text-white text-xs font-bold bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">+ 新增專屬角色</button>
                         </div>
                         <p class="text-xs text-gray-500 mb-3">💡 點擊下方頭像，即可將該角色加入本次發文 (最多支援 4 位同框)。</p>
-                        
                         <div id="dbCharacterContainer" class="flex flex-wrap gap-4">
                             <span class="text-xs text-gray-400">連線資料庫中...</span>
                         </div>
@@ -170,9 +159,8 @@
                                 <span class="mr-2">👥</span> 本次登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                             </h2>
                         </div>
-                        <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬/動漫人物，AI 將自動轉換為具備類似特徵的「仿真真人」形象。</p>
-                        <div id="characterList" class="space-y-3">
-                        </div>
+                        <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬人物，AI 將自動轉換為「仿真真人」形象。</p>
+                        <div id="characterList" class="space-y-3"></div>
                     </div>
                 </div>
 
@@ -247,8 +235,7 @@
                 </div>
                 <p class="text-xs text-indigo-600 font-bold mb-4">您可以上傳實拍原圖，並自由切換這張圖是要「AI 算圖」還是「原圖直發」。</p>
 
-                <div id="multiImageContainer" class="space-y-3 mb-4">
-                </div>
+                <div id="multiImageContainer" class="space-y-3 mb-4"></div>
 
                 <input type="file" id="multiImageInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleMultiImageSelect(this)">
                 <button type="button" onclick="document.getElementById('multiImageInput').click()" class="w-full bg-white border-2 border-dashed border-indigo-300 text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-100 transition-all">
@@ -291,39 +278,7 @@
                            class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-sm shadow-sm transition-all">
                 </div>
 
-                <div class="text-left bg-gray-50 p-4 rounded-xl border-2 border-gray-200 shadow-inner relative z-10">
-                    <h2 class="text-md font-black text-gray-700 flex items-center mb-3">
-                        <span class="mr-2">🎙️</span> 專屬配音與動態影片 <span class="text-xs text-gray-400 ml-2">(暫未開放)</span>
-                    </h2>
-                    <div class="grid grid-cols-3 gap-2 mb-4 opacity-50 pointer-events-none">
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 mb-1">性別</label>
-                            <select id="voiceGender" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
-                                <option value="M">👨 男聲</option>
-                                <option value="F">👩 女聲</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 mb-1">口音</label>
-                            <select id="voiceAccent" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
-                                <option value="TW">🇹🇼 台灣腔</option>
-                                <option value="CN">🇨🇳 大陸腔</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-gray-400 mb-1">語氣</label>
-                            <select id="voiceTone" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
-                                <option value="沉穩">沉穩</option>
-                                <option value="激動">激動</option>
-                                <option value="厭世" selected>厭世</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="button" id="btnGenerateVideo" class="w-full bg-gray-100 text-gray-400 border-2 border-gray-200 font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm cursor-not-allowed">
-                        🎬 影音引擎升級中，敬請期待
-                    </button>
                 </div>
-            </div>
 
             <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
                 <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all shadow-sm">
@@ -349,10 +304,8 @@
                 <h3 class="text-lg font-black text-blue-800">✨ 建立新專屬角色</h3>
                 <button onclick="window.closeCreateCharModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
             </div>
-            
             <div class="p-5 space-y-4">
                 <p class="text-xs text-gray-500 font-medium">上傳清晰的頭像或全身照，AI 將自動解析並鎖定其視覺特徵基因。</p>
-                
                 <div class="w-full flex justify-center">
                     <div class="relative w-28 h-28 bg-blue-50 rounded-full border-2 border-dashed border-blue-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group shadow-inner" onclick="document.getElementById('newCharImage').click()">
                         <span class="text-xs text-blue-500 font-bold group-hover:text-blue-700 z-10">+ 點擊上傳圖片</span>
@@ -360,14 +313,11 @@
                         <input type="file" id="newCharImage" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="window.previewCharImage(this, 'newCharPreview')">
                     </div>
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">角色名稱 (必填)</label>
                     <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold focus:ring-blue-500 focus:border-blue-500">
                 </div> 
-                
             </div>
-            
             <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl flex justify-end gap-3">
                 <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100">取消</button>
                 <button type="button" id="btnSubmitNewChar" onclick="window.submitNewCharacter()" class="px-5 py-2 text-sm font-black text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md transition-all flex items-center">
@@ -376,7 +326,6 @@
             </div>
         </div>
     </div>
-
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center z-50 text-sm whitespace-nowrap">
         <span id="toastMsg">系統訊息</span>
     </div> 
