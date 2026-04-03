@@ -307,7 +307,79 @@
                     <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
                         🚀 發射！
                     </button>
+                </div><div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
+            <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
+                <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-between">
+                    <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
+                    <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
+                </h2>
+                
+                <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner">
+                    <span class="text-gray-400 font-medium">圖片載入中...</span>
                 </div>
+
+                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10 mb-5">
+                    <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
+                    <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
+                </div>
+
+                <div class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner relative z-10 mb-5">
+                    <label class="block text-sm font-black text-indigo-800 mb-1 flex items-center">
+                        <span class="mr-2">🗓️</span> 預約排程發佈 (選填)
+                    </label>
+                    <p class="text-[11px] text-indigo-500 mb-3 font-bold">如果不選時間，按下發送後系統將會立刻為您發佈貼文。</p>
+                    
+                    <input type="datetime-local" id="scheduleTime" 
+                           onchange="document.getElementById('btnPublish').innerHTML = this.value ? '🗓️ 寫入預約排程' : '🚀 立刻發射！'" 
+                           class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-sm shadow-sm transition-all">
+                </div>
+
+                <div class="text-left bg-gray-50 p-4 rounded-xl border-2 border-gray-200 shadow-inner relative z-10">
+                    <h2 class="text-md font-black text-gray-700 flex items-center mb-3">
+                        <span class="mr-2">🎙️</span> 專屬配音與動態影片 <span class="text-xs text-gray-400 ml-2">(暫未開放)</span>
+                    </h2>
+                    <div class="grid grid-cols-3 gap-2 mb-4 opacity-50 pointer-events-none">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1">性別</label>
+                            <select id="voiceGender" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
+                                <option value="M">👨 男聲</option>
+                                <option value="F">👩 女聲</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1">口音</label>
+                            <select id="voiceAccent" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
+                                <option value="TW">🇹🇼 台灣腔</option>
+                                <option value="CN">🇨🇳 大陸腔</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-400 mb-1">語氣</label>
+                            <select id="voiceTone" class="w-full bg-white border border-gray-200 text-gray-500 rounded-lg p-2 font-bold text-sm">
+                                <option value="沉穩">沉穩</option>
+                                <option value="激動">激動</option>
+                                <option value="厭世" selected>厭世</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="button" id="btnGenerateVideo" class="w-full bg-gray-100 text-gray-400 border-2 border-gray-200 font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm cursor-not-allowed">
+                        🎬 影音引擎升級中，敬請期待
+                    </button>
+                </div>
+            </div>
+
+            <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
+                <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
+                    🏠 開啟新任務 (清除主題與場景，保留角色)
+                </button>
+                <div class="flex gap-3 w-full">
+                    <button type="button" id="btnRegenerate" onclick="window.submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
+                    <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                        🚀 立刻發射！
+                    </button>
+                </div>
+            </div>
+        </div>
             </div>
         </div>
 
