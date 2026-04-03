@@ -85,6 +85,13 @@ window.backToStep1 = function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+// 🌟 返回第二步 (從第三步退回)
+window.backToStep2 = function() {
+    document.getElementById('step3-publish').classList.add('hidden');
+    document.getElementById('step2-review').classList.remove('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
 window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
