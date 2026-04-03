@@ -173,8 +173,11 @@ window.submitNewCharacter = async function() {
         }
     } catch(error) {
         showToast(`❌ 建立失敗: ${error.message}`, 'error');
-    } finally {
-        btn.disabled = false; btn.innerHTML = '🧬 開始基因掃描';
+    }} finally {
+        clearInterval(loadingInterval); // 🛑 停止跑馬燈
+        btn.disabled = false; 
+        btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
+        btnText.innerText = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
     }
 };
 
@@ -300,7 +303,6 @@ window.handleMultiImageSelect = async function(input) {
     const currentCount = STATE.multiImages ? STATE.multiImages.length : 0;
     const newFiles = Array.from(input.files);
 
-    // 🛡️ 防呆機制：限制總圖片張數不可超過 Meta 社群上限 (10張)
     if (currentCount + newFiles.length > maxAllowed) {
         showToast(`❌ 最多只能上傳 ${maxAllowed} 張圖片！`, 'error');
         return;
@@ -308,35 +310,22 @@ window.handleMultiImageSelect = async function(input) {
 
     if (!STATE.multiImages) STATE.multiImages = [];
 
-    // 🌟 【重大商業邏輯修正】
-    // 這裡「不要」去讀取第一步的色彩模式 (colorMode)。
-    // 因為客戶在第二步上傳的圖片，通常是「真實商品照/實境照」(例如火鍋實拍)，
-    // 這些圖片必須「100% 保留原始彩色」，供後續「原圖直發」使用。
-    // 如果把實拍圖也變成黑白，發到 IG/Threads 上商品就不吸睛了！
-    // (註：第一步上傳給 AI 當作「參考圖」的場景/道具，才需要在第一步被強制轉黑白)
-    
+    // 🌟 修正：不讀取第一步的 colorMode，強制設為 false，附加圖片永遠保持彩色
     for (let file of newFiles) {
         showToast('📐 正在壓縮附加實拍圖片...', 'info');
         try {
-            // 💡 參數 1: file (原始檔案)
-            // 💡 參數 2: 1024 (最大寬度 1024px，符合社群標準並加速上傳)
-            // 💡 參數 3: false (【絕對不啟動】黑白抽色濾鏡，確保原圖保持彩色！)
             const compressed = await compressImageToBase64(file, 1024, false);
-            
             STATE.multiImages.push({
                 id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
                 originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'ORIGINAL' // 預設標記為「原圖直發」，不扣 AI 點數
+                processType: 'ORIGINAL'
             });
         } catch(e) {
             console.error(e);
             showToast('❌ 圖片壓縮失敗', 'error');
         }
     }
-    
-    // 清空 input，允許客戶重複選擇同一張(或同檔名)的圖片
     input.value = ''; 
-    // 重新渲染畫面，把新加入的彩色圖片顯示在畫面上
     window.renderMultiImages();
 };
 
@@ -479,6 +468,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
         console.error(error); 
     } finally {
+        clearInterval(loadingInterval); // 🛑 停止跑馬燈
         btn.disabled = false; 
         btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
         btnText.innerText = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
@@ -487,12 +477,35 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
+    const btnText = document.getElementById('btnTextStep2');
     
     if (!STATE.multiImages || STATE.multiImages.length === 0) {
         return showToast('❌ 貼文至少需要 1 張圖片！請上傳原圖或新增 AI 算圖。', 'error');
     }
 
-    btn.disabled = true; document.getElementById('btnTextStep2').innerText = '🎨 處理圖片中...';
+    // 🎭 UX 魔法：虛擬團隊進度跑馬燈 (生圖版)
+    const loadingMessages = [
+        '👨‍🎨 美術總監：正在調色與構圖分析...',
+        '🤖 算圖農場：正在為您極速生成精美圖片...',
+        '☁️ 系統：正在將圖片上傳至雲端空間...',
+        '✨ 即將完成，正在準備發射控制台...'
+    ];
+    let msgIndex = 0;
+
+    btn.disabled = true; 
+    btn.classList.replace('bg-blue-600', 'bg-gray-500'); // 按鈕變灰
+    
+    // 🌟 加入旋轉圈圈 (Spinner)
+    const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm">${loadingMessages[0]}</span>`;
+    
+    // 每 3 秒切換一句匯報進度
+    const loadingInterval = setInterval(() => {
+        msgIndex++;
+        if (msgIndex < loadingMessages.length) {
+            btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${loadingMessages[msgIndex]}</span>`;
+        }
+    }, 3000);
     
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -539,7 +552,10 @@ window.submitForImageGeneration = async function() {
     } catch (error) {
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
-        btn.disabled = false; document.getElementById('btnTextStep2').innerText = '🎨 2️⃣ 第二步：發包生圖';
+        clearInterval(loadingInterval); // 🛑 停止跑馬燈
+        btn.disabled = false; 
+        btn.classList.replace('bg-gray-500', 'bg-blue-600'); // 按鈕恢復藍色
+        btnText.innerHTML = '<span class="text-xl mr-2">🎨</span> 2️⃣ 第二步：發包生圖';
     }
 };
 
@@ -558,31 +574,31 @@ window.publishToSocial = async function() {
     if (isScheduled) {
         btn.innerHTML = '🗓️ 正在寫入預約排程...';
     } else {
-        const loadingMessages = [
-            '🚀 正在啟動發射程序...',
-            '📦 正在打包您的精美圖片...',
-            '⏳ 圖片傳輸至 Meta 伺服器中...',
-            '☕ 圖片數量越多需要越久，請耐心等候...',
-            '🧵 正在為 IG/Threads 建立輪播相簿...',
-            '✨ 進入最後發佈階段，請勿關閉網頁！...'
-        ];
-        
-        let msgIndex = 0;
-        btn.innerHTML = loadingMessages[0];
-        
-        // 只有「立刻發佈」才需要跑馬燈，排程瞬間就寫入資料庫了
-        window.loadingInterval = setInterval(() => {
-            msgIndex++;
-            if (msgIndex < loadingMessages.length) {
-                btn.innerHTML = loadingMessages[msgIndex];
-            } else {
-                const dots = '.'.repeat((msgIndex - loadingMessages.length) % 4);
-                btn.innerHTML = loadingMessages[loadingMessages.length - 1].replace('...', '') + dots;
-            }
-        }, 6000);
-    }
+        // 🎭 UX 魔法：虛擬團隊進度跑馬燈
+    const loadingMessages = [
+        '👨‍💼 社群總監：正在分析您的 Hashtag 策略...',
+        '👁️ 視覺工程師：正在提取角色與場景基因...',
+        '✍️ 首席文案：正在為您撰寫極具爆發力的社群對白...',
+        '⚙️ 系統：正在進行最後封裝，請稍候...'
+    ];
+    let msgIndex = 0;
+
+    btn.disabled = true; 
+    btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
+    
+    // 🌟 加入旋轉圈圈 (Spinner)
+    const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    btnText.innerHTML = `${spinnerHtml} <span class="ml-1">${loadingMessages[0]}</span>`;
+    
+    const loadingInterval = setInterval(() => {
+        msgIndex++;
+        if (msgIndex < loadingMessages.length) {
+            btnText.innerHTML = `${spinnerHtml} <span class="ml-1 animate-fade-in">${loadingMessages[msgIndex]}</span>`;
+        }
+    }, 2500); // 每 2.5 秒切換一句
 
     try {
+        // ... (中間原本的 API 呼叫邏輯完全不動) ...
         // 🚀 發送給後端，多帶一個 scheduledAt 參數
         const result = await API.publishContentAPI({ 
             taskId: STATE.currentTaskId, 
