@@ -7,17 +7,17 @@ import * as UI from './ui.js';
 // ==========================================
 // 🌟 綁定 UI 函數到全域 (Window)
 // ==========================================
-window.switchMode = UI.switchMode;
+// 注意：部分函數在下方的「行為驅動 UX」區塊中被重新包裝以觸發 AI 對話
 window.toggleSection = UI.toggleSection;
 window.previewCharImage = UI.previewCharImage;
-window.handleFileSelect = UI.handleFileSelect;
 window.removeFileFromArray = UI.removeFileFromArray;
 window.resetToStep1 = UI.resetToStep1;
 window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
+
 // ==========================================
-// 🤖 核心大腦對話牆控制 (Agentic UX) 終極打字版
+// 🤖 核心大腦對話牆控制 (常駐指揮中心版)
 // ==========================================
 window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -34,7 +34,7 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
     const logEl = document.getElementById('aiTeamConsoleLog');
     if (!logEl) return;
 
-    // 清除上一個人的 spinner
+    // 清除上一個人的 spinner 轉圈圈
     const oldSpinners = logEl.querySelectorAll('.agent-spinner');
     oldSpinners.forEach(s => s.remove());
 
@@ -43,7 +43,7 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
     div.id = divId;
     div.className = 'flex items-start gap-3 animate-slide-up bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-inner mt-3';
     
-    // 1. 先顯示打字動畫
+    // 1. 先顯示正在輸入的跳動點點特效
     div.innerHTML = `
         <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
         <div class="flex-grow flex flex-col justify-center">
@@ -58,11 +58,11 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight; 
 
-    // 2. 模擬打字時間 (0.8秒 ~ 1.2秒)
+    // 2. 模擬真人打字時間 (0.8秒 ~ 1.2秒)
     const typingTime = Math.floor(Math.random() * 400) + 800;
     await window.sleep(typingTime);
 
-    // 3. 替換成真實對話
+    // 3. 替換成真實對話內容
     const targetDiv = document.getElementById(divId);
     if (targetDiv) {
         let spinnerHtml = isFinalSpinner ? `<svg class="agent-spinner animate-spin ml-2 h-4 w-4 text-green-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : '';
@@ -78,9 +78,97 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
 };
 
 window.hideAgentConsole = function() {
-    const consoleEl = document.getElementById('aiTeamConsole');
-    if (consoleEl) consoleEl.classList.add('hidden');
+    // 刻意留空：讓指揮中心永遠常駐，不隱藏
 };
+
+
+// ==========================================
+// 🌟 UX 魔法：行為驅動對話 (Action-Driven UI)
+// ==========================================
+
+// 1. 攔截畫風模式切換
+const originalSwitchMode = UI.switchMode;
+window.switchMode = async function(isComic) {
+    originalSwitchMode(isComic);
+    if (isComic) {
+        await window.addAgentLog('美術總監', '👨‍🎨', '已切換至「🦸‍♂️ 動漫宇宙」引擎，隨時準備載入專屬渲染風格！');
+    } else {
+        await window.addAgentLog('美術總監', '👨‍🎨', '已切換至「📸 真實攝影」引擎，將為您生成高質感實境照片！');
+    }
+};
+
+// 2. 攔截實境/道具圖片上傳
+const originalHandleFileSelect = UI.handleFileSelect;
+window.handleFileSelect = async function(input, type, max, previewId) {
+    originalHandleFileSelect(input, type, max, previewId);
+    if (input.files && input.files.length > 0) {
+        if (type === 'scene') {
+            await window.addAgentLog('影像處理組', '📐', '收到實境背景圖！我先放在暫存區備用，等待融合指令。');
+        } else if (type === 'object') {
+            await window.addAgentLog('影像處理組', '📐', '收到道具/商品圖！這會讓畫面細節更豐富。');
+        }
+    }
+};
+
+// 3. 註冊其他所有表單互動的狀態監視器
+window.initInteractions = function() {
+    // 狀態記憶體：用來防洗頻
+    window.CURRENT_USER_STATE = {
+        topic: ''
+    };
+
+    // 監聽：發布平台勾選
+    ['platFB', 'platIG', 'platThreads'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', async (e) => {
+                const platform = e.target.nextElementSibling.innerText.trim();
+                if (e.target.checked) {
+                    await window.addAgentLog('社群總監', '🚀', `已為您鎖定 ${platform} 平台，準備套用專屬排版規範。`);
+                } else {
+                    await window.addAgentLog('社群總監', '🚀', `已取消 ${platform} 發佈設定。`);
+                }
+            });
+        }
+    });
+
+    // 監聽：畫風選擇 (Delegate 綁定，因為是動態生成的 radio)
+    const styleContainer = document.getElementById('styleRadioContainer');
+    if (styleContainer) {
+        styleContainer.addEventListener('change', async (e) => {
+            if (e.target.name === 'targetStyle') {
+                const styleName = e.target.nextElementSibling.innerText.trim();
+                await window.addAgentLog('美術總監', '👨‍🎨', `了解！已載入「${styleName}」渲染模型，期待接下來的視覺表現！`);
+            }
+        });
+    }
+
+    // 監聽：色彩模式 (彩色/黑白)
+    document.querySelectorAll('input[name="colorMode"]').forEach(radio => {
+        radio.addEventListener('change', async (e) => {
+            if (e.target.value === 'BW') {
+                await window.addAgentLog('美術總監', '👨‍🎨', '收到！已切換為「經典黑白網點」模式，準備為您加上充滿張力的墨線。');
+            } else {
+                await window.addAgentLog('美術總監', '👨‍🎨', '沒問題，我們換回「🌈 彩色」模式，保持高飽和度的視覺衝擊！');
+            }
+        });
+    });
+
+    // 監聽：腳本主題 Input Blur (失去焦點時判斷是否改變)
+    const topicInput = document.getElementById('topic');
+    if (topicInput) {
+        topicInput.addEventListener('blur', async (e) => {
+            const val = e.target.value.trim();
+            // 只有在真的有打字，且內容跟上次不一樣時，才觸發回應
+            if (val && val !== window.CURRENT_USER_STATE.topic) {
+                window.CURRENT_USER_STATE.topic = val;
+                const shortVal = val.length > 15 ? val.substring(0, 15) + '...' : val;
+                await window.addAgentLog('專案總監', '👨‍💼', `收到主題！「${shortVal}」這個情境非常有畫面感，我已記錄在案。`);
+            }
+        });
+    }
+};
+
 
 // ==========================================
 // 🚀 升級：手機防當機「前端圖片壓縮 & 濾鏡引擎」
@@ -144,7 +232,10 @@ function getTenantIdFromToken() {
     }
 }
 
+
+// ==========================================
 // 🌟 返回功能
+// ==========================================
 window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
@@ -156,6 +247,7 @@ window.backToStep2 = function() {
     document.getElementById('step2-review').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
+
 
 // ==========================================
 // 🌟 系統初始化與角色操作
@@ -179,7 +271,7 @@ window.initSystemData = async function() {
     }
 };
 
-window.addCharacterFromDB = (dbChar) => {
+window.addCharacterFromDB = async (dbChar) => {
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) {
         showToast('❌ 最多只能新增 4 位角色！', 'error');
@@ -205,6 +297,9 @@ window.addCharacterFromDB = (dbChar) => {
     `;
     list.appendChild(item);
     showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
+
+    // 🌟 AI 互動回饋
+    await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！他今天會穿哪一套衣服呢？`);
 };
 
 window.submitNewCharacter = async function() {
@@ -267,6 +362,9 @@ window.deleteChar = async function(charId) {
     }
 };
 
+// ==========================================
+// 🌟 Google 登入與啟動晨會
+// ==========================================
 window.onload = async function () {
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
@@ -295,7 +393,17 @@ window.onload = async function () {
                     setTimeout(() => { mainApp.classList.remove('opacity-0'); }, 100);
                     
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
+                    
                     await window.initSystemData(); 
+                    window.initInteractions(); // 啟動互動監視器
+
+                    // 🎬 開局晨會劇本：一次性報告
+                    setTimeout(async () => {
+                        window.resetAgentConsole();
+                        await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 行動工作室已就緒，等待您的指令。');
+                        await window.addAgentLog('社群總監', '🚀', '目前尚未指定發佈平台，請先在左側為我們勾選戰場 (FB / IG / Threads)！');
+                        await window.addAgentLog('美術總監', '👨‍🎨', '報告總編，目前預設為「🌈 彩色模式」與「1:1 正方比例」，您可以隨時依據企劃切換喔！');
+                    }, 1000);
                 }
             } catch (error) {
                 loginMsg.innerHTML = `❌ 登入失敗：${error.message}`;
@@ -309,6 +417,7 @@ window.onload = async function () {
         { theme: "outline", size: "large", width: 300, shape: "pill" }
     );
 };
+
 
 // ==========================================
 // 🌟 處理圖片渲染與上傳
@@ -403,6 +512,7 @@ window.toggleMultiImageType = function(id, type) {
     window.renderMultiImages();
 };
 
+
 // ==========================================
 // 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版 + 延遲)
 // ==========================================
@@ -438,9 +548,9 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     btnText.innerHTML = '⚡ 執行中，請看上方進度...';
     
-    // 🌟 啟動對話牆
+    // 🌟 啟動進度對話 (會清空前面的晨會聊天記錄)
     window.resetAgentConsole();
-    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文主題！正在為您建立任務卷宗，並解析平台設定...', true);
+    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在為您打包卷宗，並解析平台設定...', true);
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -478,7 +588,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const charItems = document.querySelectorAll('#characterList .char-item');
         if (charItems.length > 0) {
-            await window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在提取視覺特徵...`, true);
+            await window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在將特徵轉換為 AI 參數...`, true);
         }
         
         for (let item of charItems) {
@@ -497,7 +607,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
         if (totalFilesToCompress > 0) {
-            await window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與特徵分析...`, true);
+            await window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與邊緣特徵分析...`, true);
         }
 
         if (!document.getElementById('skipScene').checked) {
@@ -514,7 +624,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        await window.addAgentLog('首席文案', '✍️', '正在與 Gemini 核心大腦連線，為您撰寫具備爆發力的社群腳本...', true);
+        await window.addAgentLog('首席文案', '✍️', '素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫具備爆發力的社群腳本...', true);
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
@@ -553,7 +663,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         showToast('✅ 腳本生成完畢，請進行最終確認！', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        setTimeout(() => window.hideAgentConsole(), 2000);
+        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒！等待總編審核修改，確認無誤後即可進入下一步。', false);
 
     } catch (error) {
         await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
@@ -584,7 +694,7 @@ window.submitForImageGeneration = async function() {
     
     window.resetAgentConsole();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('美術總監', '👨‍🎨', '正在打包您修改後的劇本與圖文參數...', true);
+    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！正在打包您修改後的劇本與圖文參數...', true);
 
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -618,7 +728,7 @@ window.submitForImageGeneration = async function() {
         
         if (!result.success) throw new Error(result.message);
         
-        await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在準備發射控制台...', false);
+        await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在為您準備最終發射控制台...', false);
 
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
@@ -640,7 +750,7 @@ window.submitForImageGeneration = async function() {
         showToast('✅ 圖片處理完畢！', 'success'); 
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        setTimeout(() => window.hideAgentConsole(), 2000);
+        await window.addAgentLog('社群總監', '⏸️', '圖文皆已準備就緒！請確認最終文字，隨時可以為您發射！', false);
         
     } catch (error) {
         await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
@@ -670,7 +780,7 @@ window.publishToSocial = async function() {
     if (isScheduled) {
         await window.addAgentLog('系統管理員', '🗓️', `正在將任務寫入排程隊列，預計於 ${scheduleInput.value} 發射...`, true);
     } else {
-        await window.addAgentLog('社群總監', '🚀', '正在啟動發射程序，為您打包圖文與 Hashtag...', true);
+        await window.addAgentLog('社群總監', '🚀', '收到發射指令！正在啟動發射程序，為您打包圖文與 Hashtag...', true);
     }
 
     try {
@@ -700,8 +810,9 @@ window.publishToSocial = async function() {
             }());
         }
 
-        setTimeout(() => {
-            window.hideAgentConsole();
+        setTimeout(async () => {
+            await window.addAgentLog('專案總監', '🎉', '辛苦了！本次專案圓滿達成。如果需要，隨時可以啟動下一篇貼文任務！', false);
+            
             btn.disabled = false; 
             btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
             btn.innerHTML = '✨ 太棒了！再來寫一篇新貼文！';
