@@ -17,6 +17,45 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
+// 🤖 核心大腦對話牆控制 (Agentic UX)
+// ==========================================
+window.resetAgentConsole = function() {
+    const consoleEl = document.getElementById('aiTeamConsole');
+    const logEl = document.getElementById('aiTeamConsoleLog');
+    if(consoleEl && logEl) {
+        consoleEl.classList.remove('hidden');
+        logEl.innerHTML = ''; 
+    }
+};
+
+window.addAgentLog = function(role, icon, message, isLoading = false) {
+    const logEl = document.getElementById('aiTeamConsoleLog');
+    if(!logEl) return;
+
+    const spinners = logEl.querySelectorAll('.agent-spinner');
+    spinners.forEach(s => s.remove());
+
+    const div = document.createElement('div');
+    div.className = 'flex items-start gap-3 animate-slide-up bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-inner mt-3';
+    let spinnerHtml = isLoading ? `<svg class="agent-spinner animate-spin ml-2 h-4 w-4 text-green-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : '';
+
+    div.innerHTML = `
+        <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
+        <div class="flex-grow">
+            <div class="text-[11px] font-black text-gray-400 mb-1 tracking-wider">${role}</div>
+            <div class="text-sm font-bold text-gray-100 leading-relaxed">${message}${spinnerHtml}</div>
+        </div>
+    `;
+    logEl.appendChild(div);
+    logEl.scrollTop = logEl.scrollHeight; 
+};
+
+window.hideAgentConsole = function() {
+    const consoleEl = document.getElementById('aiTeamConsole');
+    if(consoleEl) consoleEl.classList.add('hidden');
+};
+
+// ==========================================
 // 🚀 升級：手機防當機「前端圖片壓縮 & 濾鏡引擎」
 // ==========================================
 function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
@@ -291,7 +330,6 @@ window.handleMultiImageSelect = async function(input) {
 
     if (!STATE.multiImages) STATE.multiImages = [];
 
-    // 🌟 修正：附加圖片強制不抽色，保留原圖色彩 (傳入 false)
     for (let file of newFiles) {
         showToast('📐 正在壓縮附加實拍圖片...', 'info');
         try {
@@ -321,31 +359,24 @@ window.toggleMultiImageType = function(id, type) {
     window.renderMultiImages();
 };
 
-
 // ==========================================
-// 🚀 提交 Step 1：AI 撰寫腳本 (真實節點事件驅動版)
+// 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版)
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // 👇👇👇 🌟 新增的重置魔法 👇👇👇
-    // 🧹 清除上一次任務殘留的按鈕狀態，確保下一次抵達 Step 3 時按鈕是正常的
+    // 🧹 清除殘留的按鈕狀態
     const publishBtn = document.getElementById('btnPublish');
     if (publishBtn) {
         publishBtn.className = 'w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all';
-        publishBtn.onclick = window.publishToSocial; // 把按鈕功能換回原本的發射
-        publishBtn.innerHTML = '🚀 立刻發射！'; // 🌟 確保文字恢復原狀
+        publishBtn.onclick = window.publishToSocial; 
+        publishBtn.innerHTML = '🚀 立刻發射！'; 
     }
     const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
     if (backBtn) backBtn.classList.remove('hidden');
     const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
     if (topResetBtn && topResetBtn !== publishBtn) topResetBtn.classList.remove('hidden');
-    // 👆👆👆 🌟 重置魔法結束 👆👆👆
 
-    const btn = document.getElementById('btnStep1Submit');
-    const btnText = document.getElementById('btnTextStep1');
-    
-    // 🌟 修正點：確保 selectedPlatforms 在一開始就被正確宣告！
     const selectedPlatforms = [];
     if(document.getElementById('platFB').checked) selectedPlatforms.push('FB');
     if(document.getElementById('platIG').checked) selectedPlatforms.push('IG');
@@ -355,17 +386,15 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const topic = document.getElementById('topic').value.trim();
     if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
+    const btn = document.getElementById('btnStep1Submit');
+    const btnText = document.getElementById('btnTextStep1');
     btn.disabled = true; 
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
+    btnText.innerHTML = '⚡ 執行中，請看上方進度...';
     
-    // 🌟 定義一個更新進度條的專屬小工具
-    const updateProgress = (msg) => {
-        const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-        btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${msg}</span>`;
-    };
-
-    // 📍 節點 1：前端資料收集與打包
-    updateProgress('👨‍💼 專案經理：正在建立任務檔案與解析畫風設定...');
+    // 🌟 啟動對話牆
+    window.resetAgentConsole();
+    window.addAgentLog('專案總監', '👨‍💼', '收到貼文主題！正在為您建立任務卷宗，並解析平台設定...', true);
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -391,8 +420,11 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
         };
 
-        // 📍 節點 2：處理角色特徵 (耗時極短)
         const charItems = document.querySelectorAll('#characterList .char-item');
+        if (charItems.length > 0) {
+            window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在提取視覺特徵...`, true);
+        }
+        
         for (let item of charItems) {
             const name = item.querySelector('[name="charName"]')?.value.trim() || '';
             const persona = item.querySelector('[name="charPersona"]')?.value.trim() || '';
@@ -403,10 +435,9 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             if (imageUrl) payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
         }
 
-        // 📍 節點 3：開始處理實境圖片壓縮 (這是真實需要等待的耗時任務！)
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
         if (totalFilesToCompress > 0) {
-            updateProgress(`👁️ 視覺工程師：正在為 ${totalFilesToCompress} 張參考圖進行壓縮與特徵分析...`);
+            window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與特徵分析...`, true);
         }
 
         if (!document.getElementById('skipScene').checked) {
@@ -422,14 +453,12 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        // 📍 節點 4：發送 API 給後端 Gemini (這是最漫長的等待)
-        updateProgress('✍️ 首席文案：正在與 AI 大腦連線，為您撰寫極具爆發力的社群對白...');
+        window.addAgentLog('首席文案', '✍️', '正在與 Gemini 核心大腦連線，為您撰寫具備爆發力的社群腳本...', true);
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
         
-        // 📍 節點 5：後端回傳成功，開始渲染畫面
-        updateProgress('⚙️ 系統：草稿接收成功，正在為您渲染排版...');
+        window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
         
         STATE.currentTaskId = result.taskId; 
         STATE.multiImages = [{ id: `img_ai_cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
@@ -457,8 +486,11 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         showToast('✅ 腳本生成完畢，請進行最終確認！', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        setTimeout(() => window.hideAgentConsole(), 2000);
 
     } catch (error) {
+        window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
         console.error(error); 
     } finally {
@@ -470,7 +502,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 
 // ==========================================
-// 🎨 提交 Step 2：發包生圖 (真實節點事件驅動版)
+// 🎨 提交 Step 2：發包生圖 (Agentic 對話牆版)
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -482,14 +514,11 @@ window.submitForImageGeneration = async function() {
 
     btn.disabled = true; 
     btn.classList.replace('bg-indigo-600', 'bg-gray-500'); 
+    btnText.innerHTML = '🎨 執行中，請看上方進度...';
     
-    const updateProgress = (msg) => {
-        const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-        btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${msg}</span>`;
-    };
-
-    // 📍 節點 1：前端收集修改過的資料
-    updateProgress('👨‍🎨 美術總監：正在打包您修改後的劇本與圖文參數...');
+    window.resetAgentConsole();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.addAgentLog('美術總監', '👨‍🎨', '正在打包您修改後的劇本與圖文參數...', true);
 
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -506,12 +535,11 @@ window.submitForImageGeneration = async function() {
     }));
 
     try {
-        // 📍 節點 2：呼叫 Imagen/雲端大腦 (這是耗時最久的任務)
         let aiCount = incomingImagesPayload.filter(img => img.processType === 'AI_SYNTHESIS').length;
         if(aiCount > 0) {
-            updateProgress(`🤖 算圖農場：正在為您極速生成 ${aiCount} 張圖片 (約需等候幾十秒，請耐心)...`);
+            window.addAgentLog('算圖農場', '🤖', `正在為您極速生成 ${aiCount} 張高畫質圖片 (約需等候幾十秒，請耐心)...`, true);
         } else {
-            updateProgress(`☁️ 系統：正在為您將原圖安全上傳至雲端空間...`);
+            window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
         }
 
         const result = await API.generateImageAPI({ 
@@ -523,8 +551,7 @@ window.submitForImageGeneration = async function() {
         });
         if (!result.success) throw new Error(result.message);
         
-        // 📍 節點 3：生圖成功，開始接收圖片並渲染
-        updateProgress('✨ 系統：圖片處理完畢，正在準備發射控制台...');
+        window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在準備發射控制台...', false);
 
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
@@ -544,7 +571,11 @@ window.submitForImageGeneration = async function() {
 
         document.getElementById('finalCaptionDisplay').value = editedCaption;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        
+        setTimeout(() => window.hideAgentConsole(), 2000);
+        
     } catch (error) {
+        window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
         btn.disabled = false; 
@@ -555,7 +586,7 @@ window.submitForImageGeneration = async function() {
 
 
 // ==========================================
-// 🚀 提交 Step 3：一鍵發佈與預約排程
+// 🚀 提交 Step 3：一鍵發佈與預約排程 (Agentic 對話牆 + 煙火)
 // ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
@@ -565,57 +596,52 @@ window.publishToSocial = async function() {
     const scheduledAt = scheduleInput && scheduleInput.value ? new Date(scheduleInput.value).toISOString() : null;
     const isScheduled = !!scheduledAt;
     
-    const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+    window.resetAgentConsole();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (isScheduled) {
-        btn.innerHTML = `${spinnerHtml} 🗓️ 正在寫入預約排程...`;
+        window.addAgentLog('系統管理員', '🗓️', `正在將任務寫入排程隊列，預計於 ${scheduleInput.value} 發射...`, true);
     } else {
-        const loadingMessages = [
-            '🚀 系統管理員：正在啟動發射程序...',
-            '📦 系統管理員：正在打包您的精美圖片...',
-            '⏳ 系統管理員：圖片傳輸至 Meta 伺服器中...',
-            '🧵 系統管理員：正在為 IG/Threads 建立輪播相簿...',
-            '✨ 進入最後發佈階段，請勿關閉網頁！...'
-        ];
-        let msgIndex = 0;
-        btn.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm">${loadingMessages[0]}</span>`;
-        
-        window.loadingInterval = setInterval(() => {
-            msgIndex++;
-            if (msgIndex < loadingMessages.length) {
-                btn.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${loadingMessages[msgIndex]}</span>`;
-            }
-        }, 5000);
+        window.addAgentLog('社群總監', '🚀', '正在啟動發射程序，為您打包圖文與 Hashtag...', true);
     }
 
     try {
         const result = await API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt: scheduledAt });
-        if (window.loadingInterval) clearInterval(window.loadingInterval);
+        
         if (!result.success) throw new Error(result.message);
+        
+        window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
         
         btn.innerHTML = isScheduled ? '✅ 預約排程成功！' : '✅ 發布成功！'; 
         btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
         showToast(isScheduled ? '🗓️ 任務已加入排程隊列！機器人會準時發射！' : '🎉 圖文已成功飛上社群平台！', 'success');
 
-        // 👇👇👇 🌟 這裡開始是新增的 UX 魔法 👇👇👇
-        setTimeout(() => {
-            btn.disabled = false; // 解除封印
-            btn.classList.replace('bg-gray-500', 'bg-blue-600'); // 變成耀眼的藍色
-            btn.innerHTML = '✨ 太棒了！再來寫一篇新貼文！';
-            btn.onclick = window.resetToStep1; // 暫時把按鈕的發射功能，換成「回到第一步」
+        // 🎊 多巴胺慶祝煙火
+        if (!isScheduled && typeof confetti === 'function') {
+            const duration = 2000;
+            const end = Date.now() + duration;
+            (function frame() {
+                confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
+                confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
+                if (Date.now() < end) requestAnimationFrame(frame);
+            }());
+        }
 
-            // 任務已經完成，隱藏「返回修改」按鈕
+        setTimeout(() => {
+            window.hideAgentConsole();
+            btn.disabled = false; 
+            btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
+            btn.innerHTML = '✨ 太棒了！再來寫一篇新貼文！';
+            btn.onclick = window.resetToStep1; 
+
             const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
             if (backBtn) backBtn.classList.add('hidden');
-            
-            // 隱藏原本上方那條容易誤會的「捨棄進度」按鈕，讓畫面更乾淨
             const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
             if (topResetBtn && topResetBtn !== btn) topResetBtn.classList.add('hidden');
-        }, 2500); // 讓客戶欣賞「發布成功」 2.5 秒後變身
-        // 👆👆👆 🌟 魔法結束 👆👆👆
+        }, 2500); 
 
     } catch (error) {
-        if (window.loadingInterval) clearInterval(window.loadingInterval);
+        window.addAgentLog('系統警報', '🚨', `發送失敗: ${error.message}`, false);
         showToast(`❌ 發佈/排程失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
         btn.innerHTML = isScheduled ? '🗓️ 重新預約排程' : '🚀 重試發射';
