@@ -6,6 +6,7 @@
     <title>BrandDecoder | 行動工作室 V8.29</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding-bottom: 100px; }
@@ -14,6 +15,9 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        /* 專為對話牆設計的隱藏式滾動條 */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
         .char-item { border: 1px solid #e5e7eb; padding: 12px; border-radius: 12px; margin-bottom: 12px; background: #ffffff; }
         .sticky-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); border-top: 1px solid #e5e7eb; padding: 16px; z-index: 40; box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05); }
         
@@ -36,6 +40,17 @@
 
     <div id="mainApp" class="w-full max-w-3xl hidden transition-all duration-500 opacity-0 relative">
         
+        <div id="aiTeamConsole" class="hidden w-full bg-gray-900 rounded-2xl p-5 shadow-2xl mb-6 border border-gray-700 animate-slide-up sticky top-4 z-50">
+            <div class="flex items-center justify-between mb-4 border-b border-gray-700 pb-3">
+                <h3 class="text-sm font-black text-white flex items-center">
+                    <span class="mr-2 animate-pulse text-green-400">●</span> 核心大腦連線中...
+                </h3>
+                <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded font-bold border border-gray-700">BrandDecoder Agent Engine</span>
+            </div>
+            <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 overflow-y-auto pr-2 custom-scrollbar pb-2">
+            </div>
+        </div>
+
         <div id="step1-setup" class="space-y-6 animate-fade-in">
             <div class="w-full text-center mb-6">
                 <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.29</span></h1>
@@ -206,7 +221,7 @@
             </form>
         </div>
 
-        <div id="step2-review" class="hidden space-y-6 animate-fade-in pb-10">
+        <div id="step2-review" class="hidden space-y-6 animate-fade-in pb-20">
             <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5 shadow-inner">
                 <h2 class="text-xl font-black text-yellow-800 mb-2 flex items-center justify-between">
                     <div><span class="mr-2">💡</span> 步驟二：審核與修改腳本</div>
@@ -233,87 +248,23 @@
                 <p class="text-xs text-indigo-600 font-bold mb-4">您可以上傳實拍原圖，並自由切換這張圖是要「AI 算圖」還是「原圖直發」。</p>
 
                 <div id="multiImageContainer" class="space-y-3 mb-4">
-                    </div>
+                </div>
 
                 <input type="file" id="multiImageInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleMultiImageSelect(this)">
                 <button type="button" onclick="document.getElementById('multiImageInput').click()" class="w-full bg-white border-2 border-dashed border-indigo-300 text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-100 transition-all">
                     + 從相簿加入輪播圖片
                 </button>
             </div>
+            
             <div class="sticky-bottom-bar flex gap-3 animate-slide-up">
                 <button type="button" onclick="window.backToStep1()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-md px-4 py-4 hover:bg-gray-300 transition-all">返回修改</button>
-                <button type="button" id="btnStep2Submit" onclick="window.submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                <button type="button" id="btnStep2Submit" onclick="window.submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all flex justify-center items-center">
                     <span id="btnTextStep2">🎨 2️⃣ 第二步：發包生圖</span>
                 </button>
             </div>
         </div>
 
         <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
-            <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
-                <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-between">
-                    <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
-                    <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
-                </h2>
-                
-                <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner">
-                    <span class="text-gray-400 font-medium">圖片載入中...</span>
-                </div>
-
-                <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10 mb-5">
-                    <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
-                    <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
-                </div>
-
-                <div class="text-left bg-indigo-50 p-4 rounded-xl border-2 border-indigo-100 shadow-inner relative z-10">
-                    <h2 class="text-md font-black text-indigo-800 flex items-center mb-3">
-                        <span class="mr-2">🎙️</span> 專屬配音與動態影片 <span class="text-xs text-indigo-500 ml-2">(全新功能)</span>
-                    </h2>
-                    <div class="grid grid-cols-3 gap-2 mb-4">
-                        <div>
-                            <label class="block text-xs font-bold text-indigo-400 mb-1">性別</label>
-                            <select id="voiceGender" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
-                                <option value="M">👨 男聲</option>
-                                <option value="F">👩 女聲</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-indigo-400 mb-1">口音</label>
-                            <select id="voiceAccent" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
-                                <option value="TW">🇹🇼 台灣腔</option>
-                                <option value="CN">🇨🇳 大陸腔</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-indigo-400 mb-1">語氣</label>
-                            <select id="voiceTone" class="w-full bg-white border border-indigo-200 text-indigo-900 rounded-lg p-2 font-bold text-sm">
-                                <option value="沉穩">沉穩</option>
-                                <option value="激動">激動</option>
-                                <option value="厭世" selected>厭世</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="button" id="btnGenerateVideo" onclick="window.generateVideo()" class="w-full bg-white text-indigo-600 border-2 border-indigo-200 hover:bg-indigo-600 hover:text-white font-black rounded-xl text-sm px-4 py-3 transition-all flex justify-center items-center shadow-sm">
-                        🎬 消耗點數，生成動態影片
-                    </button>
-                </div>
-            </div>
-
-          <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
-                <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all shadow-sm">
-                    🏠 捨棄目前進度，開啟新任務
-                </button>
-                <div class="flex gap-3 w-full">
-                    <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all flex flex-col items-center justify-center">
-                        <span class="text-lg mb-1">🔙</span>
-                        <span>返回修改</span>
-                    </button>
-                    <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
-                        🚀 立刻發射！
-                    </button>
-                </div>
-            </div>
-                
-            <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
             <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
                 <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-between">
                     <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
@@ -375,17 +326,18 @@
             </div>
 
             <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
-                <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-600 bg-white border border-gray-300 font-bold rounded-xl text-sm px-4 py-3 hover:bg-gray-50 transition-all shadow-sm">
-                    🏠 開啟新任務 (清除主題與場景，保留角色)
+                <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all shadow-sm">
+                    🏠 捨棄目前進度，開啟新任務
                 </button>
                 <div class="flex gap-3 w-full">
-                    <button type="button" id="btnRegenerate" onclick="window.submitForImageGeneration()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-xs px-2 py-4 hover:bg-gray-300 transition-all">🔄 換姿勢重生</button>
-                    <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all">
+                    <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all flex flex-col items-center justify-center">
+                        <span class="text-lg mb-1">🔙</span>
+                        <span>返回修改</span>
+                    </button>
+                    <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all flex justify-center items-center">
                         🚀 立刻發射！
                     </button>
                 </div>
-            </div>
-        </div>
             </div>
         </div>
 
@@ -414,7 +366,7 @@
                     <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold focus:ring-blue-500 focus:border-blue-500">
                 </div> 
                 
-                </div>
+            </div>
             
             <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl flex justify-end gap-3">
                 <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100">取消</button>
