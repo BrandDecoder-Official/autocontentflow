@@ -41,7 +41,6 @@ function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // 🌟 核心升級：如果選擇黑白模式，啟動像素級抽色引擎！
                 if (forceGrayscale) {
                     const imageData = ctx.getImageData(0, 0, width, height);
                     const data = imageData.data;
@@ -67,7 +66,6 @@ function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
     });
 }
 
-// 🌟 解析 Google JWT Token 取得 User ID 
 function getTenantIdFromToken() {
     if (!STATE.globalAuthToken) return 'test_user_001'; 
     try {
@@ -81,16 +79,12 @@ function getTenantIdFromToken() {
     }
 }
 
-// 🌟 返回第一步
 window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// ==========================================
-// 🌟 系統資料初始化引擎
-// ==========================================
 window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
@@ -194,9 +188,6 @@ window.deleteChar = async function(charId) {
     }
 };
 
-// ==========================================
-// 🌟 系統初始化
-// ==========================================
 window.onload = async function () {
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
@@ -240,9 +231,6 @@ window.onload = async function () {
     );
 };
 
-// ==========================================
-// 🌟 升級解鎖版：完全自由配置的多圖渲染引擎
-// ==========================================
 window.renderMultiImages = function() {
     const container = document.getElementById('multiImageContainer');
     const countDisplay = document.getElementById('multiImageCountDisplay');
@@ -259,7 +247,6 @@ window.renderMultiImages = function() {
         
         let html = '';
         
-        // 🔓 關鍵解鎖：現在【所有】圖片都可以刪除了！
         html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
         
         html += `<img src="${hasOriginal ? img.originalUrl : 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png'}" class="w-16 h-16 object-cover rounded-lg border ${!hasOriginal ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
@@ -267,12 +254,10 @@ window.renderMultiImages = function() {
         html += `<div class="flex-grow">`;
         html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${!hasOriginal ? '🌟 AI 腳本配圖' : '附加圖片 ' + (index + 1)}</h4>`;
         
-        // 🔘 切換按鈕
         html += `
         <div class="flex bg-gray-100 rounded-lg p-1 w-max">
             <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>
         `;
-        // 如果客戶沒有上傳原圖，就不能選「原圖直發」
         if (hasOriginal) {
             html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>`;
         }
@@ -282,7 +267,6 @@ window.renderMultiImages = function() {
         container.appendChild(div);
     });
 
-    // ➕ 動態加入「新增 AI 算圖」按鈕
     if (STATE.multiImages.length < 10) {
         const addBtnDiv = document.createElement('div');
         addBtnDiv.className = "w-full mt-2 animate-fade-in";
@@ -439,7 +423,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         
         STATE.currentTaskId = result.taskId; 
         
-        // 🌟 進入第二步時，預設先給 1 張 AI 卡位，但客戶現在可以自由刪除它了！
         STATE.multiImages = [{
             id: `img_ai_cover_${Date.now()}`,
             originalUrl: '',
@@ -480,11 +463,9 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     }
 });
 
-// 提交步驟二：發包生圖
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     
-    // 🛡️ 發包前防呆：社群貼文至少要有一張圖
     if (!STATE.multiImages || STATE.multiImages.length === 0) {
         return showToast('❌ 貼文至少需要 1 張圖片！請上傳原圖或新增 AI 算圖。', 'error');
     }
@@ -540,61 +521,75 @@ window.submitForImageGeneration = async function() {
     }
 };
 
-// 提交步驟三：發包社群
+// ==========================================
+// 🌟 升級版：提交步驟三 (支援預約排程)
+// ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
     btn.disabled = true;
     
-    const loadingMessages = [
-        '🚀 正在啟動發射程序...',
-        '📦 正在打包您的精美圖片...',
-        '⏳ 圖片傳輸至 Meta 伺服器中...',
-        '☕ 圖片數量越多需要越久，請耐心等候...',
-        '🧵 正在為 IG/Threads 建立輪播相簿...',
-        '✨ 進入最後發佈階段，請勿關閉網頁！...'
-    ];
+    // 🗓️ 抓取排程時間 (前端需要有一個 id="scheduleTime" 的 input type="datetime-local")
+    const scheduleInput = document.getElementById('scheduleTime');
+    const scheduledAt = scheduleInput && scheduleInput.value ? new Date(scheduleInput.value).toISOString() : null;
+    const isScheduled = !!scheduledAt;
     
-    let msgIndex = 0;
-    btn.innerHTML = loadingMessages[0];
-    
-    const loadingInterval = setInterval(() => {
-        msgIndex++;
-        if (msgIndex < loadingMessages.length) {
-            btn.innerHTML = loadingMessages[msgIndex];
-        } else {
-            const dots = '.'.repeat((msgIndex - loadingMessages.length) % 4);
-            btn.innerHTML = loadingMessages[loadingMessages.length - 1].replace('...', '') + dots;
-        }
-    }, 6000);
+    if (isScheduled) {
+        btn.innerHTML = '🗓️ 正在寫入預約排程...';
+    } else {
+        const loadingMessages = [
+            '🚀 正在啟動發射程序...',
+            '📦 正在打包您的精美圖片...',
+            '⏳ 圖片傳輸至 Meta 伺服器中...',
+            '☕ 圖片數量越多需要越久，請耐心等候...',
+            '🧵 正在為 IG/Threads 建立輪播相簿...',
+            '✨ 進入最後發佈階段，請勿關閉網頁！...'
+        ];
+        
+        let msgIndex = 0;
+        btn.innerHTML = loadingMessages[0];
+        
+        // 只有「立刻發佈」才需要跑馬燈，排程瞬間就寫入資料庫了
+        window.loadingInterval = setInterval(() => {
+            msgIndex++;
+            if (msgIndex < loadingMessages.length) {
+                btn.innerHTML = loadingMessages[msgIndex];
+            } else {
+                const dots = '.'.repeat((msgIndex - loadingMessages.length) % 4);
+                btn.innerHTML = loadingMessages[loadingMessages.length - 1].replace('...', '') + dots;
+            }
+        }, 6000);
+    }
 
     try {
+        // 🚀 發送給後端，多帶一個 scheduledAt 參數
         const result = await API.publishContentAPI({ 
             taskId: STATE.currentTaskId, 
             tenantId: getTenantIdFromToken(), 
-            finalCaption: document.getElementById('finalCaptionDisplay').value 
+            finalCaption: document.getElementById('finalCaptionDisplay').value,
+            scheduledAt: scheduledAt // 🌟 傳送排程時間
         });
         
-        clearInterval(loadingInterval);
+        if (window.loadingInterval) clearInterval(window.loadingInterval);
         
         if (!result.success) throw new Error(result.message);
         
-        btn.innerHTML = '✅ 發布成功！'; 
-        btn.classList.replace('bg-green-600', 'bg-gray-500');
+        // 依據是否排程，顯示不同成功訊息
+        btn.innerHTML = isScheduled ? '✅ 預約排程成功！' : '✅ 發布成功！'; 
+        btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
         
         const btnRegenerate = document.getElementById('btnRegenerate');
         if (btnRegenerate) btnRegenerate.classList.add('hidden');
         
-        showToast('🎉 圖文已成功飛上社群平台！', 'success');
+        showToast(isScheduled ? '🗓️ 任務已加入排程隊列！機器人會準時發射！' : '🎉 圖文已成功飛上社群平台！', 'success');
 
     } catch (error) {
-        clearInterval(loadingInterval);
-        showToast(`❌ 發佈失敗: ${error.message}`, 'error'); 
+        if (window.loadingInterval) clearInterval(window.loadingInterval);
+        showToast(`❌ 發佈/排程失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
-        btn.innerHTML = '🚀 重試發射';
+        btn.innerHTML = isScheduled ? '🗓️ 重新預約排程' : '🚀 重試發射';
     }
 };
 
-// 生成動態影片
 window.generateVideo = async function() {
     const btn = document.getElementById('btnGenerateVideo');
     if (!STATE.currentTaskId) return showToast('❌ 找不到任務 ID！', 'error');
