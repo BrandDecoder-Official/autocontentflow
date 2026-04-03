@@ -17,45 +17,69 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
-// 🤖 核心大腦對話牆控制 (Agentic UX) & 延遲魔法
+// 🤖 核心大腦對話牆控制 (Agentic UX) 終極打字版
 // ==========================================
-// 🌟 UX 魔法：人工延遲 (讓對話牆有節奏感，不影響實際運算)
 window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 window.resetAgentConsole = function() {
     const consoleEl = document.getElementById('aiTeamConsole');
     const logEl = document.getElementById('aiTeamConsoleLog');
-    if(consoleEl && logEl) {
+    if (consoleEl && logEl) {
         consoleEl.classList.remove('hidden');
         logEl.innerHTML = ''; 
     }
 };
 
-window.addAgentLog = function(role, icon, message, isLoading = false) {
+window.addAgentLog = async function(role, icon, message, isFinalSpinner = false) {
     const logEl = document.getElementById('aiTeamConsoleLog');
-    if(!logEl) return;
+    if (!logEl) return;
 
-    const spinners = logEl.querySelectorAll('.agent-spinner');
-    spinners.forEach(s => s.remove());
+    // 清除上一個人的 spinner
+    const oldSpinners = logEl.querySelectorAll('.agent-spinner');
+    oldSpinners.forEach(s => s.remove());
 
+    const divId = `log_${Date.now()}`;
     const div = document.createElement('div');
+    div.id = divId;
     div.className = 'flex items-start gap-3 animate-slide-up bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-inner mt-3';
-    let spinnerHtml = isLoading ? `<svg class="agent-spinner animate-spin ml-2 h-4 w-4 text-green-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : '';
-
+    
+    // 1. 先顯示打字動畫
     div.innerHTML = `
         <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
-        <div class="flex-grow">
+        <div class="flex-grow flex flex-col justify-center">
             <div class="text-[11px] font-black text-gray-400 mb-1 tracking-wider">${role}</div>
-            <div class="text-sm font-bold text-gray-100 leading-relaxed">${message}${spinnerHtml}</div>
+            <div class="flex space-x-1 mt-1">
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
+            </div>
         </div>
     `;
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight; 
+
+    // 2. 模擬打字時間 (0.8秒 ~ 1.2秒)
+    const typingTime = Math.floor(Math.random() * 400) + 800;
+    await window.sleep(typingTime);
+
+    // 3. 替換成真實對話
+    const targetDiv = document.getElementById(divId);
+    if (targetDiv) {
+        let spinnerHtml = isFinalSpinner ? `<svg class="agent-spinner animate-spin ml-2 h-4 w-4 text-green-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : '';
+        targetDiv.innerHTML = `
+            <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
+            <div class="flex-grow">
+                <div class="text-[11px] font-black text-gray-400 mb-1 tracking-wider">${role}</div>
+                <div class="text-sm font-bold text-gray-100 leading-relaxed">${message}${spinnerHtml}</div>
+            </div>
+        `;
+        logEl.scrollTop = logEl.scrollHeight; 
+    }
 };
 
 window.hideAgentConsole = function() {
     const consoleEl = document.getElementById('aiTeamConsole');
-    if(consoleEl) consoleEl.classList.add('hidden');
+    if (consoleEl) consoleEl.classList.add('hidden');
 };
 
 // ==========================================
@@ -140,6 +164,7 @@ window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        
         if (optionsRes.success) {
             STATE.globalSystemStyles = optionsRes.data.styles || [];
             if (typeof UI.renderDynamicOptions === 'function') {
@@ -163,6 +188,7 @@ window.addCharacterFromDB = (dbChar) => {
 
     const item = document.createElement('div');
     item.className = 'char-item relative animate-fade-in flex items-start gap-3 bg-white p-3 border border-blue-200 rounded-xl shadow-sm mb-3 group'; 
+    
     item.innerHTML = `
         <button type="button" onclick="this.closest('.char-item').remove()" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>
         <img src="${dbChar.imageUrl || 'https://via.placeholder.com/150'}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0 shadow-sm">
@@ -195,12 +221,20 @@ window.submitNewCharacter = async function() {
     try {
         const base64ImgInfo = await compressImageToBase64(fileInput.files[0], 800, false);
         const tenantId = getTenantIdFromToken();
-        const payload = { name: name, imageBase64: base64ImgInfo.data, mimeType: base64ImgInfo.mimeType, tenantId: tenantId };
+        
+        const payload = {
+            name: name,
+            imageBase64: base64ImgInfo.data,
+            mimeType: base64ImgInfo.mimeType,
+            tenantId: tenantId
+        };
+
         const result = await API.createCharacterAPI(payload);
         if (!result.success) throw new Error(result.message);
         
         showToast(result.message, 'success');
         UI.closeCreateCharModal();
+        
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
@@ -208,18 +242,22 @@ window.submitNewCharacter = async function() {
     } catch(error) {
         showToast(`❌ 建立失敗: ${error.message}`, 'error');
     } finally {
-        btn.disabled = false; btn.innerHTML = '🧬 開始基因掃描';
+        btn.disabled = false;
+        btn.innerHTML = '🧬 開始基因掃描';
     }
 };
 
 window.deleteChar = async function(charId) {
     if (!confirm('⚠️ 確定要永久刪除這個角色嗎？\n雲端大頭照也會被同步清理喔！')) return;
+    
     const tenantId = getTenantIdFromToken();
     try {
         showToast('🗑️ 正在清理雲端基因...', 'info');
         const result = await API.deleteCharacterAPI({ charId, tenantId });
         if (!result.success) throw new Error(result.message);
+        
         showToast('✅ 角色已成功刪除！', 'success');
+        
         const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
         if(optionsRes.success) {
             UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
@@ -278,6 +316,7 @@ window.onload = async function () {
 window.renderMultiImages = function() {
     const container = document.getElementById('multiImageContainer');
     const countDisplay = document.getElementById('multiImageCountDisplay');
+    
     countDisplay.innerText = STATE.multiImages.length; 
     container.innerHTML = '';
 
@@ -288,12 +327,14 @@ window.renderMultiImages = function() {
         const div = document.createElement('div');
         div.className = `bg-white p-3 rounded-xl shadow-sm border ${!hasOriginal ? 'border-indigo-400 bg-indigo-50/30' : 'border-gray-200'} flex items-center gap-3 relative animate-fade-in`;
         
-        let html = `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
+        let html = '';
+        html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
         html += `<img src="${hasOriginal ? img.originalUrl : 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png'}" class="w-16 h-16 object-cover rounded-lg border ${!hasOriginal ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
         html += `<div class="flex-grow">`;
         html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${!hasOriginal ? '🌟 AI 腳本配圖' : '附加圖片 ' + (index + 1)}</h4>`;
-        html += `<div class="flex bg-gray-100 rounded-lg p-1 w-max">
-            <button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>`;
+        
+        html += `<div class="flex bg-gray-100 rounded-lg p-1 w-max">`;
+        html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>`;
         if (hasOriginal) {
             html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>`;
         }
@@ -362,7 +403,6 @@ window.toggleMultiImageType = function(id, type) {
     window.renderMultiImages();
 };
 
-
 // ==========================================
 // 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版 + 延遲)
 // ==========================================
@@ -376,8 +416,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         publishBtn.onclick = window.publishToSocial; 
         publishBtn.innerHTML = '🚀 立刻發射！'; 
     }
+    
     const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
     if (backBtn) backBtn.classList.remove('hidden');
+    
     const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
     if (topResetBtn && topResetBtn !== publishBtn) topResetBtn.classList.remove('hidden');
 
@@ -398,12 +440,13 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     
     // 🌟 啟動對話牆
     window.resetAgentConsole();
-    window.addAgentLog('專案總監', '👨‍💼', '收到貼文主題！正在為您建立任務卷宗，並解析平台設定...', true);
-    await window.sleep(1200); // ⏳ 增加真實節奏感
+    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文主題！正在為您建立任務卷宗，並解析平台設定...', true);
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
-        let promptStyle = ''; let negativeStyle = ''; let styleName = '預設風格';
+        let promptStyle = ''; 
+        let negativeStyle = ''; 
+        let styleName = '預設風格';
         
         if (selectedStyleId && STATE.globalSystemStyles) {
             const styleObj = STATE.globalSystemStyles.find(s => s.id === selectedStyleId);
@@ -420,31 +463,41 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const isBW = colorModeValue === 'BW'; 
 
         const payload = {
-            tenantId: getTenantIdFromToken(), platforms: selectedPlatforms, topic: topic, isComicMode: STATE.isComicModeActive,
-            colorMode: colorModeValue, aspectRatio: document.getElementById('aspectRatioSelect').value, style: promptStyle,             
-            negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
+            tenantId: getTenantIdFromToken(), 
+            platforms: selectedPlatforms, 
+            topic: topic, 
+            isComicMode: STATE.isComicModeActive,
+            colorMode: colorModeValue, 
+            aspectRatio: document.getElementById('aspectRatioSelect').value, 
+            style: promptStyle,             
+            negativePrompt: negativeStyle, 
+            resolution: document.getElementById('resolutionSelect').value, 
+            comicCharacters: [], 
+            image_options: { referenceImages: [] }
         };
 
         const charItems = document.querySelectorAll('#characterList .char-item');
         if (charItems.length > 0) {
-            window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在提取視覺特徵...`, true);
-            await window.sleep(1000); // ⏳ 增加真實節奏感
+            await window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在提取視覺特徵...`, true);
         }
         
         for (let item of charItems) {
             const name = item.querySelector('[name="charName"]')?.value.trim() || '';
             const persona = item.querySelector('[name="charPersona"]')?.value.trim() || '';
             if (!name) continue;
+            
             const dbFeatures = item.querySelector('.char-db-features')?.value;
             const imageUrl = item.querySelector('.char-image-url')?.value;
+            
             payload.comicCharacters.push({ name, persona, aiExtractedFeatures: dbFeatures }); 
-            if (imageUrl) payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
+            if (imageUrl) {
+                payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
+            }
         }
 
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
         if (totalFilesToCompress > 0) {
-            window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與特徵分析...`, true);
-            await window.sleep(1000); // ⏳ 增加真實節奏感
+            await window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與特徵分析...`, true);
         }
 
         if (!document.getElementById('skipScene').checked) {
@@ -453,6 +506,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
+        
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
                 const base64Img = await compressImageToBase64(file, 1024, isBW);
@@ -460,13 +514,12 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        window.addAgentLog('首席文案', '✍️', '正在與 Gemini 核心大腦連線，為您撰寫具備爆發力的社群腳本...', true);
-        // (這裡不加 sleep，因為呼叫 API 本身就需要等幾秒鐘)
+        await window.addAgentLog('首席文案', '✍️', '正在與 Gemini 核心大腦連線，為您撰寫具備爆發力的社群腳本...', true);
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
         
-        window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
+        await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
         
         STATE.currentTaskId = result.taskId; 
         STATE.multiImages = [{ id: `img_ai_cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
@@ -484,13 +537,18 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         if (result.isComicMode && result.draftContent.panels) {
             panelsContainer.classList.remove('hidden');
             let panelsHtml = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認</label>';
+            
             result.draftContent.panels.forEach(p => {
                 panelsHtml += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm">
-                    <p class="text-xs text-gray-500">🎥 ${p.action_zh}</p><p class="text-xs font-bold text-indigo-600 mb-2">🗣️ ${p.speaker_zh}</p>
-                    <textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg text-sm">${p.dialogue}</textarea></div>`;
+                    <p class="text-xs text-gray-500">🎥 ${p.action_zh}</p>
+                    <p class="text-xs font-bold text-indigo-600 mb-2">🗣️ ${p.speaker_zh}</p>
+                    <textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border border-gray-300 rounded-lg text-sm">${p.dialogue}</textarea>
+                </div>`;
             });
             panelsContainer.innerHTML = panelsHtml;
-        } else { panelsContainer.classList.add('hidden'); }
+        } else { 
+            panelsContainer.classList.add('hidden'); 
+        }
         
         showToast('✅ 腳本生成完畢，請進行最終確認！', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -498,7 +556,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         setTimeout(() => window.hideAgentConsole(), 2000);
 
     } catch (error) {
-        window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
+        await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
         console.error(error); 
     } finally {
@@ -526,8 +584,7 @@ window.submitForImageGeneration = async function() {
     
     window.resetAgentConsole();
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    window.addAgentLog('美術總監', '👨‍🎨', '正在打包您修改後的劇本與圖文參數...', true);
-    await window.sleep(1500); // ⏳ 增加打包的體感時間
+    await window.addAgentLog('美術總監', '👨‍🎨', '正在打包您修改後的劇本與圖文參數...', true);
 
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -546,11 +603,10 @@ window.submitForImageGeneration = async function() {
     try {
         let aiCount = incomingImagesPayload.filter(img => img.processType === 'AI_SYNTHESIS').length;
         if(aiCount > 0) {
-            window.addAgentLog('算圖農場', '🤖', `正在為您極速生成 ${aiCount} 張高畫質圖片 (約需等候幾十秒，請耐心)...`, true);
+            await window.addAgentLog('算圖農場', '🤖', `正在為您極速生成 ${aiCount} 張高畫質圖片 (約需等候幾十秒，請耐心)...`, true);
         } else {
-            window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
+            await window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
         }
-        // (等待 API 返回，不加 sleep)
 
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
@@ -559,9 +615,10 @@ window.submitForImageGeneration = async function() {
             editedPanels,
             incomingImages: incomingImagesPayload
         });
+        
         if (!result.success) throw new Error(result.message);
         
-        window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在準備發射控制台...', false);
+        await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在準備發射控制台...', false);
 
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
@@ -580,12 +637,13 @@ window.submitForImageGeneration = async function() {
         }
 
         document.getElementById('finalCaptionDisplay').value = editedCaption;
-        showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
+        showToast('✅ 圖片處理完畢！', 'success'); 
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         
         setTimeout(() => window.hideAgentConsole(), 2000);
         
     } catch (error) {
-        window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
+        await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
         btn.disabled = false; 
@@ -610,24 +668,28 @@ window.publishToSocial = async function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (isScheduled) {
-        window.addAgentLog('系統管理員', '🗓️', `正在將任務寫入排程隊列，預計於 ${scheduleInput.value} 發射...`, true);
+        await window.addAgentLog('系統管理員', '🗓️', `正在將任務寫入排程隊列，預計於 ${scheduleInput.value} 發射...`, true);
     } else {
-        window.addAgentLog('社群總監', '🚀', '正在啟動發射程序，為您打包圖文與 Hashtag...', true);
+        await window.addAgentLog('社群總監', '🚀', '正在啟動發射程序，為您打包圖文與 Hashtag...', true);
     }
-    await window.sleep(1500); // ⏳ 增加發射準備的體感時間
 
     try {
-        const result = await API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt: scheduledAt });
+        const result = await API.publishContentAPI({ 
+            taskId: STATE.currentTaskId, 
+            tenantId: getTenantIdFromToken(), 
+            finalCaption: document.getElementById('finalCaptionDisplay').value, 
+            scheduledAt: scheduledAt 
+        });
         
         if (!result.success) throw new Error(result.message);
         
-        window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
+        await window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
         
         btn.innerHTML = isScheduled ? '✅ 預約排程成功！' : '✅ 發布成功！'; 
         btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
-        showToast(isScheduled ? '🗓️ 任務已加入排程隊列！機器人會準時發射！' : '🎉 圖文已成功飛上社群平台！', 'success');
+        showToast(isScheduled ? '🗓️ 排程成功！' : '🎉 發布成功！', 'success');
 
-        // 🎊 狀況允許時的「煙火慶祝」
+        // 🎊 多巴胺慶祝煙火
         if (!isScheduled && typeof confetti === 'function') {
             const duration = 2000;
             const end = Date.now() + duration;
@@ -647,38 +709,15 @@ window.publishToSocial = async function() {
 
             const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
             if (backBtn) backBtn.classList.add('hidden');
+            
             const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
             if (topResetBtn && topResetBtn !== btn) topResetBtn.classList.add('hidden');
         }, 2500); 
 
     } catch (error) {
-        window.addAgentLog('系統警報', '🚨', `發佈失敗: ${error.message}`, false);
-        showToast(`❌ 發佈/排程失敗: ${error.message}`, 'error'); 
+        await window.addAgentLog('系統警報', '🚨', `發佈失敗: ${error.message}`, false);
+        showToast(`❌ 發佈失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
         btn.innerHTML = isScheduled ? '🗓️ 重新預約排程' : '🚀 重試發射';
-    }
-};
-
-window.generateVideo = async function() {
-    const btn = document.getElementById('btnGenerateVideo');
-    if (!STATE.currentTaskId) return showToast('❌ 找不到任務 ID！', 'error');
-    try {
-        btn.disabled = true; btn.innerHTML = '⏳ 影片運算中...'; btn.classList.replace('bg-white', 'bg-indigo-100'); btn.classList.replace('text-indigo-600', 'text-indigo-400');
-        showToast('🎬 正在呼叫 Veo 引擎...', 'info');
-        const result = await API.generateVideoAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), 
-            motionPrompt: document.getElementById('motionSelect').value, 
-            voiceProfile: { 
-                gender: document.getElementById('voiceGender').value, 
-                accent: document.getElementById('voiceAccent').value, 
-                tone: document.getElementById('voiceTone').value 
-            } 
-        });
-        if (!result.success) throw new Error(result.message);
-        showToast('✅ ' + result.message, 'success');
-    } catch (error) {
-        showToast("❌ 影音大腦錯誤", "error");
-        btn.disabled = false; btn.innerHTML = '🎬 重新生成動態影片'; btn.classList.replace('bg-indigo-100', 'bg-white'); btn.classList.replace('text-indigo-400', 'text-indigo-600');
     }
 };
