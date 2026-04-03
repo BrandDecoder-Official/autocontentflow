@@ -327,20 +327,23 @@ window.toggleMultiImageType = function(id, type) {
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    
+    // 👇👇👇 🌟 這裡開始是新增的重置魔法 👇👇👇
+    // 🧹 清除上一次任務殘留的按鈕狀態，確保下一次抵達 Step 3 時按鈕是正常的
+    const publishBtn = document.getElementById('btnPublish');
+    if (publishBtn) {
+        publishBtn.className = 'w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all';
+        publishBtn.onclick = window.publishToSocial; // 把按鈕功能換回原本的發射
+        publishBtn.innerHTML = '🚀 立刻發射！'; // 🌟 補上這行：把文字也恢復原狀！
+    }
+    const backBtn = document.querySelector('button[onclick="window.backToStep2()"]');
+    if (backBtn) backBtn.classList.remove('hidden');
+    const topResetBtn = document.querySelector('button[onclick="window.resetToStep1()"]');
+    if (topResetBtn && topResetBtn !== publishBtn) topResetBtn.classList.remove('hidden');
+    // 👆👆👆 🌟 重置魔法結束 👆👆👆
+
     const btn = document.getElementById('btnStep1Submit');
     const btnText = document.getElementById('btnTextStep1');
-    
-    const selectedPlatforms = [];
-    if(document.getElementById('platFB').checked) selectedPlatforms.push('FB');
-    if(document.getElementById('platIG').checked) selectedPlatforms.push('IG');
-    if(document.getElementById('platThreads').checked) selectedPlatforms.push('THREADS');
-    if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個目標發布平台！', 'error');
-
-    const topic = document.getElementById('topic').value.trim();
-    if (!topic) return showToast('❌ 請輸入主題！', 'error');
-
-    btn.disabled = true; 
-    btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     
     // 🌟 定義一個更新進度條的專屬小工具
     const updateProgress = (msg) => {
