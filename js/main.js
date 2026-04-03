@@ -323,7 +323,7 @@ window.toggleMultiImageType = function(id, type) {
 
 
 // ==========================================
-// 🚀 提交 Step 1：AI 撰寫腳本
+// 🚀 提交 Step 1：AI 撰寫腳本 (真實節點事件驅動版)
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -339,27 +339,17 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const topic = document.getElementById('topic').value.trim();
     if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
-    // 🎭 UX 魔法：虛擬團隊進度跑馬燈
-    const loadingMessages = [
-        '👨‍💼 社群總監：正在分析您的 Hashtag 策略...',
-        '👁️ 視覺工程師：正在提取角色與場景基因...',
-        '✍️ 首席文案：正在為您撰寫極具爆發力的社群對白...',
-        '⚙️ 系統：正在進行最後封裝，請稍候...'
-    ];
-    let msgIndex = 0;
-
     btn.disabled = true; 
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     
-    const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-    btnText.innerHTML = `${spinnerHtml} <span class="ml-1">${loadingMessages[0]}</span>`;
-    
-    const loadingInterval = setInterval(() => {
-        msgIndex++;
-        if (msgIndex < loadingMessages.length) {
-            btnText.innerHTML = `${spinnerHtml} <span class="ml-1 animate-fade-in">${loadingMessages[msgIndex]}</span>`;
-        }
-    }, 2500); 
+    // 🌟 定義一個更新進度條的專屬小工具
+    const updateProgress = (msg) => {
+        const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${msg}</span>`;
+    };
+
+    // 📍 節點 1：前端資料收集與打包
+    updateProgress('👨‍💼 專案經理：正在建立任務檔案與解析畫風設定...');
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -380,19 +370,12 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const isBW = colorModeValue === 'BW'; 
 
         const payload = {
-            tenantId: getTenantIdFromToken(),
-            platforms: selectedPlatforms, 
-            topic: topic, 
-            isComicMode: STATE.isComicModeActive,
-            colorMode: colorModeValue, 
-            aspectRatio: document.getElementById('aspectRatioSelect').value,
-            style: promptStyle,             
-            negativePrompt: negativeStyle,  
-            resolution: document.getElementById('resolutionSelect').value,
-            comicCharacters: [], 
-            image_options: { referenceImages: [] }
+            tenantId: getTenantIdFromToken(), platforms: selectedPlatforms, topic: topic, isComicMode: STATE.isComicModeActive,
+            colorMode: colorModeValue, aspectRatio: document.getElementById('aspectRatioSelect').value, style: promptStyle,             
+            negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
         };
 
+        // 📍 節點 2：處理角色特徵 (耗時極短)
         const charItems = document.querySelectorAll('#characterList .char-item');
         for (let item of charItems) {
             const name = item.querySelector('[name="charName"]')?.value.trim() || '';
@@ -400,40 +383,40 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             if (!name) continue;
             const dbFeatures = item.querySelector('.char-db-features')?.value;
             const imageUrl = item.querySelector('.char-image-url')?.value;
-            const charObj = { name, persona };
-            if (dbFeatures) charObj.aiExtractedFeatures = dbFeatures;
-            payload.comicCharacters.push(charObj); 
-            if (imageUrl) {
-                payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
-            }
+            payload.comicCharacters.push({ name, persona, aiExtractedFeatures: dbFeatures }); 
+            if (imageUrl) payload.image_options.referenceImages.push({ type: 'character', name: name, imageUrl: imageUrl });
         }
 
-        // 🌟 只有第一步的參考圖，才會被 isBW 抽成黑白
+        // 📍 節點 3：開始處理實境圖片壓縮 (這是真實需要等待的耗時任務！)
+        let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
+        if (totalFilesToCompress > 0) {
+            updateProgress(`👁️ 視覺工程師：正在為 ${totalFilesToCompress} 張參考圖進行壓縮與特徵分析...`);
+        }
+
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
-                showToast('📐 正在壓縮場景圖片...', 'info');
                 const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
-                showToast('📐 正在壓縮道具圖片...', 'info');
                 const base64Img = await compressImageToBase64(file, 1024, isBW);
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
         }
 
+        // 📍 節點 4：發送 API 給後端 Gemini (這是最漫長的等待)
+        updateProgress('✍️ 首席文案：正在與 AI 大腦連線，為您撰寫極具爆發力的社群對白...');
+        
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
         
-        STATE.currentTaskId = result.taskId; 
+        // 📍 節點 5：後端回傳成功，開始渲染畫面
+        updateProgress('⚙️ 系統：草稿接收成功，正在為您渲染排版...');
         
-        STATE.multiImages = [{
-            id: `img_ai_cover_${Date.now()}`,
-            originalUrl: '',
-            processType: 'AI_SYNTHESIS'
-        }];
+        STATE.currentTaskId = result.taskId; 
+        STATE.multiImages = [{ id: `img_ai_cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
         window.renderMultiImages();
 
         document.getElementById('step1-setup').classList.add('hidden');
@@ -463,7 +446,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
         console.error(error); 
     } finally {
-        clearInterval(loadingInterval); // 🛑 停止跑馬燈
         btn.disabled = false; 
         btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
         btnText.innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本';
@@ -472,7 +454,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 
 // ==========================================
-// 🎨 提交 Step 2：發包生圖
+// 🎨 提交 Step 2：發包生圖 (真實節點事件驅動版)
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -482,28 +464,17 @@ window.submitForImageGeneration = async function() {
         return showToast('❌ 貼文至少需要 1 張圖片！請上傳原圖或新增 AI 算圖。', 'error');
     }
 
-    // 🎭 UX 魔法：虛擬團隊進度跑馬燈 (生圖版)
-    const loadingMessages = [
-        '👨‍🎨 美術總監：正在調色與構圖分析...',
-        '🤖 算圖農場：正在為您極速生成精美圖片...',
-        '☁️ 系統：正在將圖片上傳至雲端空間...',
-        '✨ 即將完成，正在準備發射控制台...'
-    ];
-    let msgIndex = 0;
-
     btn.disabled = true; 
     btn.classList.replace('bg-indigo-600', 'bg-gray-500'); 
     
-    const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-    btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm">${loadingMessages[0]}</span>`;
-    
-    const loadingInterval = setInterval(() => {
-        msgIndex++;
-        if (msgIndex < loadingMessages.length) {
-            btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${loadingMessages[msgIndex]}</span>`;
-        }
-    }, 3000);
-    
+    const updateProgress = (msg) => {
+        const spinnerHtml = `<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        btnText.innerHTML = `${spinnerHtml} <span class="ml-1 text-sm animate-fade-in">${msg}</span>`;
+    };
+
+    // 📍 節點 1：前端收集修改過的資料
+    updateProgress('👨‍🎨 美術總監：正在打包您修改後的劇本與圖文參數...');
+
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
     if (STATE.isComicModeActive) {
@@ -519,6 +490,14 @@ window.submitForImageGeneration = async function() {
     }));
 
     try {
+        // 📍 節點 2：呼叫 Imagen/雲端大腦 (這是耗時最久的任務)
+        let aiCount = incomingImagesPayload.filter(img => img.processType === 'AI_SYNTHESIS').length;
+        if(aiCount > 0) {
+            updateProgress(`🤖 算圖農場：正在為您極速生成 ${aiCount} 張圖片 (約需等候幾十秒，請耐心)...`);
+        } else {
+            updateProgress(`☁️ 系統：正在為您將原圖安全上傳至雲端空間...`);
+        }
+
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
             tenantId: getTenantIdFromToken(), 
@@ -528,6 +507,9 @@ window.submitForImageGeneration = async function() {
         });
         if (!result.success) throw new Error(result.message);
         
+        // 📍 節點 3：生圖成功，開始接收圖片並渲染
+        updateProgress('✨ 系統：圖片處理完畢，正在準備發射控制台...');
+
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
         
@@ -549,7 +531,6 @@ window.submitForImageGeneration = async function() {
     } catch (error) {
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
-        clearInterval(loadingInterval); // 🛑 停止跑馬燈
         btn.disabled = false; 
         btn.classList.replace('bg-gray-500', 'bg-indigo-600'); 
         btnText.innerHTML = '<span class="text-xl mr-2">🎨</span> 2️⃣ 第二步：發包生圖';
