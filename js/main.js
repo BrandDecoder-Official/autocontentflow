@@ -17,8 +17,11 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
-// 🤖 核心大腦對話牆控制 (Agentic UX)
+// 🤖 核心大腦對話牆控制 (Agentic UX) & 延遲魔法
 // ==========================================
+// 🌟 UX 魔法：人工延遲 (讓對話牆有節奏感，不影響實際運算)
+window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 window.resetAgentConsole = function() {
     const consoleEl = document.getElementById('aiTeamConsole');
     const logEl = document.getElementById('aiTeamConsoleLog');
@@ -359,8 +362,9 @@ window.toggleMultiImageType = function(id, type) {
     window.renderMultiImages();
 };
 
+
 // ==========================================
-// 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版)
+// 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版 + 延遲)
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -395,6 +399,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     // 🌟 啟動對話牆
     window.resetAgentConsole();
     window.addAgentLog('專案總監', '👨‍💼', '收到貼文主題！正在為您建立任務卷宗，並解析平台設定...', true);
+    await window.sleep(1200); // ⏳ 增加真實節奏感
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -423,6 +428,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const charItems = document.querySelectorAll('#characterList .char-item');
         if (charItems.length > 0) {
             window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在提取視覺特徵...`, true);
+            await window.sleep(1000); // ⏳ 增加真實節奏感
         }
         
         for (let item of charItems) {
@@ -438,6 +444,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
         if (totalFilesToCompress > 0) {
             window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與特徵分析...`, true);
+            await window.sleep(1000); // ⏳ 增加真實節奏感
         }
 
         if (!document.getElementById('skipScene').checked) {
@@ -454,6 +461,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         }
 
         window.addAgentLog('首席文案', '✍️', '正在與 Gemini 核心大腦連線，為您撰寫具備爆發力的社群腳本...', true);
+        // (這裡不加 sleep，因為呼叫 API 本身就需要等幾秒鐘)
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
@@ -502,7 +510,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 
 // ==========================================
-// 🎨 提交 Step 2：發包生圖 (Agentic 對話牆版)
+// 🎨 提交 Step 2：發包生圖 (Agentic 對話牆版 + 延遲)
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -519,6 +527,7 @@ window.submitForImageGeneration = async function() {
     window.resetAgentConsole();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     window.addAgentLog('美術總監', '👨‍🎨', '正在打包您修改後的劇本與圖文參數...', true);
+    await window.sleep(1500); // ⏳ 增加打包的體感時間
 
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -541,6 +550,7 @@ window.submitForImageGeneration = async function() {
         } else {
             window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
         }
+        // (等待 API 返回，不加 sleep)
 
         const result = await API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
@@ -586,7 +596,7 @@ window.submitForImageGeneration = async function() {
 
 
 // ==========================================
-// 🚀 提交 Step 3：一鍵發佈與預約排程 (Agentic 對話牆 + 煙火)
+// 🚀 提交 Step 3：一鍵發佈與預約排程 (Agentic 對話牆版 + 延遲 + 煙火)
 // ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
@@ -604,6 +614,7 @@ window.publishToSocial = async function() {
     } else {
         window.addAgentLog('社群總監', '🚀', '正在啟動發射程序，為您打包圖文與 Hashtag...', true);
     }
+    await window.sleep(1500); // ⏳ 增加發射準備的體感時間
 
     try {
         const result = await API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt: scheduledAt });
@@ -616,13 +627,13 @@ window.publishToSocial = async function() {
         btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
         showToast(isScheduled ? '🗓️ 任務已加入排程隊列！機器人會準時發射！' : '🎉 圖文已成功飛上社群平台！', 'success');
 
-        // 🎊 多巴胺慶祝煙火
+        // 🎊 狀況允許時的「煙火慶祝」
         if (!isScheduled && typeof confetti === 'function') {
             const duration = 2000;
             const end = Date.now() + duration;
             (function frame() {
-                confetti({ particleCount: 3, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
-                confetti({ particleCount: 3, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
+                confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
+                confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#10b981', '#fcd34d'] });
                 if (Date.now() < end) requestAnimationFrame(frame);
             }());
         }
@@ -641,7 +652,7 @@ window.publishToSocial = async function() {
         }, 2500); 
 
     } catch (error) {
-        window.addAgentLog('系統警報', '🚨', `發送失敗: ${error.message}`, false);
+        window.addAgentLog('系統警報', '🚨', `發佈失敗: ${error.message}`, false);
         showToast(`❌ 發佈/排程失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
         btn.innerHTML = isScheduled ? '🗓️ 重新預約排程' : '🚀 重試發射';
