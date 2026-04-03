@@ -7,7 +7,6 @@ import * as UI from './ui.js';
 // ==========================================
 // 🌟 綁定 UI 函數到全域 (Window)
 // ==========================================
-// 注意：部分函數在下方的「行為驅動 UX」區塊中被重新包裝以觸發 AI 對話
 window.toggleSection = UI.toggleSection;
 window.previewCharImage = UI.previewCharImage;
 window.removeFileFromArray = UI.removeFileFromArray;
@@ -17,21 +16,82 @@ window.closeCreateCharModal = UI.closeCreateCharModal;
 
 
 // ==========================================
-// 🤖 核心大腦對話牆控制 (常駐指揮中心版)
+// 🤖 核心大腦對話牆控制 (動態膠囊 Mini-Player 版)
 // ==========================================
 window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// 1. 初始化動態膠囊外觀 (將原本的面板改造成可收合模式)
+window.initAgentCapsule = function() {
+    const consoleEl = document.getElementById('aiTeamConsole');
+    const logEl = document.getElementById('aiTeamConsoleLog');
+    
+    // 如果找不到元素，或已經初始化過，就跳出
+    if (!consoleEl || !logEl || consoleEl.dataset.capsuleInit) return;
+
+    const header = consoleEl.querySelector('.flex.items-center.justify-between');
+    
+    // 調整外觀，預設為收合 (膠囊) 狀態
+    logEl.classList.add('hidden'); 
+    consoleEl.classList.add('cursor-pointer', 'hover:border-gray-500', 'transition-all', 'duration-300', 'p-3', 'px-4');
+    consoleEl.classList.remove('p-5');
+    header.classList.remove('mb-4', 'border-b', 'border-gray-700', 'pb-3');
+    
+    // 加入「最新動態」預覽區 (單行跑馬燈)
+    const previewDiv = document.createElement('div');
+    previewDiv.id = 'aiCapsulePreview';
+    previewDiv.className = 'text-xs font-bold text-gray-300 mt-1 truncate animate-fade-in w-full';
+    previewDiv.innerHTML = '等待總編下達指令...';
+    consoleEl.insertBefore(previewDiv, logEl);
+    
+    // 修改標題加入下拉箭頭
+    const titleEl = header.querySelector('h3');
+    titleEl.innerHTML = `<span class="mr-2 animate-pulse text-green-400">●</span> 核心大腦 <span id="capsuleToggleIcon" class="ml-2 text-gray-500 text-xs">👇</span>`;
+    
+    // 點擊展開/收合邏輯
+    consoleEl.onclick = function(e) {
+        // 避免點到對話紀錄內部觸發收合
+        if (e.target.closest('#aiTeamConsoleLog')) return;
+        
+        const isCollapsed = logEl.classList.contains('hidden');
+        if (isCollapsed) {
+            // 展開
+            logEl.classList.remove('hidden');
+            previewDiv.classList.add('hidden');
+            header.classList.add('mb-3', 'border-b', 'border-gray-700', 'pb-2');
+            consoleEl.classList.remove('p-3', 'px-4');
+            consoleEl.classList.add('p-4');
+            document.getElementById('capsuleToggleIcon').innerText = '👆';
+            logEl.scrollTop = logEl.scrollHeight;
+        } else {
+            // 收合
+            logEl.classList.add('hidden');
+            previewDiv.classList.remove('hidden');
+            header.classList.remove('mb-3', 'border-b', 'border-gray-700', 'pb-2');
+            consoleEl.classList.add('p-3', 'px-4');
+            consoleEl.classList.remove('p-4');
+            document.getElementById('capsuleToggleIcon').innerText = '👇';
+        }
+    };
+
+    consoleEl.dataset.capsuleInit = 'true';
+};
 
 window.resetAgentConsole = function() {
     const consoleEl = document.getElementById('aiTeamConsole');
     const logEl = document.getElementById('aiTeamConsoleLog');
+    const previewEl = document.getElementById('aiCapsulePreview');
+    
     if (consoleEl && logEl) {
         consoleEl.classList.remove('hidden');
         logEl.innerHTML = ''; 
+        if (previewEl) previewEl.innerHTML = '等待總編下達指令...';
     }
 };
 
 window.addAgentLog = async function(role, icon, message, isFinalSpinner = false) {
     const logEl = document.getElementById('aiTeamConsoleLog');
+    const previewEl = document.getElementById('aiCapsulePreview');
+    
     if (!logEl) return;
 
     // 清除上一個人的 spinner 轉圈圈
@@ -58,6 +118,11 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
     logEl.appendChild(div);
     logEl.scrollTop = logEl.scrollHeight; 
 
+    // 同步更新膠囊預覽文字為輸入中
+    if (previewEl) {
+        previewEl.innerHTML = `${icon} ${role}：<span class="text-gray-500">正在輸入中...</span>`;
+    }
+
     // 2. 模擬真人打字時間 (0.8秒 ~ 1.2秒)
     const typingTime = Math.floor(Math.random() * 400) + 800;
     await window.sleep(typingTime);
@@ -74,11 +139,17 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false)
             </div>
         `;
         logEl.scrollTop = logEl.scrollHeight; 
+        
+        // 同步更新膠囊預覽文字為最終訊息 (濾掉 HTML 標籤)
+        if (previewEl) {
+            const cleanMsg = message.replace(/<[^>]*>?/gm, '');
+            previewEl.innerHTML = `${icon} ${role}：${cleanMsg}`;
+        }
     }
 };
 
 window.hideAgentConsole = function() {
-    // 刻意留空：讓指揮中心永遠常駐，不隱藏
+    // 刻意留空：膠囊永遠常駐
 };
 
 
@@ -395,11 +466,13 @@ window.onload = async function () {
                     showToast(`✅ 登入成功！目前可用點數：${result.totalPoints}`, 'success');
                     
                     await window.initSystemData(); 
-                    window.initInteractions(); // 啟動互動監視器
+                    
+                    // 🌟 啟動膠囊 UI 與狀態攔截器
+                    window.initAgentCapsule();
+                    window.initInteractions(); 
 
                     // 🎬 開局晨會劇本：一次性報告
                     setTimeout(async () => {
-                        window.resetAgentConsole();
                         await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 行動工作室已就緒，等待您的指令。');
                         await window.addAgentLog('社群總監', '🚀', '目前尚未指定發佈平台，請先在左側為我們勾選戰場 (FB / IG / Threads)！');
                         await window.addAgentLog('美術總監', '👨‍🎨', '報告總編，目前預設為「🌈 彩色模式」與「1:1 正方比例」，您可以隨時依據企劃切換喔！');
@@ -548,8 +621,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     btnText.innerHTML = '⚡ 執行中，請看上方進度...';
     
-    // 🌟 啟動進度對話 (會清空前面的晨會聊天記錄)
-    window.resetAgentConsole();
+    // 🌟 不清空晨會對話，直接往下接續
     await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在為您打包卷宗，並解析平台設定...', true);
 
     try {
@@ -588,7 +660,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const charItems = document.querySelectorAll('#characterList .char-item');
         if (charItems.length > 0) {
-            await window.addAgentLog('視覺工程師', '👁️', `已接收候場區的 ${charItems.length} 位角色，正在將特徵轉換為 AI 參數...`, true);
+            await window.addAgentLog('視覺工程師', '👁️', `已再次確認候場區的 ${charItems.length} 位角色，正在將特徵轉換為 AI 參數...`, true);
         }
         
         for (let item of charItems) {
@@ -607,7 +679,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
         if (totalFilesToCompress > 0) {
-            await window.addAgentLog('影像處理組', '📐', `偵測到 ${totalFilesToCompress} 張實境參考圖，正在進行壓縮與邊緣特徵分析...`, true);
+            await window.addAgentLog('影像處理組', '📐', `已確認 ${totalFilesToCompress} 張實境參考圖，正在進行邊緣特徵分析...`, true);
         }
 
         if (!document.getElementById('skipScene').checked) {
@@ -624,7 +696,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        await window.addAgentLog('首席文案', '✍️', '素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫具備爆發力的社群腳本...', true);
+        await window.addAgentLog('首席文案', '✍️', '所有素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫社群腳本...', true);
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
@@ -692,7 +764,6 @@ window.submitForImageGeneration = async function() {
     btn.classList.replace('bg-indigo-600', 'bg-gray-500'); 
     btnText.innerHTML = '🎨 執行中，請看上方進度...';
     
-    window.resetAgentConsole();
     window.scrollTo({ top: 0, behavior: 'smooth' });
     await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！正在打包您修改後的劇本與圖文參數...', true);
 
@@ -774,7 +845,6 @@ window.publishToSocial = async function() {
     const scheduledAt = scheduleInput && scheduleInput.value ? new Date(scheduleInput.value).toISOString() : null;
     const isScheduled = !!scheduledAt;
     
-    window.resetAgentConsole();
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     if (isScheduled) {
