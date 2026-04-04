@@ -13,6 +13,99 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
+// 📜 歷史卷宗抽屜 UI 引擎
+// ==========================================
+window.toggleAuditLogDrawer = function() {
+    const drawer = document.getElementById('auditLogDrawer');
+    const overlay = document.getElementById('auditLogOverlay');
+    const isOpen = !drawer.classList.contains('translate-x-full');
+
+    if (isOpen) {
+        // 關閉抽屜動畫
+        drawer.classList.add('translate-x-full');
+        overlay.classList.remove('opacity-100');
+        setTimeout(() => overlay.classList.add('hidden'), 300);
+    } else {
+        // 開啟抽屜動畫
+        overlay.classList.remove('hidden');
+        void overlay.offsetWidth; // 強制瀏覽器重繪 (Trigger reflow)
+        overlay.classList.add('opacity-100');
+        drawer.classList.remove('translate-x-full');
+        
+        // 更新抽屜內的餘額顯示
+        document.getElementById('drawerBalanceDisplay').innerText = `${STATE.userPoints || 0} ⚡`;
+        
+        // 呼叫 API 撈取資料 (目前先放前端模擬器，下一步串接後端)
+        window.fetchAndRenderAuditLogs();
+    }
+};
+
+window.fetchAndRenderAuditLogs = async function() {
+    const contentBox = document.getElementById('auditLogContent');
+    contentBox.innerHTML = `
+        <div class="flex flex-col items-center justify-center h-full text-gray-400">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-4"></div>
+            <p class="text-sm font-bold">正在連線資料庫讀取中...</p>
+        </div>`;
+
+    try {
+        // 🚧 這裡下一步會換成真實的 API 呼叫： const logs = await API.fetchLogs();
+        // 我們先用 setTimeout 模擬網路延遲，讓您看看 UI 效果
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // 模擬從您 DB 撈出來的 Log 格式
+        const mockLogs = [
+            { type: 'GENERATE_IMAGE', description: 'AI 雲端算圖 3 張', amount: 60, balanceAfter: 946, createdAt: new Date().toISOString() },
+            { type: 'UPLOAD_IMAGE', description: '原圖上傳', amount: 0, balanceAfter: 1006, createdAt: new Date(Date.now() - 3600000).toISOString() },
+            { type: 'GENERATE_DRAFT', description: 'AI 撰寫貼文腳本', amount: 10, balanceAfter: 1006, createdAt: new Date(Date.now() - 7200000).toISOString() }
+        ];
+
+        if (!mockLogs || mockLogs.length === 0) {
+            contentBox.innerHTML = `<div class="text-center text-gray-400 mt-10 text-sm font-bold">目前尚無任何花費紀錄。</div>`;
+            return;
+        }
+
+        let html = '<div class="space-y-4">';
+        mockLogs.forEach(log => {
+            // 根據動作給予不同的 UI 顏色
+            let icon = '⚡'; let colorClass = 'bg-gray-100 text-gray-600';
+            if(log.type === 'GENERATE_IMAGE') { icon = '🎨'; colorClass = 'bg-purple-100 text-purple-700'; }
+            if(log.type === 'GENERATE_DRAFT') { icon = '✍️'; colorClass = 'bg-blue-100 text-blue-700'; }
+            if(log.type === 'PUBLISH_POST') { icon = '🚀'; colorClass = 'bg-green-100 text-green-700'; }
+            if(log.type === 'UPLOAD_IMAGE') { icon = '☁️'; colorClass = 'bg-emerald-100 text-emerald-700'; }
+
+            const timeStr = new Date(log.createdAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' });
+
+            html += `
+                <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                    <div class="absolute left-0 top-0 bottom-0 w-1 ${colorClass.split(' ')[0].replace('100', '400')}"></div>
+                    
+                    <div class="flex justify-between items-start mb-2 pl-2">
+                        <div class="flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-sm shadow-sm">${icon}</span>
+                            <div>
+                                <h4 class="text-sm font-bold text-gray-800">${log.description}</h4>
+                                <p class="text-xs text-gray-400 font-medium">${timeStr}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-base font-black ${log.amount > 0 ? 'text-red-500' : 'text-gray-500'}">${log.amount > 0 ? '-' : ''}${log.amount} ⚡</div>
+                            <div class="text-[10px] text-gray-400 font-bold">結餘: ${log.balanceAfter}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        contentBox.innerHTML = html;
+
+    } catch (e) {
+        contentBox.innerHTML = `<div class="text-center text-red-500 mt-10 text-sm font-bold">讀取失敗：${e.message}</div>`;
+    }
+};
+
+
+// ==========================================
 // 💸 微型計費系統：浮動扣點特效與餘額更新
 // ==========================================
 window.showPointDeduction = function(element, points) {
