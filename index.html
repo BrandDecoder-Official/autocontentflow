@@ -313,6 +313,33 @@
         <span id="toastMsg">系統訊息</span>
     </div> 
 
+    <div id="auditLogOverlay" class="fixed inset-0 bg-black/50 z-[100] hidden opacity-0 transition-opacity duration-300 backdrop-blur-sm" onclick="window.toggleAuditLogDrawer()"></div>
+    
+    <div id="auditLogDrawer" class="fixed top-0 right-0 w-full max-w-md h-full bg-white z-[101] transform translate-x-full transition-transform duration-300 shadow-2xl flex flex-col">
+        <div class="px-6 py-5 border-b border-gray-100 flex justify-between items-center bg-gray-50/80 backdrop-blur-md">
+            <div>
+                <h3 class="text-lg font-black text-gray-800 flex items-center gap-2">📜 歷史卷宗與帳單</h3>
+                <p class="text-xs text-gray-500 mt-1">追蹤您的算力消耗與任務紀錄</p>
+            </div>
+            <button onclick="window.toggleAuditLogDrawer()" class="text-gray-400 hover:text-red-500 w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 transition-colors text-xl font-bold">&times;</button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-6 bg-gray-50/30" id="auditLogContent">
+            <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500 mb-4"></div>
+                <p class="text-sm font-bold">正在讀取加密卷宗...</p>
+            </div>
+        </div>
+        
+        <div class="p-6 border-t border-gray-100 bg-white flex justify-between items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+            <div class="flex flex-col">
+                <span class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">目前算力餘額</span>
+                <span class="text-2xl font-black text-indigo-600" id="drawerBalanceDisplay">-- ⚡</span>
+            </div>
+            <button onclick="window.toggleAuditLogDrawer()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors">關閉</button>
+        </div>
+    </div>
+    
     <script type="module" src="/js/main.js"></script>
 </body>
 </html>
