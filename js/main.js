@@ -309,7 +309,9 @@ window.onload = async function () {
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const btnSubmit = document.getElementById('btnStep1Submit'); 
+   // 🎯 這裡強制定向：不管有沒有抓到 LAST_CLICKED_EL，我們直接指定發射源
+    const topicInput = document.getElementById('topic'); 
+    const btnSubmit = document.getElementById('btnStep1Submit');
     
     const publishBtn = document.getElementById('btnPublish');
     if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
@@ -325,8 +327,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
     btnSubmit.disabled = true; btnSubmit.classList.replace('bg-blue-600', 'bg-gray-500');
     document.getElementById('btnTextStep1').innerHTML = '⚡ 執行中，請看右側進度...';
-    
+
+    await window.addAgentLog('專案總監', '👨‍💼', '收到任務！正在解析主題...', true, topicInput);
     await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在打包卷宗並解析平台設定...', true, btnSubmit);
+    
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
