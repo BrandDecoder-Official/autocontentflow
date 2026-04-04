@@ -25,9 +25,33 @@
         .typing-dot:nth-child(1) { animation-delay: -0.32s; }
         .typing-dot:nth-child(2) { animation-delay: -0.16s; }
         @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* 🧠 神經元連線特效 */
+        .neural-line {
+            fill: none;
+            stroke: url(#lineGradient);
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: drawLine 1.8s ease-out forwards, fadeOutLine 0.8s 2.5s ease-out forwards;
+            filter: drop-shadow(0 0 5px rgba(59, 130, 246, 0.5));
+        }
+        @keyframes drawLine { to { stroke-dashoffset: 0; } }
+        @keyframes fadeOutLine { to { opacity: 0; } }
     </style>
 </head>
 <body class="text-gray-800 antialiased min-h-screen flex flex-col items-center pt-8 px-4">
+
+    <svg id="neuralNetCanvas" class="fixed inset-0 w-full h-full pointer-events-none z-[60] overflow-visible">
+        <defs>
+            <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#3b82f6; stop-opacity:0" />
+                <stop offset="50%" style="stop-color:#60a5fa; stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#10b981; stop-opacity:0.8" />
+            </linearGradient>
+        </defs>
+    </svg>
 
     <div id="loginScreen" class="w-full max-w-md mt-20 flex flex-col items-center glass-card p-10 rounded-3xl shadow-xl border border-gray-200 transition-all duration-500">
         <div class="text-6xl mb-4">🤖</div>
@@ -38,7 +62,6 @@
     </div>
 
     <div id="mainApp" class="w-full max-w-7xl hidden transition-all duration-500 opacity-0 relative mx-auto">
-        
         <div class="flex flex-col lg:flex-row-reverse gap-6 items-start w-full">
             
             <div class="w-full lg:w-1/3 z-50 sticky top-4 lg:top-8">
@@ -50,16 +73,12 @@
                         </h3>
                         <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded font-bold border border-gray-700">BrandDecoder Agent Engine</span>
                     </div>
-                    
                     <div id="aiCapsulePreview" class="text-xs font-bold text-gray-300 mt-1 truncate animate-fade-in w-full hidden">等待總編下達指令...</div>
-                    
-                    <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 lg:max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 custom-scrollbar pb-2 scroll-smooth">
-                    </div>
+                    <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 lg:max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 custom-scrollbar pb-2 scroll-smooth"></div>
                 </div>
             </div>
 
             <div class="w-full lg:w-2/3 flex flex-col gap-6">
-                
                 <div id="step1-setup" class="space-y-6 animate-fade-in">
                     <div class="w-full text-center lg:text-left mb-6">
                         <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.29</span></h1>
@@ -86,10 +105,9 @@
                                         </label>
                                     </div>
                                 </div>
-                                
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 mb-1">✍️ 輸入主題 <span class="text-blue-600 text-xs ml-2">(場景 + 動作 + 情緒)</span></label>
-                                    <textarea id="topic" rows="3" placeholder="例如：在海底撈門口，老K跟著人群乖乖排隊，但他等到滿頭大汗、表情非常無奈。" class="block p-3 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
+                                    <textarea id="topic" rows="3" placeholder="例如：在海底撈門口，老K跟著人群乖乖排隊..." class="block p-3 w-full text-gray-900 bg-white rounded-xl border border-gray-300 focus:ring-blue-500 focus:border-blue-500 font-medium resize-none shadow-inner"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -105,7 +123,6 @@
                                     <div class="font-bold text-gray-800 text-sm">真實攝影</div>
                                 </div>
                             </div>
-                            
                             <div class="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-500 mb-2">🎨 畫風模式 (由資料庫載入)</label>
@@ -113,7 +130,6 @@
                                         <span class="text-xs text-gray-400">連線資料庫中...</span>
                                     </div>
                                 </div>
-
                                 <div id="colorModeContainer" class="mt-4 pt-4 border-t border-gray-200">
                                     <label class="block text-xs font-bold text-gray-500 mb-2">🖍️ 色彩模式 (動漫專用)</label>
                                     <div class="flex gap-4">
@@ -127,7 +143,6 @@
                                         </label>
                                     </div>
                                 </div>
-                                
                                 <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200 mt-4">
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
@@ -157,21 +172,18 @@
                                     </h2>
                                     <button type="button" onclick="window.openCreateCharModal()" class="text-white text-xs font-bold bg-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">+ 新增專屬角色</button>
                                 </div>
-                                <p class="text-xs text-gray-500 mb-3">💡 點擊下方頭像，即可將該角色加入本次發文 (最多支援 4 位同框)。</p>
+                                <p class="text-xs text-gray-500 mb-3">💡 點擊下方頭像，即可將該角色加入本次發文。</p>
                                 <div id="dbCharacterContainer" class="flex flex-wrap gap-4">
                                     <span class="text-xs text-gray-400">連線資料庫中...</span>
                                 </div>
                             </div>
-
                             <div>
                                 <div class="flex items-center mb-3">
                                     <h2 class="text-md font-bold text-gray-800 flex items-center">
                                         <span class="mr-2">👥</span> 本次登場人物 <span class="text-xs text-gray-400 ml-1">(最多 4 人)</span>
                                     </h2>
                                 </div>
-                                <p id="realisticCharWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳虛擬人物，AI 將自動轉換為「仿真真人」形象。</p>
-                                <div id="characterList" class="space-y-3">
-                                </div>
+                                <div id="characterList" class="space-y-3"></div>
                             </div>
                         </div>
 
@@ -181,14 +193,12 @@
                                     <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張)</span>
                                 </h2>
                                 <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
-                                    <input type="checkbox" id="skipScene" class="mr-1 w-4 h-4 rounded text-red-500 focus:ring-red-500 border-gray-300" onchange="window.toggleSection('sceneContainer', this.checked)">
+                                    <input type="checkbox" id="skipScene" class="mr-1 w-4 h-4 rounded text-red-500 border-gray-300" onchange="window.toggleSection('sceneContainer', this.checked)">
                                     不使用背景
                                 </label>
                             </div>
                             <div id="sceneContainer" class="transition-opacity duration-300">
-                                <p class="text-xs text-red-500 font-bold mb-1">※ 第一張將作為合成主場景。</p>
-                                <p id="realisticSceneWarning" class="text-xs text-amber-600 font-bold mb-3 hidden">⚠️ 寫實模式提醒：若上傳插畫/動漫背景，AI 將自動轉換為對應的「真實世界」攝影場景。</p>
-                                <input type="file" id="sceneInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
+                                <input type="file" id="sceneInput" accept="image/*" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
                                 <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
                                 <div id="scenePreview" class="flex flex-wrap gap-3"></div>
                             </div>
@@ -200,13 +210,12 @@
                                     <span class="mr-2">🍔</span> 道具與商品圖 <span class="text-xs text-gray-400 ml-1">(最多 4 張)</span>
                                 </h2>
                                 <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
-                                    <input type="checkbox" id="skipObject" class="mr-1 w-4 h-4 rounded text-red-500 focus:ring-red-500 border-gray-300" onchange="window.toggleSection('objectContainer', this.checked)">
+                                    <input type="checkbox" id="skipObject" class="mr-1 w-4 h-4 rounded text-red-500 border-gray-300" onchange="window.toggleSection('objectContainer', this.checked)">
                                     不使用道具
                                 </label>
                             </div>
                             <div id="objectContainer" class="transition-opacity duration-300">
-                                <p class="text-xs text-gray-500 font-medium mb-3">手持物品、桌上餐點、服裝等細節參考。</p>
-                                <input type="file" id="objectInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleFileSelect(this, 'object', 4, 'objectPreview')">
+                                <input type="file" id="objectInput" accept="image/*" multiple class="hidden" onchange="window.handleFileSelect(this, 'object', 4, 'objectPreview')">
                                 <button type="button" onclick="document.getElementById('objectInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇道具圖</button>
                                 <div id="objectPreview" class="flex flex-wrap gap-3"></div>
                             </div>
@@ -214,7 +223,7 @@
 
                         <div class="sticky-bottom-bar animate-slide-up">
                             <div class="max-w-7xl mx-auto lg:pr-[33%]">
-                                <button type="submit" id="btnStep1Submit" class="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-black rounded-xl text-lg px-5 py-4 text-center shadow-lg transition-all flex justify-center items-center">
+                                <button type="submit" id="btnStep1Submit" class="w-full text-white bg-blue-600 hover:bg-blue-700 font-black rounded-xl text-lg px-5 py-4 text-center shadow-lg flex justify-center items-center">
                                     <span id="btnTextStep1">⚡ 1️⃣ 第一步：AI 撰寫貼文腳本</span>
                                 </button>
                             </div>
@@ -228,36 +237,22 @@
                             <div><span class="mr-2">💡</span> 步驟二：審核與修改腳本</div>
                             <span id="step2StyleBadge" class="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                         </h2>
-                        <div class="space-y-4">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-1">社群貼文內容 (附 Hashtag)</label>
-                                <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner focus:ring-blue-500 focus:border-blue-500"></textarea>
-                            </div>
-                            <div id="reviewPanelsContainer" class="space-y-3 hidden"></div>
-                        </div>
+                        <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner"></textarea>
+                        <div id="reviewPanelsContainer" class="space-y-3 hidden"></div>
                     </div>
-
                     <div class="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-inner">
                         <div class="flex justify-between items-center mb-2">
-                            <h2 class="text-lg font-black text-indigo-800 flex items-center">
-                                <span class="mr-2">🖼️</span> 輪播圖片設定
-                            </h2>
-                            <span class="text-xs font-bold bg-indigo-200 text-indigo-900 px-2 py-1 rounded-md">
-                                目前：<span id="multiImageCountDisplay">1</span> / 10 張
-                            </span>
+                            <h2 class="text-lg font-black text-indigo-800 flex items-center"><span class="mr-2">🖼️</span> 輪播圖片設定</h2>
+                            <span class="text-xs font-bold bg-indigo-200 text-indigo-900 px-2 py-1 rounded-md">目前：<span id="multiImageCountDisplay">1</span> / 10 張</span>
                         </div>
-                        <p class="text-xs text-indigo-600 font-bold mb-4">您可以上傳實拍原圖，並自由切換這張圖是要「AI 算圖」還是「原圖直發」。</p>
                         <div id="multiImageContainer" class="space-y-3 mb-4"></div>
-                        <input type="file" id="multiImageInput" accept="image/png, image/jpeg, image/webp" multiple class="hidden" onchange="window.handleMultiImageSelect(this)">
-                        <button type="button" onclick="document.getElementById('multiImageInput').click()" class="w-full bg-white border-2 border-dashed border-indigo-300 text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-100 transition-all">
-                            + 從相簿加入輪播圖片
-                        </button>
+                        <input type="file" id="multiImageInput" accept="image/*" multiple class="hidden" onchange="window.handleMultiImageSelect(this)">
+                        <button type="button" onclick="document.getElementById('multiImageInput').click()" class="w-full bg-white border-2 border-dashed border-indigo-300 text-indigo-600 font-bold py-3 rounded-xl hover:bg-indigo-100 transition-all">+ 從相簿加入輪播圖片</button>
                     </div>
-                    
                     <div class="sticky-bottom-bar flex gap-3 animate-slide-up">
                         <div class="max-w-7xl mx-auto w-full flex gap-3 lg:pr-[33%]">
                             <button type="button" onclick="window.backToStep1()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-md px-4 py-4 hover:bg-gray-300 transition-all">返回修改</button>
-                            <button type="button" id="btnStep2Submit" onclick="window.submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all flex justify-center items-center">
+                            <button type="button" id="btnStep2Submit" onclick="window.submitForImageGeneration()" class="w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg flex justify-center items-center">
                                 <span id="btnTextStep2">🎨 2️⃣ 第二步：發包生圖</span>
                             </button>
                         </div>
@@ -270,80 +265,54 @@
                             <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
                             <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                         </h2>
-                        
-                        <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner">
-                            <span class="text-gray-400 font-medium">圖片載入中...</span>
-                        </div>
-
-                        <div class="text-left bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-inner relative z-10 mb-5">
-                            <label class="block text-xs font-bold text-gray-500 mb-2">✏️ 發布前最終文字微調 (可加梗)</label>
-                            <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 font-medium text-sm"></textarea>
-                        </div>
-
-                        <div class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner relative z-10 mb-5">
-                            <label class="block text-sm font-black text-indigo-800 mb-1 flex items-center">
-                                <span class="mr-2">🗓️</span> 預約排程發佈 (選填)
-                            </label>
-                            <p class="text-[11px] text-indigo-500 mb-3 font-bold">如果不選時間，按下發送後系統將會立刻為您發佈貼文。</p>
-                            <input type="datetime-local" id="scheduleTime" 
-                                   onchange="document.getElementById('btnPublish').innerHTML = this.value ? '🗓️ 寫入預約排程' : '🚀 立刻發射！'" 
-                                   class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 font-bold text-sm shadow-sm transition-all">
+                        <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner"></div>
+                        <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm"></textarea>
+                        <div class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner mt-5">
+                            <label class="block text-sm font-black text-indigo-800 mb-1 flex items-center"><span class="mr-2">🗓️</span> 預約排程發佈 (選填)</label>
+                            <input type="datetime-local" id="scheduleTime" onchange="document.getElementById('btnPublish').innerHTML = this.value ? '🗓️ 寫入預約排程' : '🚀 立刻發射！'" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all">
                         </div>
                     </div>
-
                     <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
                         <div class="max-w-7xl mx-auto w-full flex flex-col gap-3 lg:pr-[33%]">
-                            <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all shadow-sm">
-                                🏠 捨棄目前進度，開啟新任務
-                            </button>
+                            <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all">🏠 捨棄進度</button>
                             <div class="flex gap-3 w-full">
-                                <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all flex flex-col items-center justify-center">
-                                    <span class="text-lg mb-1">🔙</span>
-                                    <span>返回修改</span>
-                                </button>
-                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all flex justify-center items-center">
-                                    🚀 立刻發射！
-                                </button>
+                                <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all">🔙 返回修改</button>
+                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg">🚀 立刻發射！</button>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
 
-    <div id="createCharModal" class="fixed inset-0 modal-overlay hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+    <div id="createCharModal" class="fixed inset-0 modal-overlay hidden z-[70] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm modal-content transform scale-95 transition-transform duration-300">
             <div class="p-5 border-b border-gray-200 flex justify-between items-center">
                 <h3 class="text-lg font-black text-blue-800">✨ 建立新專屬角色</h3>
                 <button onclick="window.closeCreateCharModal()" class="text-gray-400 hover:text-gray-600 text-xl font-bold">&times;</button>
             </div>
-            
             <div class="p-5 space-y-4">
-                <p class="text-xs text-gray-500 font-medium">上傳清晰的頭像或全身照，AI 將自動解析並鎖定其視覺特徵基因。</p>
                 <div class="w-full flex justify-center">
-                    <div class="relative w-28 h-28 bg-blue-50 rounded-full border-2 border-dashed border-blue-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden group shadow-inner" onclick="document.getElementById('newCharImage').click()">
-                        <span class="text-xs text-blue-500 font-bold group-hover:text-blue-700 z-10">+ 點擊上傳圖片</span>
+                    <div class="relative w-28 h-28 bg-blue-50 rounded-full border-2 border-dashed border-blue-300 flex flex-col items-center justify-center cursor-pointer overflow-hidden shadow-inner" onclick="document.getElementById('newCharImage').click()">
+                        <span class="text-xs text-blue-500 font-bold z-10">+ 上傳圖片</span>
                         <img id="newCharPreview" class="absolute inset-0 w-full h-full object-cover hidden z-20 bg-white">
-                        <input type="file" id="newCharImage" accept="image/png, image/jpeg, image/webp" class="hidden" onchange="window.previewCharImage(this, 'newCharPreview')">
+                        <input type="file" id="newCharImage" accept="image/*" class="hidden" onchange="window.previewCharImage(this, 'newCharPreview')">
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-gray-700 mb-1">角色名稱 (必填)</label>
-                    <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold focus:ring-blue-500 focus:border-blue-500">
+                    <input type="text" id="newCharName" placeholder="例如：老K" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-sm font-bold">
                 </div> 
             </div>
-            <div class="p-4 bg-gray-50 border-t border-gray-200 rounded-b-2xl flex justify-end gap-3">
-                <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100">取消</button>
-                <button type="button" id="btnSubmitNewChar" onclick="window.submitNewCharacter()" class="px-5 py-2 text-sm font-black text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md transition-all flex items-center">
-                    🧬 開始基因掃描
-                </button>
+            <div class="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 rounded-b-2xl">
+                <button type="button" onclick="window.closeCreateCharModal()" class="px-4 py-2 text-sm font-bold text-gray-600 bg-white border border-gray-300 rounded-lg">取消</button>
+                <button type="button" id="btnSubmitNewChar" onclick="window.submitNewCharacter()" class="px-5 py-2 text-sm font-black text-white bg-blue-600 rounded-lg shadow-md">🧬 開始基因掃描</button>
             </div>
         </div>
     </div>
 
-    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center z-50 text-sm whitespace-nowrap">
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-gray-900 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center z-[80] text-sm whitespace-nowrap">
         <span id="toastMsg">系統訊息</span>
     </div> 
 
