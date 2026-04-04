@@ -71,7 +71,12 @@
                             <span class="mr-2 animate-pulse text-green-400">●</span> 核心大腦 
                             <span id="capsuleToggleIcon" class="ml-2 text-gray-500 text-xs lg:hidden">👇</span>
                         </h3>
-                        <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded font-bold border border-gray-700">BrandDecoder Agent Engine</span>
+                        <div class="flex items-center gap-2">
+                            <span id="pointsBadge" class="text-[11px] bg-gray-800 text-yellow-400 px-2.5 py-1 rounded-md font-bold border border-gray-600 transition-colors shadow-sm flex items-center">
+                                ⚡ <span class="hidden sm:inline ml-1">算力:</span> <span id="userPointsDisplay" class="ml-1 tracking-wider">--</span>
+                            </span>
+                            <span class="text-[10px] bg-gray-800 text-gray-400 px-2 py-1 rounded font-bold border border-gray-700 hidden lg:block">Agent Engine</span>
+                        </div>
                     </div>
                     <div id="aiCapsulePreview" class="text-xs font-bold text-gray-300 mt-1 truncate animate-fade-in w-full hidden">等待總編下達指令...</div>
                     <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 lg:max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 custom-scrollbar pb-2 scroll-smooth"></div>
@@ -190,12 +195,8 @@
                         <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                             <div class="flex justify-between items-center mb-3">
                                 <h2 class="text-md font-bold text-gray-800 flex items-center">
-                                    <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張)</span>
+                                    <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張，非必填)</span>
                                 </h2>
-                                <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
-                                    <input type="checkbox" id="skipScene" class="mr-1 w-4 h-4 rounded text-red-500 border-gray-300" onchange="window.toggleSection('sceneContainer', this.checked)">
-                                    不使用背景
-                                </label>
                             </div>
                             <div id="sceneContainer" class="transition-opacity duration-300">
                                 <input type="file" id="sceneInput" accept="image/*" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
@@ -207,12 +208,8 @@
                         <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                             <div class="flex justify-between items-center mb-3">
                                 <h2 class="text-md font-bold text-gray-800 flex items-center">
-                                    <span class="mr-2">🍔</span> 道具與商品圖 <span class="text-xs text-gray-400 ml-1">(最多 4 張)</span>
+                                    <span class="mr-2">🍔</span> 道具與商品圖 <span class="text-xs text-gray-400 ml-1">(最多 4 張，非必填)</span>
                                 </h2>
-                                <label class="flex items-center cursor-pointer text-xs font-bold text-gray-500 hover:text-red-500 transition-colors">
-                                    <input type="checkbox" id="skipObject" class="mr-1 w-4 h-4 rounded text-red-500 border-gray-300" onchange="window.toggleSection('objectContainer', this.checked)">
-                                    不使用道具
-                                </label>
                             </div>
                             <div id="objectContainer" class="transition-opacity duration-300">
                                 <input type="file" id="objectInput" accept="image/*" multiple class="hidden" onchange="window.handleFileSelect(this, 'object', 4, 'objectPreview')">
@@ -237,8 +234,8 @@
                             <div><span class="mr-2">💡</span> 步驟二：審核與修改腳本</div>
                             <span id="step2StyleBadge" class="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                         </h2>
-                        <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner"></textarea>
-                        <div id="reviewPanelsContainer" class="space-y-3 hidden"></div>
+                        <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner cursor-text"></textarea>
+                        <div id="reviewPanelsContainer" class="space-y-3 hidden mt-4"></div>
                     </div>
                     <div class="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 shadow-inner">
                         <div class="flex justify-between items-center mb-2">
@@ -266,10 +263,10 @@
                             <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
                         </h2>
                         <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner"></div>
-                        <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm"></textarea>
+                        <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm cursor-text"></textarea>
                         <div class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner mt-5">
                             <label class="block text-sm font-black text-indigo-800 mb-1 flex items-center"><span class="mr-2">🗓️</span> 預約排程發佈 (選填)</label>
-                            <input type="datetime-local" id="scheduleTime" onchange="document.getElementById('btnPublish').innerHTML = this.value ? '🗓️ 寫入預約排程' : '🚀 立刻發射！'" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all">
+                            <input type="datetime-local" id="scheduleTime" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all cursor-pointer">
                         </div>
                     </div>
                     <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
