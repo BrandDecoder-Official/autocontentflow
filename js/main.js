@@ -12,7 +12,6 @@ window.previewCharImage = UI.previewCharImage;
 window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
-// 🛡️ 重試引擎 (不變)
 window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -60,12 +59,13 @@ window.initSystemData = async function() {
 };
 
 window.addCharacterFromDB = async (dbChar) => {
+    const targetButton = window.LAST_CLICKED_EL;
     const list = document.getElementById('characterList');
     if (list.children.length >= 4) return showToast('❌ 最多 4 位角色！', 'error');
     const item = document.createElement('div');
     item.className = 'char-item relative animate-fade-in flex items-start gap-3 bg-white p-3 border border-blue-200 rounded-xl shadow-sm mb-3 group'; 
     item.innerHTML = `
-        <button type="button" onclick="window.removeCharFromList(this, '${dbChar.name}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-sm z-10">&times;</button>
+        <button type="button" onclick="window.removeCharFromList('${dbChar.name}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-sm z-10">&times;</button>
         <img src="${dbChar.imageUrl || ''}" class="w-12 h-12 rounded-full object-cover border-2 border-blue-100 flex-shrink-0 shadow-sm">
         <div class="flex-grow">
             <div class="flex items-center mb-1.5"><span class="font-black text-gray-800 text-sm mr-2">${dbChar.name}</span><span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 py-0.5 rounded flex items-center">🔒 基因鎖定</span></div>
@@ -77,37 +77,43 @@ window.addCharacterFromDB = async (dbChar) => {
     list.appendChild(item);
     showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
     
-    // 🧠 觸發連線：找到剛產生的頭像作為起點
-    const avatarEl = item.querySelector('img');
-    await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！`, false, avatarEl);
+    if (typeof window.addAgentLog === 'function') {
+        await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！`, false, targetButton);
+    }
 };
 
-// ❌ 刪除角色連線
-window.removeCharFromList = async function(btnEl, charName) {
-    const item = btnEl.closest('.char-item');
-    // 先做連線，再刪除元素，否則座標會抓不到
-    await window.addAgentLog('視覺工程師', '👁️', `已釋放「${charName}」的視覺基因。`, false, btnEl);
-    item.remove();
+window.removeCharFromList = async function(charName) {
+    const targetButton = window.LAST_CLICKED_EL;
+    const item = targetButton.closest('.char-item');
+    await window.addAgentLog('視覺工程師', '👁️', `已釋放「${charName}」的視覺基因。`, false, targetButton);
+    if(item) item.remove();
 };
 
 window.submitNewCharacter = async function() {
     const name = document.getElementById('newCharName').value.trim();
     const fileInput = document.getElementById('newCharImage');
+    const targetButton = window.LAST_CLICKED_EL;
     if (!name || !fileInput.files?.[0]) return showToast('❌ 請填寫名稱與圖片', 'error');
     const btn = document.getElementById('btnSubmitNewChar');
     btn.disabled = true; btn.innerHTML = '🧬 基因掃描中...';
     try {
         const base64Info = await compressImageToBase64(fileInput.files[0], 800, false);
         const res = await window.executeWithRetry(() => API.createCharacterAPI({ name, imageBase64: base64Info.data, mimeType: base64Info.mimeType, tenantId: getTenantIdFromToken() }), '視覺工程師', '基因寫入');
-        showToast(res.message, 'success'); UI.closeCreateCharModal(); await window.initSystemData();
+        showToast(res.message, 'success'); 
+        UI.closeCreateCharModal(); 
+        await window.initSystemData();
+        if (typeof window.addAgentLog === 'function') await window.addAgentLog('視覺工程師', '🧬', `新角色「${name}」的基因已登錄雲端。`, false, targetButton);
     } catch(e) { showToast(`❌ 建立失敗: ${e.message}`, 'error'); } finally { btn.disabled = false; btn.innerHTML = '🧬 開始基因掃描'; }
 };
 
 window.deleteChar = async function(charId) {
     if (!confirm('⚠️ 永久刪除角色？')) return;
+    const targetButton = window.LAST_CLICKED_EL; // 👈 抓取紅色的刪除按鈕
     try {
         await window.executeWithRetry(() => API.deleteCharacterAPI({ charId, tenantId: getTenantIdFromToken() }), '系統管理員', '清理雲端');
-        showToast('✅ 已刪除！', 'success'); await window.initSystemData();
+        showToast('✅ 已刪除！', 'success'); 
+        await window.initSystemData();
+        if (typeof window.addAgentLog === 'function') await window.addAgentLog('系統管理員', '🗑️', `已將該角色的視覺基因從雲端徹底抹除！`, false, targetButton);
     } catch(e) { showToast(`❌ 失敗: ${e.message}`, 'error'); }
 };
 
@@ -166,6 +172,7 @@ window.onload = async function () {
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btnSubmit = document.getElementById('btnStep1Submit'); // 將按鈕直接作為座標起點
     const selectedPlatforms = [];
     if(document.getElementById('platFB').checked) selectedPlatforms.push('FB');
     if(document.getElementById('platIG').checked) selectedPlatforms.push('IG');
@@ -175,11 +182,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const topic = document.getElementById('topic').value.trim();
     if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
-    const btn = document.getElementById('btnStep1Submit');
-    btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-500');
+    btnSubmit.disabled = true; btnSubmit.classList.replace('bg-blue-600', 'bg-gray-500');
     document.getElementById('btnTextStep1').innerHTML = '⚡ 執行中，請看右側進度...';
     
-    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在打包卷宗並解析平台設定...', true, btn);
+    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在打包卷宗並解析平台設定...', true, btnSubmit);
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -250,7 +256,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         showToast('✅ 腳本生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，請總編審核修改。');
     } catch (e) { await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${e.message}`); showToast(`❌ 錯誤: ${e.message}`, 'error'); } 
-    finally { btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-blue-600'); document.getElementById('btnTextStep1').innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; }
+    finally { btnSubmit.disabled = false; btnSubmit.classList.replace('bg-gray-500', 'bg-blue-600'); document.getElementById('btnTextStep1').innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; }
 });
 
 window.submitForImageGeneration = async function() {
