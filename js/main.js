@@ -41,7 +41,7 @@ window.showPointDeduction = function(element, points) {
 };
 
 // ==========================================
-// 🛡️ 全域防禦機制：自動重試引擎 (Exponential Backoff)
+// 🛡️ 全域防禦機制：自動重試引擎
 // ==========================================
 window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries = 3) {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -76,7 +76,6 @@ window.resetToStep1 = () => {
     STATE.currentTaskId = null; STATE.multiImages = []; document.getElementById('agentForm').reset();
     document.getElementById('characterList').innerHTML = ''; document.getElementById('scenePreview').innerHTML = ''; document.getElementById('objectPreview').innerHTML = '';
     
-    // 清理舊的檔案記憶
     STATE.sceneFiles = [];
     STATE.objectFiles = [];
 
@@ -136,6 +135,8 @@ window.submitNewCharacter = async function() {
         
         showToast(res.message, 'success'); 
         window.showPointDeduction(btn, 5); 
+        // 🌟 明確報帳
+        if (typeof window.addAgentLog === 'function') await window.addAgentLog('財務總監', '💳', `(AI算力扣除 5 點)`, false, targetButton);
         
         UI.closeCreateCharModal(); 
         await window.initSystemData();
@@ -219,7 +220,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     const publishBtn = document.getElementById('btnPublish');
     if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
 
-    // 🛡️ 安全取得勾選狀態 (防止 null 錯誤)
     const selectedPlatforms = [];
     if(document.getElementById('platFB')?.checked) selectedPlatforms.push('FB');
     if(document.getElementById('platIG')?.checked) selectedPlatforms.push('IG');
@@ -261,7 +261,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         });
 
-        // 🗑️ 徹底拔除 skipScene 判斷！改用陣列長度判斷，保證不當機！
         if (STATE.sceneFiles && STATE.sceneFiles.length > 0) {
             await window.addAgentLog('影像處理組', '📐', `偵測到 ${STATE.sceneFiles.length} 張背景圖，特徵分析中...`, true);
             for (let file of STATE.sceneFiles) {
@@ -281,6 +280,8 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
         window.showPointDeduction(btnSubmit, 10); 
+        // 🌟 明確報帳
+        await window.addAgentLog('財務總監', '💳', '(AI算力扣除 10 點)', false);
         
         await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！渲染排版中...', false);
         STATE.currentTaskId = result.taskId; 
@@ -309,7 +310,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 });
 
 // ==========================================
-// 🎨 核心流程 Step 2：發包生圖 (AI圖扣 20 點/張)
+// 🎨 核心流程 Step 2：發包生圖
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -331,12 +332,16 @@ window.submitForImageGeneration = async function() {
         const aiCount = STATE.multiImages.filter(img => img.processType === 'AI_SYNTHESIS').length;
         const totalCost = aiCount * 20; 
         
-        if(aiCount > 0) await window.addAgentLog('算圖農場', '🤖', `極速生成 ${aiCount} 張圖片中 (將消耗 ${totalCost} 點)...`, true);
+        if(aiCount > 0) await window.addAgentLog('算圖農場', '🤖', `極速生成 ${aiCount} 張圖片中...`, true);
         else await window.addAgentLog('影像處理組', '☁️', '原圖上傳中 (不消耗點數)...', true);
 
         const res = await window.executeWithRetry(() => API.generateImageAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), editedCaption: document.getElementById('reviewCaption').value, editedPanels, incomingImages: STATE.multiImages.map(img => ({ processType: img.processType, originalUrl: img.originalUrl })) }), '算圖農場', '雲端算圖');
         
-        if (totalCost > 0) window.showPointDeduction(btn, totalCost); 
+        if (totalCost > 0) {
+            window.showPointDeduction(btn, totalCost); 
+            // 🌟 明確報帳
+            await window.addAgentLog('財務總監', '💳', `(AI算力扣除 ${totalCost} 點)`, false);
+        }
         
         await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！準備發射...', false);
         document.getElementById('step2-review').classList.add('hidden');
@@ -358,7 +363,7 @@ window.submitForImageGeneration = async function() {
 };
 
 // ==========================================
-// 🚀 核心流程 Step 3：一鍵發佈與排程 (扣 5 點)
+// 🚀 核心流程 Step 3：一鍵發佈與排程
 // ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
@@ -373,6 +378,8 @@ window.publishToSocial = async function() {
         const res = await window.executeWithRetry(() => API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt }), '社群總監', '社群發射');
         
         window.showPointDeduction(btn, 5); 
+        // 🌟 明確報帳
+        await window.addAgentLog('財務總監', '💳', '(AI算力扣除 5 點)', false);
         
         await window.addAgentLog('系統管理員', '✅', scheduledAt ? '排程成功！' : '發送成功！', false);
         btn.innerHTML = scheduledAt ? '✅ 預約成功！' : '✅ 發布成功！';
