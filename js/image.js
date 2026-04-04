@@ -15,29 +15,17 @@ export function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = fa
             img.onload = function () {
                 const canvas = document.createElement('canvas');
                 let width = img.width; let height = img.height;
-                
-                // 依比例縮放
-                if (width > maxWidth) { 
-                    height = Math.round((height * maxWidth) / width); 
-                    width = maxWidth; 
-                }
-                
+                if (width > maxWidth) { height = Math.round((height * maxWidth) / width); width = maxWidth; }
                 canvas.width = width; canvas.height = height;
-                const ctx = canvas.getContext('2d'); 
-                ctx.drawImage(img, 0, 0, width, height);
-                
-                // 處理黑白濾鏡
+                const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height);
                 if (forceGrayscale) {
-                    const imageData = ctx.getImageData(0, 0, width, height); 
-                    const data = imageData.data;
+                    const imageData = ctx.getImageData(0, 0, width, height); const data = imageData.data;
                     for (let i = 0; i < data.length; i += 4) {
                         const lum = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
                         data[i] = lum; data[i+1] = lum; data[i+2] = lum;
                     }
                     ctx.putImageData(imageData, 0, 0);
                 }
-                
-                // 輸出壓縮後的 Base64
                 const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
                 resolve({ data: compressedDataUrl.replace(/^data:image\/\w+;base64,/, ""), mimeType: 'image/jpeg' });
             };
@@ -48,18 +36,64 @@ export function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = fa
 }
 
 // ==========================================
-// 🌟 攔截圖片選取 (Step 1 & 2)：使用全域雷達抓取精準座標
+// 🌟 全新獨立預覽引擎 (Step 1：實境圖/道具圖)
 // ==========================================
-const originalHandleFileSelect = window.handleFileSelect; 
 window.handleFileSelect = async function(input, type, max, previewId) {
-    const targetButton = window.LAST_CLICKED_EL || input; // 👈 破除幽靈座標，鎖定實體按鈕
+    const targetButton = window.LAST_CLICKED_EL || input; // 鎖定實體按鈕
+    const stateKey = type + 'Files';
     
-    if (typeof UI !== 'undefined' && UI.handleFileSelect) {
-        UI.handleFileSelect(input, type, max, previewId);
+    // 初始化陣列
+    if (!STATE[stateKey]) STATE[stateKey] = [];
+
+    const newFiles = Array.from(input.files);
+    if (STATE[stateKey].length + newFiles.length > max) {
+        showToast(`❌ 最多只能選擇 ${max} 張圖片！`, 'error');
+        input.value = '';
+        return;
     }
-    if (input.files && input.files.length > 0) {
+
+    // 將新檔案加入狀態並重新渲染
+    STATE[stateKey] = STATE[stateKey].concat(newFiles);
+    window.renderPreview(stateKey, previewId, type);
+    input.value = ''; // 清空 input 讓同一張圖可以重複選取
+
+    // 觸發 AI 連線互動
+    if (newFiles.length > 0) {
         const msg = type === 'scene' ? '收到實境背景圖！正在進行特徵分析...' : '收到道具參考圖！已放入素材庫。';
-        await window.addAgentLog('影像處理組', '📐', msg, false, targetButton);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('影像處理組', '📐', msg, false, targetButton);
+        }
+    }
+};
+
+window.renderPreview = function(stateKey, previewId, type) {
+    const container = document.getElementById(previewId);
+    if (!container) return;
+    container.innerHTML = '';
+
+    STATE[stateKey].forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const div = document.createElement('div');
+            div.className = 'relative w-24 h-24 group animate-fade-in mt-1';
+            div.innerHTML = `
+                <img src="${e.target.result}" class="w-full h-full object-cover rounded-xl border border-gray-300 shadow-sm">
+                <button type="button" onclick="window.removeReferenceFile('${stateKey}', '${previewId}', '${type}', ${index}, this)" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10">&times;</button>
+            `;
+            container.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+};
+
+// 🗑️ 刪除實境圖/道具圖的連線互動
+window.removeReferenceFile = async function(stateKey, previewId, type, index, btnEl) {
+    STATE[stateKey].splice(index, 1);
+    window.renderPreview(stateKey, previewId, type);
+    
+    const msg = type === 'scene' ? '已移除該張背景參考圖。' : '已移除該張道具參考圖。';
+    if (typeof window.addAgentLog === 'function') {
+        await window.addAgentLog('影像處理組', '🗑️', msg, false, btnEl);
     }
 };
 
@@ -93,7 +127,6 @@ window.renderMultiImages = function() {
         container.appendChild(div);
     });
     
-    // 若未滿 10 張，顯示「新增卡位」按鈕
     if (STATE.multiImages.length < 10) {
         const addBtnDiv = document.createElement('div');
         addBtnDiv.className = "w-full mt-2 animate-fade-in";
@@ -104,7 +137,7 @@ window.renderMultiImages = function() {
 
 window.addAITemplate = async function() {
     if (STATE.multiImages.length >= 10) return;
-    const targetButton = window.LAST_CLICKED_EL; // 抓取點擊的按鈕座標
+    const targetButton = window.LAST_CLICKED_EL; 
     STATE.multiImages.push({ id: `img_ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`, originalUrl: '', processType: 'AI_SYNTHESIS' });
     window.renderMultiImages();
     await window.addAgentLog('美術總監', '👨‍🎨', '已為您新增一張 AI 算圖排位，準備構思新分鏡。', false, targetButton);
@@ -113,7 +146,7 @@ window.addAITemplate = async function() {
 window.handleMultiImageSelect = async function(input) {
     const max = 10; 
     const newFiles = Array.from(input.files);
-    const targetButton = window.LAST_CLICKED_EL || input; // 👈 破除幽靈座標
+    const targetButton = window.LAST_CLICKED_EL || input; 
 
     if ((STATE.multiImages?.length || 0) + newFiles.length > max) {
         return showToast('❌ 最多只能 10 張！', 'error');
@@ -121,7 +154,7 @@ window.handleMultiImageSelect = async function(input) {
     if (!STATE.multiImages) STATE.multiImages = [];
 
     for (let file of newFiles) {
-        showToast('📐 正在壓縮附加實拍圖片...', 'info');
+        showToast('📐 正在壓縮附加圖片...', 'info');
         try {
             const compressed = await compressImageToBase64(file, 1024, false);
             STATE.multiImages.push({ 
