@@ -7,7 +7,6 @@ import * as UI from './ui.js';
 // ==========================================
 // 🌟 1. 模組載入與全域綁定
 // ==========================================
-// 載入我們剛剛拆分出去的影像模組與 AI 幕僚模組
 import { compressImageToBase64 } from './image.js';
 import './agent.js'; 
 
@@ -17,7 +16,63 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
-// 🌟 2. 核心狀態與輔助函數
+// 🛡️ 2. 全域防禦機制：自動重試引擎 (Exponential Backoff)
+// ==========================================
+/**
+ * 負責包裝所有 API 呼叫，提供智慧重試與 AI 安撫功能
+ * @param {Function} apiCallFn - 要執行的 API 函數 (回傳 Promise)
+ * @param {String} role - 負責報告的 AI 角色 (如：'系統管理員')
+ * @param {String} actionName - 動作名稱 (如：'社群平台發射')
+ * @param {Number} maxRetries - 最大重試次數 (預設 3 次)
+ */
+window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries = 3) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // 嘗試執行 API
+            const result = await apiCallFn();
+            if (!result || !result.success) {
+                throw new Error(result?.message || '未知的系統回傳錯誤');
+            }
+            return result; // 成功就直接回傳
+            
+        } catch (error) {
+            const errMsg = error.message || String(error);
+            
+            // 🛑 判斷是否為「致命錯誤 (Fatal Error)」
+            // 若為容量超載、權限不足等，重試也沒用，直接中斷
+            const isFatal = errMsg.includes('INVALID_ARGUMENT') || 
+                            errMsg.includes('auth') || 
+                            errMsg.includes('未授權') ||
+                            errMsg.includes('參數錯誤');
+            
+            // 如果是致命錯誤，或已經到了最後一次嘗試，直接拋出錯誤讓外層捕捉
+            if (isFatal || attempt === maxRetries) {
+                throw error; 
+            }
+
+            // ⏳ 計算退避時間：2秒, 4秒... 加上隨機抖動(Jitter)避免伺服器被規律塞爆
+            const baseWait = Math.pow(2, attempt) * 1000;
+            const jitter = Math.floor(Math.random() * 1000);
+            const waitTime = baseWait + jitter;
+
+            // 🤖 呼叫 AI 幕僚安撫用戶
+            if (typeof window.addAgentLog === 'function') {
+                await window.addAgentLog(
+                    role, 
+                    '🛡️', 
+                    `偵測到「${actionName}」遭遇短暫連線不穩或擁塞。已啟動自動防禦機制，將於 ${Math.round(waitTime/1000)} 秒後進行第 ${attempt} 次重試...`, 
+                    true
+                );
+            }
+            
+            // 進入睡眠等待
+            await window.sleep(waitTime);
+        }
+    }
+};
+
+// ==========================================
+// 🌟 3. 核心狀態與輔助函數
 // ==========================================
 function getTenantIdFromToken() {
     if (!STATE.globalAuthToken) return 'test_user_001'; 
@@ -45,12 +100,10 @@ window.backToStep2 = function() {
 };
 
 window.resetToStep1 = function() {
-    // 捨棄進度，清空表單並返回第一步
     document.getElementById('step3-publish').classList.add('hidden');
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
     
-    // 清空設定
     STATE.currentTaskId = null;
     STATE.multiImages = [];
     document.getElementById('agentForm').reset();
@@ -58,7 +111,6 @@ window.resetToStep1 = function() {
     document.getElementById('scenePreview').innerHTML = '';
     document.getElementById('objectPreview').innerHTML = '';
     
-    // 重設 AI 對話牆
     if (typeof window.resetAgentConsole === 'function') {
         window.resetAgentConsole();
         setTimeout(async () => {
@@ -70,20 +122,21 @@ window.resetToStep1 = function() {
 };
 
 // ==========================================
-// 🌟 3. 系統初始化與角色管理 (CRUD)
+// 🌟 4. 系統初始化與角色管理 (CRUD)
 // ==========================================
 window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
-        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
+        // 🛡️ 套用重試防禦
+        const optionsRes = await window.executeWithRetry(
+            () => API.fetchSystemOptionsAPI(tenantId),
+            '系統管理員',
+            '載入資料庫選項'
+        );
         
-        if (optionsRes.success) {
-            STATE.globalSystemStyles = optionsRes.data.styles || [];
-            if (typeof UI.renderDynamicOptions === 'function') {
-                UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
-            }
-        } else {
-            showToast('❌ 畫風載入失敗: ' + optionsRes.message, 'error');
+        STATE.globalSystemStyles = optionsRes.data.styles || [];
+        if (typeof UI.renderDynamicOptions === 'function') {
+            UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
         }
     } catch (error) {
         console.error('初始化系統資料錯誤:', error);
@@ -118,7 +171,6 @@ window.addCharacterFromDB = async (dbChar) => {
     list.appendChild(item);
     showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
 
-    // 🌟 呼叫 agent.js 的互動
     if (typeof window.addAgentLog === 'function') {
         await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！他今天會穿哪一套衣服呢？`);
     }
@@ -146,16 +198,18 @@ window.submitNewCharacter = async function() {
             tenantId: tenantId
         };
 
-        const result = await API.createCharacterAPI(payload);
-        if (!result.success) throw new Error(result.message);
+        // 🛡️ 套用重試防禦
+        const result = await window.executeWithRetry(
+            () => API.createCharacterAPI(payload),
+            '視覺工程師',
+            '基因特徵寫入'
+        );
         
         showToast(result.message, 'success');
         UI.closeCreateCharModal();
         
-        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
-        if(optionsRes.success) {
-            UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
-        }
+        await window.initSystemData(); // 重新載入
+        
     } catch(error) {
         showToast(`❌ 建立失敗: ${error.message}`, 'error');
     } finally {
@@ -170,22 +224,24 @@ window.deleteChar = async function(charId) {
     const tenantId = getTenantIdFromToken();
     try {
         showToast('🗑️ 正在清理雲端基因...', 'info');
-        const result = await API.deleteCharacterAPI({ charId, tenantId });
-        if (!result.success) throw new Error(result.message);
+        
+        // 🛡️ 套用重試防禦
+        await window.executeWithRetry(
+            () => API.deleteCharacterAPI({ charId, tenantId }),
+            '系統管理員',
+            '清理雲端角色'
+        );
         
         showToast('✅ 角色已成功刪除！', 'success');
+        await window.initSystemData();
         
-        const optionsRes = await API.fetchSystemOptionsAPI(tenantId);
-        if(optionsRes.success) {
-            UI.renderDynamicOptions(STATE.isComicModeActive ? 'ANIME' : 'REALISTIC', optionsRes.data);
-        }
     } catch(error) {
         showToast(`❌ 刪除失敗: ${error.message}`, 'error');
     }
 };
 
 // ==========================================
-// 🌟 4. Google 登入與啟動晨會
+// 🌟 5. Google 登入與啟動晨會
 // ==========================================
 window.onload = async function () {
     google.accounts.id.initialize({
@@ -196,6 +252,7 @@ window.onload = async function () {
             loginMsg.className = 'text-blue-600 font-bold mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200';
             
             try {
+                // 登入驗證不隨便重試，失敗就是失敗
                 const result = await API.verifyLoginAPI(response.credential);
                 if (!result.success) throw new Error(result.message);
 
@@ -218,12 +275,10 @@ window.onload = async function () {
                     
                     await window.initSystemData(); 
                     
-                    // 🌟 啟動 agent.js 裡的膠囊 UI 與狀態攔截器
                     if (typeof window.initAgentCapsule === 'function') {
                         window.initAgentCapsule();
                         window.initInteractions(); 
 
-                        // 🎬 開局晨會劇本：一次性報告
                         setTimeout(async () => {
                             await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 行動工作室已就緒，等待您的指令。');
                             await window.addAgentLog('社群總監', '🚀', '目前尚未指定發佈平台，請先在左側為我們勾選戰場 (FB / IG / Threads)！');
@@ -243,19 +298,16 @@ window.onload = async function () {
         { theme: "outline", size: "large", width: 300, shape: "pill" }
     );
 
-    // 監聽螢幕大小改變，動態切換膠囊模式
     window.addEventListener('resize', () => {
         const consoleEl = document.getElementById('aiTeamConsole');
         if (!consoleEl) return;
         
         if (window.innerWidth >= 1024) {
-            // 切換為 PC 版：強制展開
             const logEl = document.getElementById('aiTeamConsoleLog');
             const previewDiv = document.getElementById('aiCapsulePreview');
             if(logEl) logEl.classList.remove('hidden');
             if(previewDiv) previewDiv.classList.add('hidden');
         } else {
-            // 切換回手機版：讓 initAgentCapsule 的邏輯重新接管
              if(consoleEl.dataset.capsuleInit === 'true') {
                  const logEl = document.getElementById('aiTeamConsoleLog');
                  const previewDiv = document.getElementById('aiCapsulePreview');
@@ -269,12 +321,11 @@ window.onload = async function () {
 
 
 // ==========================================
-// 🚀 5. 核心流程 Step 1：AI 撰寫腳本
+// 🚀 6. 核心流程 Step 1：AI 撰寫腳本
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // 🧹 清除殘留的按鈕狀態
     const publishBtn = document.getElementById('btnPublish');
     if (publishBtn) {
         publishBtn.className = 'w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-all';
@@ -303,7 +354,6 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     btnText.innerHTML = '⚡ 執行中，請看上方進度...';
     
-    // 🌟 接續對話
     if (typeof window.addAgentLog === 'function') {
         await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在為您打包卷宗，並解析平台設定...', true);
     }
@@ -368,14 +418,14 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
-                const base64Img = await compressImageToBase64(file, 600, isBW); // 強力瘦身
+                const base64Img = await compressImageToBase64(file, 600, isBW); 
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
         
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
-                const base64Img = await compressImageToBase64(file, 600, isBW); // 強力瘦身
+                const base64Img = await compressImageToBase64(file, 600, isBW); 
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
         }
@@ -384,8 +434,12 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             await window.addAgentLog('首席文案', '✍️', '所有素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫社群腳本...', true);
         }
         
-        const result = await API.createDraftAPI(payload);
-        if (!result.success) throw new Error(result.message);
+        // 🛡️ 套用重試防禦
+        const result = await window.executeWithRetry(
+            () => API.createDraftAPI(payload),
+            '首席文案',
+            '腳本大腦連線'
+        );
         
         if (typeof window.addAgentLog === 'function') {
             await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
@@ -445,7 +499,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 
 // ==========================================
-// 🎨 6. 核心流程 Step 2：發包生圖
+// 🎨 7. 核心流程 Step 2：發包生圖
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -486,15 +540,18 @@ window.submitForImageGeneration = async function() {
             await window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
         }
 
-        const result = await API.generateImageAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), 
-            editedCaption, 
-            editedPanels,
-            incomingImages: incomingImagesPayload
-        });
-        
-        if (!result.success) throw new Error(result.message);
+        // 🛡️ 套用重試防禦
+        const result = await window.executeWithRetry(
+            () => API.generateImageAPI({ 
+                taskId: STATE.currentTaskId, 
+                tenantId: getTenantIdFromToken(), 
+                editedCaption, 
+                editedPanels,
+                incomingImages: incomingImagesPayload
+            }),
+            '算圖農場',
+            '雲端繪圖運算'
+        );
         
         if (typeof window.addAgentLog === 'function') {
             await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在為您準備最終發射控制台...', false);
@@ -538,7 +595,7 @@ window.submitForImageGeneration = async function() {
 
 
 // ==========================================
-// 🚀 7. 核心流程 Step 3：一鍵發佈與預約排程
+// 🚀 8. 核心流程 Step 3：一鍵發佈與預約排程
 // ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
@@ -557,14 +614,17 @@ window.publishToSocial = async function() {
     }
 
     try {
-        const result = await API.publishContentAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: getTenantIdFromToken(), 
-            finalCaption: document.getElementById('finalCaptionDisplay').value, 
-            scheduledAt: scheduledAt 
-        });
-        
-        if (!result.success) throw new Error(result.message);
+        // 🛡️ 套用重試防禦
+        const result = await window.executeWithRetry(
+            () => API.publishContentAPI({ 
+                taskId: STATE.currentTaskId, 
+                tenantId: getTenantIdFromToken(), 
+                finalCaption: document.getElementById('finalCaptionDisplay').value, 
+                scheduledAt: scheduledAt 
+            }),
+            '社群總監',
+            '社群平台發射'
+        );
         
         if (typeof window.addAgentLog === 'function') {
             await window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
