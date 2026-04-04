@@ -18,13 +18,11 @@ window.closeCreateCharModal = UI.closeCreateCharModal;
 window.showPointDeduction = function(element, points) {
     if (!element || points <= 0) return;
     
-    // 更新本地狀態與 UI
     STATE.userPoints = Math.max(0, (STATE.userPoints || 0) - points);
     if (typeof window.updatePointsDisplay === 'function') {
         window.updatePointsDisplay(STATE.userPoints);
     }
 
-    // 建立上飄的浮動文字 (-X ⚡)
     const rect = element.getBoundingClientRect();
     const floater = document.createElement('div');
     floater.className = 'fixed font-black text-red-500 z-[100] pointer-events-none text-lg transition-all duration-1000 ease-out';
@@ -34,13 +32,11 @@ window.showPointDeduction = function(element, points) {
     floater.style.textShadow = '0 2px 4px rgba(0,0,0,0.15)';
     document.body.appendChild(floater);
 
-    // 觸發 CSS 動畫 (往上飄並淡出)
     requestAnimationFrame(() => {
         floater.style.transform = 'translateY(-40px)';
         floater.style.opacity = '0';
     });
 
-    // 動畫結束後移除 DOM
     setTimeout(() => floater.remove(), 1000);
 };
 
@@ -79,6 +75,11 @@ window.resetToStep1 = () => {
     document.getElementById('step3-publish').classList.add('hidden'); document.getElementById('step2-review').classList.add('hidden'); document.getElementById('step1-setup').classList.remove('hidden');
     STATE.currentTaskId = null; STATE.multiImages = []; document.getElementById('agentForm').reset();
     document.getElementById('characterList').innerHTML = ''; document.getElementById('scenePreview').innerHTML = ''; document.getElementById('objectPreview').innerHTML = '';
+    
+    // 清理舊的檔案記憶
+    STATE.sceneFiles = [];
+    STATE.objectFiles = [];
+
     window.resetAgentConsole();
     setTimeout(async () => { await window.addAgentLog('專案總監', '👨‍💼', '任務已重置，全新的卷宗已就緒！'); }, 500);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -134,7 +135,7 @@ window.submitNewCharacter = async function() {
         const res = await window.executeWithRetry(() => API.createCharacterAPI({ name, imageBase64: base64Info.data, mimeType: base64Info.mimeType, tenantId: getTenantIdFromToken() }), '視覺工程師', '基因寫入');
         
         showToast(res.message, 'success'); 
-        window.showPointDeduction(btn, 5); // 💸 扣除 5 點
+        window.showPointDeduction(btn, 5); 
         
         UI.closeCreateCharModal(); 
         await window.initSystemData();
@@ -167,14 +168,14 @@ window.onload = async function () {
                 }
                 if (result.status === 'ACTIVE') {
                     STATE.globalAuthToken = response.credential; STATE.tenantUid = result.uid; 
-                    STATE.userPoints = result.totalPoints || 0; // 💸 儲存初始點數
+                    STATE.userPoints = result.totalPoints || 0; 
                     
                     document.getElementById('loginScreen').classList.add('hidden');
                     const app = document.getElementById('mainApp'); app.classList.remove('hidden');
                     setTimeout(() => { app.classList.remove('opacity-0'); }, 100);
                     
                     showToast(`✅ 登入成功！`, 'success');
-                    if (typeof window.updatePointsDisplay === 'function') window.updatePointsDisplay(STATE.userPoints); // ⚡ 更新 UI
+                    if (typeof window.updatePointsDisplay === 'function') window.updatePointsDisplay(STATE.userPoints);
 
                     await window.initSystemData(); 
                     window.initAgentCapsule();
@@ -215,14 +216,14 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const btnSubmit = document.getElementById('btnStep1Submit'); 
     
-    // 防呆清理
     const publishBtn = document.getElementById('btnPublish');
     if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
 
+    // 🛡️ 安全取得勾選狀態 (防止 null 錯誤)
     const selectedPlatforms = [];
-    if(document.getElementById('platFB').checked) selectedPlatforms.push('FB');
-    if(document.getElementById('platIG').checked) selectedPlatforms.push('IG');
-    if(document.getElementById('platThreads').checked) selectedPlatforms.push('THREADS');
+    if(document.getElementById('platFB')?.checked) selectedPlatforms.push('FB');
+    if(document.getElementById('platIG')?.checked) selectedPlatforms.push('IG');
+    if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
     if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
 
     const topic = document.getElementById('topic').value.trim();
@@ -260,7 +261,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         });
 
-        // 🗑️ 智慧判斷：有上傳檔案才處理壓縮 (不依賴 Checkbox)
+        // 🗑️ 徹底拔除 skipScene 判斷！改用陣列長度判斷，保證不當機！
         if (STATE.sceneFiles && STATE.sceneFiles.length > 0) {
             await window.addAgentLog('影像處理組', '📐', `偵測到 ${STATE.sceneFiles.length} 張背景圖，特徵分析中...`, true);
             for (let file of STATE.sceneFiles) {
@@ -279,7 +280,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         await window.addAgentLog('首席文案', '✍️', '正在與大腦連線撰寫腳本...', true);
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
-        window.showPointDeduction(btnSubmit, 10); // 💸 扣除 10 點
+        window.showPointDeduction(btnSubmit, 10); 
         
         await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！渲染排版中...', false);
         STATE.currentTaskId = result.taskId; 
@@ -296,7 +297,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             panContainer.classList.remove('hidden');
             let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認</label>';
             result.draftContent.panels.forEach(p => {
-                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm">${p.dialogue}</textarea></div>`;
+                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
             });
             panContainer.innerHTML = html;
         } else panContainer.classList.add('hidden');
@@ -328,14 +329,14 @@ window.submitForImageGeneration = async function() {
 
     try {
         const aiCount = STATE.multiImages.filter(img => img.processType === 'AI_SYNTHESIS').length;
-        const totalCost = aiCount * 20; // 💸 計算成本
+        const totalCost = aiCount * 20; 
         
         if(aiCount > 0) await window.addAgentLog('算圖農場', '🤖', `極速生成 ${aiCount} 張圖片中 (將消耗 ${totalCost} 點)...`, true);
         else await window.addAgentLog('影像處理組', '☁️', '原圖上傳中 (不消耗點數)...', true);
 
         const res = await window.executeWithRetry(() => API.generateImageAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), editedCaption: document.getElementById('reviewCaption').value, editedPanels, incomingImages: STATE.multiImages.map(img => ({ processType: img.processType, originalUrl: img.originalUrl })) }), '算圖農場', '雲端算圖');
         
-        if (totalCost > 0) window.showPointDeduction(btn, totalCost); // 💸 扣除生圖點數
+        if (totalCost > 0) window.showPointDeduction(btn, totalCost); 
         
         await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！準備發射...', false);
         document.getElementById('step2-review').classList.add('hidden');
@@ -371,7 +372,7 @@ window.publishToSocial = async function() {
     try {
         const res = await window.executeWithRetry(() => API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt }), '社群總監', '社群發射');
         
-        window.showPointDeduction(btn, 5); // 💸 扣除發布點數
+        window.showPointDeduction(btn, 5); 
         
         await window.addAgentLog('系統管理員', '✅', scheduledAt ? '排程成功！' : '發送成功！', false);
         btn.innerHTML = scheduledAt ? '✅ 預約成功！' : '✅ 發布成功！';
