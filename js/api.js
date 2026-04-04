@@ -92,6 +92,23 @@ export async function generateVideoAPI(payload) {
 }
 
 // ==========================================
+// 📜 歷史卷宗與帳單 API (新增)
+// ==========================================
+export async function fetchAuditLogsAPI(tenantId) {
+    // 🌟 遵循您的標準架構：加上 CONFIG.CLOUD_RUN_URL，並帶上 Token 驗證身份
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/logs?tenantId=${tenantId}`, {
+        method: 'GET',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '無法取得歷史紀錄');
+    return data;
+}
+
+// ==========================================
 // 🔐 身分驗證與註冊 API
 // ==========================================
 export async function verifyLoginAPI(credential) {
