@@ -82,7 +82,7 @@ window.drawNeuralLine = function(sourceEl, targetEl) {
     setTimeout(() => {
         cancelAnimationFrame(animationFrameId);
         path.remove();
-    }, 2500);
+    }, 2000);
 };
 
 // ==========================================
