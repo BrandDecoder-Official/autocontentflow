@@ -49,24 +49,21 @@ window.fetchAndRenderAuditLogs = async function() {
         </div>`;
 
     try {
-        // 🚧 這裡下一步會換成真實的 API 呼叫： const logs = await API.fetchLogs();
-        // 我們先用 setTimeout 模擬網路延遲，讓您看看 UI 效果
-        await new Promise(resolve => setTimeout(resolve, 800));
+        const tenantId = getTenantIdFromToken();
         
-        // 模擬從您 DB 撈出來的 Log 格式
-        const mockLogs = [
-            { type: 'GENERATE_IMAGE', description: 'AI 雲端算圖 3 張', amount: 60, balanceAfter: 946, createdAt: new Date().toISOString() },
-            { type: 'UPLOAD_IMAGE', description: '原圖上傳', amount: 0, balanceAfter: 1006, createdAt: new Date(Date.now() - 3600000).toISOString() },
-            { type: 'GENERATE_DRAFT', description: 'AI 撰寫貼文腳本', amount: 10, balanceAfter: 1006, createdAt: new Date(Date.now() - 7200000).toISOString() }
-        ];
+        // 🌟 呼叫真實 API 撈取資料 (取代原本的 mockLogs)
+        const res = await window.executeWithRetry(() => API.fetchAuditLogsAPI(tenantId), '系統管理員', '讀取歷史卷宗');
+        
+        // 取得後端回傳的真實陣列
+        const realLogs = res.logs || [];
 
-        if (!mockLogs || mockLogs.length === 0) {
+        if (realLogs.length === 0) {
             contentBox.innerHTML = `<div class="text-center text-gray-400 mt-10 text-sm font-bold">目前尚無任何花費紀錄。</div>`;
             return;
         }
 
         let html = '<div class="space-y-4">';
-        mockLogs.forEach(log => {
+        realLogs.forEach(log => {
             // 根據動作給予不同的 UI 顏色
             let icon = '⚡'; let colorClass = 'bg-gray-100 text-gray-600';
             if(log.type === 'GENERATE_IMAGE') { icon = '🎨'; colorClass = 'bg-purple-100 text-purple-700'; }
@@ -84,7 +81,7 @@ window.fetchAndRenderAuditLogs = async function() {
                         <div class="flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-sm shadow-sm">${icon}</span>
                             <div>
-                                <h4 class="text-sm font-bold text-gray-800">${log.description}</h4>
+                                <h4 class="text-sm font-bold text-gray-800">${log.description || '系統操作'}</h4>
                                 <p class="text-xs text-gray-400 font-medium">${timeStr}</p>
                             </div>
                         </div>
@@ -92,6 +89,10 @@ window.fetchAndRenderAuditLogs = async function() {
                             <div class="text-base font-black ${log.amount > 0 ? 'text-red-500' : 'text-gray-500'}">${log.amount > 0 ? '-' : ''}${log.amount} ⚡</div>
                             <div class="text-[10px] text-gray-400 font-bold">結餘: ${log.balanceAfter}</div>
                         </div>
+                    </div>
+                    
+                    <div class="pl-12 pr-2 text-right">
+                         <span class="text-[10px] text-gray-300 font-mono tracking-wider">Tokens: ${log.metrics?.geminiTokensUsed || 0}</span>
                     </div>
                 </div>
             `;
