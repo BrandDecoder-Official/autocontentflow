@@ -5,290 +5,20 @@ import * as API from './api.js';
 import * as UI from './ui.js';
 
 // ==========================================
-// 🌟 綁定 UI 函數到全域 (Window)
+// 🌟 1. 模組載入與全域綁定
 // ==========================================
+// 載入我們剛剛拆分出去的影像模組與 AI 幕僚模組
+import { compressImageToBase64 } from './image.js';
+import './agent.js'; 
+
 window.toggleSection = UI.toggleSection;
 window.previewCharImage = UI.previewCharImage;
-window.removeFileFromArray = UI.removeFileFromArray;
-window.resetToStep1 = UI.resetToStep1;
 window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
-
 // ==========================================
-// 🤖 核心大腦對話牆控制 (PC側邊欄 / 手機動態膠囊)
+// 🌟 2. 核心狀態與輔助函數
 // ==========================================
-window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-window.initAgentCapsule = function() {
-    const consoleEl = document.getElementById('aiTeamConsole');
-    const logEl = document.getElementById('aiTeamConsoleLog');
-    const header = consoleEl.querySelector('.flex.items-center.justify-between');
-    const previewDiv = document.getElementById('aiCapsulePreview');
-    
-    // 如果找不到元素，或已經初始化過，就跳出
-    if (!consoleEl || !logEl || consoleEl.dataset.capsuleInit) return;
-
-    // 🖥️ PC 電腦端 (寬度 >= 1024px)：直接保持展開，不啟動膠囊邏輯
-    if (window.innerWidth >= 1024) {
-        logEl.classList.remove('hidden');
-        previewDiv.classList.add('hidden');
-        consoleEl.dataset.capsuleInit = 'true';
-        return;
-    }
-
-    // 📱 手機端：調整外觀，預設為收合 (膠囊) 狀態
-    logEl.classList.add('hidden'); 
-    previewDiv.classList.remove('hidden');
-    consoleEl.classList.add('cursor-pointer', 'hover:border-gray-500', 'p-3', 'px-4');
-    consoleEl.classList.remove('p-5');
-    header.classList.remove('mb-4', 'border-b', 'border-gray-700', 'pb-3');
-    
-    // 點擊展開/收合邏輯
-    consoleEl.onclick = function(e) {
-        // 如果使用者把視窗拉大變 PC 版，關閉點擊功能
-        if (window.innerWidth >= 1024) return;
-        // 避免點到對話紀錄內部觸發收合
-        if (e.target.closest('#aiTeamConsoleLog')) return;
-        
-        const isCollapsed = logEl.classList.contains('hidden');
-        if (isCollapsed) {
-            // 展開
-            logEl.classList.remove('hidden');
-            previewDiv.classList.add('hidden');
-            header.classList.add('mb-3', 'border-b', 'border-gray-700', 'pb-2');
-            consoleEl.classList.remove('p-3', 'px-4');
-            consoleEl.classList.add('p-4');
-            document.getElementById('capsuleToggleIcon').innerText = '👆';
-            logEl.scrollTop = logEl.scrollHeight;
-        } else {
-            // 收合
-            logEl.classList.add('hidden');
-            previewDiv.classList.remove('hidden');
-            header.classList.remove('mb-3', 'border-b', 'border-gray-700', 'pb-2');
-            consoleEl.classList.add('p-3', 'px-4');
-            consoleEl.classList.remove('p-4');
-            document.getElementById('capsuleToggleIcon').innerText = '👇';
-        }
-    };
-
-    consoleEl.dataset.capsuleInit = 'true';
-};
-
-window.resetAgentConsole = function() {
-    const consoleEl = document.getElementById('aiTeamConsole');
-    const logEl = document.getElementById('aiTeamConsoleLog');
-    const previewEl = document.getElementById('aiCapsulePreview');
-    
-    if (consoleEl && logEl) {
-        consoleEl.classList.remove('hidden');
-        logEl.innerHTML = ''; 
-        if (previewEl) previewEl.innerHTML = '等待總編下達指令...';
-    }
-};
-
-window.addAgentLog = async function(role, icon, message, isFinalSpinner = false) {
-    const logEl = document.getElementById('aiTeamConsoleLog');
-    const previewEl = document.getElementById('aiCapsulePreview');
-    
-    if (!logEl) return;
-
-    // 清除上一個人的 spinner 轉圈圈
-    const oldSpinners = logEl.querySelectorAll('.agent-spinner');
-    oldSpinners.forEach(s => s.remove());
-
-    const divId = `log_${Date.now()}`;
-    const div = document.createElement('div');
-    div.id = divId;
-    div.className = 'flex items-start gap-3 animate-slide-up bg-gray-800 p-3 rounded-xl border border-gray-700 shadow-inner mt-3';
-    
-    // 1. 先顯示正在輸入的跳動點點特效
-    div.innerHTML = `
-        <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
-        <div class="flex-grow flex flex-col justify-center">
-            <div class="text-[11px] font-black text-gray-400 mb-1 tracking-wider">${role}</div>
-            <div class="flex space-x-1 mt-1">
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
-                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"></div>
-            </div>
-        </div>
-    `;
-    logEl.appendChild(div);
-    logEl.scrollTop = logEl.scrollHeight; 
-
-    // 同步更新膠囊預覽文字為輸入中
-    if (previewEl) {
-        previewEl.innerHTML = `${icon} ${role}：<span class="text-gray-500">正在輸入中...</span>`;
-    }
-
-    // 2. 模擬真人打字時間 (0.8秒 ~ 1.2秒)
-    const typingTime = Math.floor(Math.random() * 400) + 800;
-    await window.sleep(typingTime);
-
-    // 3. 替換成真實對話內容
-    const targetDiv = document.getElementById(divId);
-    if (targetDiv) {
-        let spinnerHtml = isFinalSpinner ? `<svg class="agent-spinner animate-spin ml-2 h-4 w-4 text-green-400 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>` : '';
-        targetDiv.innerHTML = `
-            <div class="text-2xl flex-shrink-0 bg-gray-700 p-2 rounded-lg shadow-sm">${icon}</div>
-            <div class="flex-grow">
-                <div class="text-[11px] font-black text-gray-400 mb-1 tracking-wider">${role}</div>
-                <div class="text-sm font-bold text-gray-100 leading-relaxed">${message}${spinnerHtml}</div>
-            </div>
-        `;
-        logEl.scrollTop = logEl.scrollHeight; 
-        
-        // 同步更新膠囊預覽文字為最終訊息 (濾掉 HTML 標籤)
-        if (previewEl) {
-            const cleanMsg = message.replace(/<[^>]*>?/gm, '');
-            previewEl.innerHTML = `${icon} ${role}：${cleanMsg}`;
-        }
-    }
-};
-
-window.hideAgentConsole = function() {
-    // 刻意留空：膠囊永遠常駐
-};
-
-
-// ==========================================
-// 🌟 UX 魔法：行為驅動對話 (Action-Driven UI)
-// ==========================================
-
-// 1. 攔截畫風模式切換
-const originalSwitchMode = UI.switchMode;
-window.switchMode = async function(isComic) {
-    originalSwitchMode(isComic);
-    if (isComic) {
-        await window.addAgentLog('美術總監', '👨‍🎨', '已切換至「🦸‍♂️ 動漫宇宙」引擎，隨時準備載入專屬渲染風格！');
-    } else {
-        await window.addAgentLog('美術總監', '👨‍🎨', '已切換至「📸 真實攝影」引擎，將為您生成高質感實境照片！');
-    }
-};
-
-// 2. 攔截實境/道具圖片上傳
-const originalHandleFileSelect = UI.handleFileSelect;
-window.handleFileSelect = async function(input, type, max, previewId) {
-    originalHandleFileSelect(input, type, max, previewId);
-    if (input.files && input.files.length > 0) {
-        if (type === 'scene') {
-            await window.addAgentLog('影像處理組', '📐', '收到實境背景圖！我先放在暫存區備用，等待融合指令。');
-        } else if (type === 'object') {
-            await window.addAgentLog('影像處理組', '📐', '收到道具/商品圖！這會讓畫面細節更豐富。');
-        }
-    }
-};
-
-// 3. 註冊其他所有表單互動的狀態監視器
-window.initInteractions = function() {
-    // 狀態記憶體：用來防洗頻
-    window.CURRENT_USER_STATE = {
-        topic: ''
-    };
-
-    // 監聽：發布平台勾選
-    ['platFB', 'platIG', 'platThreads'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) {
-            el.addEventListener('change', async (e) => {
-                const platform = e.target.nextElementSibling.innerText.trim();
-                if (e.target.checked) {
-                    await window.addAgentLog('社群總監', '🚀', `已為您鎖定 ${platform} 平台，準備套用專屬排版規範。`);
-                } else {
-                    await window.addAgentLog('社群總監', '🚀', `已取消 ${platform} 發佈設定。`);
-                }
-            });
-        }
-    });
-
-    // 監聽：畫風選擇 (Delegate 綁定，因為是動態生成的 radio)
-    const styleContainer = document.getElementById('styleRadioContainer');
-    if (styleContainer) {
-        styleContainer.addEventListener('change', async (e) => {
-            if (e.target.name === 'targetStyle') {
-                const styleName = e.target.nextElementSibling.innerText.trim();
-                await window.addAgentLog('美術總監', '👨‍🎨', `了解！已載入「${styleName}」渲染模型，期待接下來的視覺表現！`);
-            }
-        });
-    }
-
-    // 監聽：色彩模式 (彩色/黑白)
-    document.querySelectorAll('input[name="colorMode"]').forEach(radio => {
-        radio.addEventListener('change', async (e) => {
-            if (e.target.value === 'BW') {
-                await window.addAgentLog('美術總監', '👨‍🎨', '收到！已切換為「經典黑白網點」模式，準備為您加上充滿張力的墨線。');
-            } else {
-                await window.addAgentLog('美術總監', '👨‍🎨', '沒問題，我們換回「🌈 彩色」模式，保持高飽和度的視覺衝擊！');
-            }
-        });
-    });
-
-    // 監聽：腳本主題 Input Blur (失去焦點時判斷是否改變)
-    const topicInput = document.getElementById('topic');
-    if (topicInput) {
-        topicInput.addEventListener('blur', async (e) => {
-            const val = e.target.value.trim();
-            // 只有在真的有打字，且內容跟上次不一樣時，才觸發回應
-            if (val && val !== window.CURRENT_USER_STATE.topic) {
-                window.CURRENT_USER_STATE.topic = val;
-                const shortVal = val.length > 15 ? val.substring(0, 15) + '...' : val;
-                await window.addAgentLog('專案總監', '👨‍💼', `收到主題！「${shortVal}」這個情境非常有畫面感，我已記錄在案。`);
-            }
-        });
-    }
-};
-
-
-// ==========================================
-// 🚀 升級：手機防當機「前端圖片壓縮 & 濾鏡引擎」
-// ==========================================
-function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = function (event) {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = function () {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                if (width > maxWidth) {
-                    height = Math.round((height * maxWidth) / width);
-                    width = maxWidth;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                if (forceGrayscale) {
-                    const imageData = ctx.getImageData(0, 0, width, height);
-                    const data = imageData.data;
-                    for (let i = 0; i < data.length; i += 4) {
-                        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                        data[i] = luminance;     
-                        data[i + 1] = luminance; 
-                        data[i + 2] = luminance; 
-                    }
-                    ctx.putImageData(imageData, 0, 0);
-                }
-
-                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); // 降低畫質避免爆表
-                resolve({
-                    data: compressedDataUrl.replace(/^data:image\/\w+;base64,/, ""),
-                    mimeType: 'image/jpeg'
-                });
-            };
-            img.onerror = (err) => reject(err);
-        };
-        reader.onerror = (err) => reject(err);
-    });
-}
-
 function getTenantIdFromToken() {
     if (!STATE.globalAuthToken) return 'test_user_001'; 
     try {
@@ -302,10 +32,6 @@ function getTenantIdFromToken() {
     }
 }
 
-
-// ==========================================
-// 🌟 返回功能
-// ==========================================
 window.backToStep1 = function() {
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
@@ -318,9 +44,33 @@ window.backToStep2 = function() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
+window.resetToStep1 = function() {
+    // 捨棄進度，清空表單並返回第一步
+    document.getElementById('step3-publish').classList.add('hidden');
+    document.getElementById('step2-review').classList.add('hidden');
+    document.getElementById('step1-setup').classList.remove('hidden');
+    
+    // 清空設定
+    STATE.currentTaskId = null;
+    STATE.multiImages = [];
+    document.getElementById('agentForm').reset();
+    document.getElementById('characterList').innerHTML = '';
+    document.getElementById('scenePreview').innerHTML = '';
+    document.getElementById('objectPreview').innerHTML = '';
+    
+    // 重設 AI 對話牆
+    if (typeof window.resetAgentConsole === 'function') {
+        window.resetAgentConsole();
+        setTimeout(async () => {
+            await window.addAgentLog('專案總監', '👨‍💼', '收到重置指令。全新的任務卷宗已為您準備完畢！');
+        }, 500);
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+};
 
 // ==========================================
-// 🌟 系統初始化與角色操作
+// 🌟 3. 系統初始化與角色管理 (CRUD)
 // ==========================================
 window.initSystemData = async function() {
     try {
@@ -368,8 +118,10 @@ window.addCharacterFromDB = async (dbChar) => {
     list.appendChild(item);
     showToast(`✅ 已讓 ${dbChar.name} 進入候場區！`, 'success');
 
-    // 🌟 AI 互動回饋
-    await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！他今天會穿哪一套衣服呢？`);
+    // 🌟 呼叫 agent.js 的互動
+    if (typeof window.addAgentLog === 'function') {
+        await window.addAgentLog('視覺工程師', '👁️', `成功捕獲「${dbChar.name}」的視覺基因！他今天會穿哪一套衣服呢？`);
+    }
 };
 
 window.submitNewCharacter = async function() {
@@ -433,7 +185,7 @@ window.deleteChar = async function(charId) {
 };
 
 // ==========================================
-// 🌟 Google 登入與啟動晨會
+// 🌟 4. Google 登入與啟動晨會
 // ==========================================
 window.onload = async function () {
     google.accounts.id.initialize({
@@ -466,16 +218,18 @@ window.onload = async function () {
                     
                     await window.initSystemData(); 
                     
-                    // 🌟 啟動膠囊 UI 與狀態攔截器
-                    window.initAgentCapsule();
-                    window.initInteractions(); 
+                    // 🌟 啟動 agent.js 裡的膠囊 UI 與狀態攔截器
+                    if (typeof window.initAgentCapsule === 'function') {
+                        window.initAgentCapsule();
+                        window.initInteractions(); 
 
-                    // 🎬 開局晨會劇本：一次性報告
-                    setTimeout(async () => {
-                        await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 行動工作室已就緒，等待您的指令。');
-                        await window.addAgentLog('社群總監', '🚀', '目前尚未指定發佈平台，請先在左側為我們勾選戰場 (FB / IG / Threads)！');
-                        await window.addAgentLog('美術總監', '👨‍🎨', '報告總編，目前預設為「🌈 彩色模式」與「1:1 正方比例」，您可以隨時依據企劃切換喔！');
-                    }, 1000);
+                        // 🎬 開局晨會劇本：一次性報告
+                        setTimeout(async () => {
+                            await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 行動工作室已就緒，等待您的指令。');
+                            await window.addAgentLog('社群總監', '🚀', '目前尚未指定發佈平台，請先在左側為我們勾選戰場 (FB / IG / Threads)！');
+                            await window.addAgentLog('美術總監', '👨‍🎨', '報告總編，目前預設為「🌈 彩色模式」與「1:1 正方比例」，您可以隨時依據企劃切換喔！');
+                        }, 1000);
+                    }
                 }
             } catch (error) {
                 loginMsg.innerHTML = `❌ 登入失敗：${error.message}`;
@@ -500,107 +254,22 @@ window.onload = async function () {
             const previewDiv = document.getElementById('aiCapsulePreview');
             if(logEl) logEl.classList.remove('hidden');
             if(previewDiv) previewDiv.classList.add('hidden');
+        } else {
+            // 切換回手機版：讓 initAgentCapsule 的邏輯重新接管
+             if(consoleEl.dataset.capsuleInit === 'true') {
+                 const logEl = document.getElementById('aiTeamConsoleLog');
+                 const previewDiv = document.getElementById('aiCapsulePreview');
+                 if(logEl) logEl.classList.add('hidden');
+                 if(previewDiv) previewDiv.classList.remove('hidden');
+                 document.getElementById('capsuleToggleIcon').innerText = '👇';
+             }
         }
     });
 };
 
 
 // ==========================================
-// 🌟 處理圖片渲染與上傳
-// ==========================================
-window.renderMultiImages = function() {
-    const container = document.getElementById('multiImageContainer');
-    const countDisplay = document.getElementById('multiImageCountDisplay');
-    
-    countDisplay.innerText = STATE.multiImages.length; 
-    container.innerHTML = '';
-
-    STATE.multiImages.forEach((img, index) => {
-        const isAI = img.processType === 'AI_SYNTHESIS';
-        const hasOriginal = !!img.originalUrl;
-        
-        const div = document.createElement('div');
-        div.className = `bg-white p-3 rounded-xl shadow-sm border ${!hasOriginal ? 'border-indigo-400 bg-indigo-50/30' : 'border-gray-200'} flex items-center gap-3 relative animate-fade-in`;
-        
-        let html = '';
-        html += `<button type="button" onclick="window.removeMultiImage('${img.id}')" class="absolute -top-2 -right-2 bg-red-100 text-red-500 hover:bg-red-500 hover:text-white rounded-full w-6 h-6 flex items-center justify-center font-bold transition-all shadow-sm z-10">&times;</button>`;
-        html += `<img src="${hasOriginal ? img.originalUrl : 'https://cdn-icons-png.flaticon.com/512/8636/8636831.png'}" class="w-16 h-16 object-cover rounded-lg border ${!hasOriginal ? 'border-indigo-300 p-2 bg-white' : 'border-gray-200'}">`;
-        html += `<div class="flex-grow">`;
-        html += `<h4 class="font-bold text-gray-800 text-sm mb-1">${!hasOriginal ? '🌟 AI 腳本配圖' : '附加圖片 ' + (index + 1)}</h4>`;
-        
-        html += `<div class="flex bg-gray-100 rounded-lg p-1 w-max">`;
-        html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'AI_SYNTHESIS')" class="${isAI ? 'bg-indigo-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">🪄 AI 算圖</button>`;
-        if (hasOriginal) {
-            html += `<button type="button" onclick="window.toggleMultiImageType('${img.id}', 'ORIGINAL')" class="${!isAI ? 'bg-green-500 text-white' : 'text-gray-500 hover:text-gray-700'} text-xs font-bold px-3 py-1 rounded-md transition-all">📸 原圖直發</button>`;
-        }
-        html += `</div></div>`;
-        
-        div.innerHTML = html;
-        container.appendChild(div);
-    });
-
-    if (STATE.multiImages.length < 10) {
-        const addBtnDiv = document.createElement('div');
-        addBtnDiv.className = "w-full mt-2 animate-fade-in";
-        addBtnDiv.innerHTML = `<button type="button" onclick="window.addAITemplate()" class="w-full py-2 border-2 border-dashed border-indigo-300 text-indigo-500 rounded-xl hover:bg-indigo-50 text-sm font-bold transition-colors">➕ 新增一張 AI 算圖卡位</button>`;
-        container.appendChild(addBtnDiv);
-    }
-};
-
-window.addAITemplate = function() {
-    if (STATE.multiImages.length >= 10) return showToast('❌ 最多只能 10 張圖片！', 'error');
-    STATE.multiImages.push({
-        id: `img_ai_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-        originalUrl: '',
-        processType: 'AI_SYNTHESIS'
-    });
-    window.renderMultiImages();
-};
-
-window.handleMultiImageSelect = async function(input) {
-    const maxAllowed = 10;
-    const currentCount = STATE.multiImages ? STATE.multiImages.length : 0;
-    const newFiles = Array.from(input.files);
-
-    if (currentCount + newFiles.length > maxAllowed) {
-        showToast(`❌ 最多只能上傳 ${maxAllowed} 張圖片！`, 'error');
-        return;
-    }
-
-    if (!STATE.multiImages) STATE.multiImages = [];
-
-    for (let file of newFiles) {
-        showToast('📐 正在壓縮附加實拍圖片...', 'info');
-        try {
-            const compressed = await compressImageToBase64(file, 1024, false);
-            STATE.multiImages.push({
-                id: `img_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-                originalUrl: `data:${compressed.mimeType};base64,${compressed.data}`,
-                processType: 'ORIGINAL'
-            });
-        } catch(e) {
-            console.error(e);
-            showToast('❌ 圖片壓縮失敗', 'error');
-        }
-    }
-    input.value = ''; 
-    window.renderMultiImages();
-};
-
-window.removeMultiImage = function(id) {
-    STATE.multiImages = STATE.multiImages.filter(img => img.id !== id);
-    window.renderMultiImages();
-};
-
-window.toggleMultiImageType = function(id, type) {
-    const img = STATE.multiImages.find(i => i.id === id);
-    if(img) img.processType = type;
-    window.renderMultiImages();
-};
-
-
-// ==========================================
-// 🚀 提交 Step 1：AI 撰寫腳本 (Agentic 對話牆版 + 延遲)
+// 🚀 5. 核心流程 Step 1：AI 撰寫腳本
 // ==========================================
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -634,8 +303,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     btn.classList.replace('bg-blue-600', 'bg-gray-500'); 
     btnText.innerHTML = '⚡ 執行中，請看上方進度...';
     
-    // 🌟 不清空晨會對話，直接往下接續
-    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在為您打包卷宗，並解析平台設定...', true);
+    // 🌟 接續對話
+    if (typeof window.addAgentLog === 'function') {
+        await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在為您打包卷宗，並解析平台設定...', true);
+    }
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -672,7 +343,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         };
 
         const charItems = document.querySelectorAll('#characterList .char-item');
-        if (charItems.length > 0) {
+        if (charItems.length > 0 && typeof window.addAgentLog === 'function') {
             await window.addAgentLog('視覺工程師', '👁️', `已再次確認候場區的 ${charItems.length} 位角色，正在將特徵轉換為 AI 參數...`, true);
         }
         
@@ -691,7 +362,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         }
 
         let totalFilesToCompress = (STATE.sceneFiles ? STATE.sceneFiles.length : 0) + (STATE.objectFiles ? STATE.objectFiles.length : 0);
-        if (totalFilesToCompress > 0) {
+        if (totalFilesToCompress > 0 && typeof window.addAgentLog === 'function') {
             await window.addAgentLog('影像處理組', '📐', `已確認 ${totalFilesToCompress} 張實境參考圖，正在進行邊緣特徵分析...`, true);
         }
 
@@ -709,16 +380,23 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             }
         }
 
-        await window.addAgentLog('首席文案', '✍️', '所有素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫社群腳本...', true);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('首席文案', '✍️', '所有素材蒐集完畢！正在與 Gemini 大腦連線，為您撰寫社群腳本...', true);
+        }
         
         const result = await API.createDraftAPI(payload);
         if (!result.success) throw new Error(result.message);
         
-        await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！正在為您渲染排版...', false);
+        }
         
         STATE.currentTaskId = result.taskId; 
         STATE.multiImages = [{ id: `img_ai_cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
-        window.renderMultiImages();
+        
+        if (typeof window.renderMultiImages === 'function') {
+            window.renderMultiImages();
+        }
 
         document.getElementById('step1-setup').classList.add('hidden');
         document.getElementById('step2-review').classList.remove('hidden');
@@ -748,10 +426,14 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         showToast('✅ 腳本生成完畢，請進行最終確認！', 'success');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒！等待總編審核修改，確認無誤後即可進入下一步。', false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('專案總監', '⏸️', '腳本已就緒！等待總編審核修改，確認無誤後即可進入下一步。', false);
+        }
 
     } catch (error) {
-        await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${error.message}`, false);
+        }
         showToast(`❌ 發生錯誤: ${error.message}`, 'error');
         console.error(error); 
     } finally {
@@ -763,7 +445,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
 
 // ==========================================
-// 🎨 提交 Step 2：發包生圖 (Agentic 對話牆版 + 延遲)
+// 🎨 6. 核心流程 Step 2：發包生圖
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
@@ -778,7 +460,9 @@ window.submitForImageGeneration = async function() {
     btnText.innerHTML = '🎨 執行中，請看上方進度...';
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！正在打包您修改後的劇本與圖文參數...', true);
+    if (typeof window.addAgentLog === 'function') {
+        await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！正在打包您修改後的劇本與圖文參數...', true);
+    }
 
     const editedCaption = document.getElementById('reviewCaption').value;
     const editedPanels = [];
@@ -796,9 +480,9 @@ window.submitForImageGeneration = async function() {
 
     try {
         let aiCount = incomingImagesPayload.filter(img => img.processType === 'AI_SYNTHESIS').length;
-        if(aiCount > 0) {
+        if(aiCount > 0 && typeof window.addAgentLog === 'function') {
             await window.addAgentLog('算圖農場', '🤖', `正在為您極速生成 ${aiCount} 張高畫質圖片 (約需等候幾十秒，請耐心)...`, true);
-        } else {
+        } else if(typeof window.addAgentLog === 'function') {
             await window.addAgentLog('影像處理組', '☁️', `正在為您將原圖安全上傳至雲端空間...`, true);
         }
 
@@ -812,7 +496,9 @@ window.submitForImageGeneration = async function() {
         
         if (!result.success) throw new Error(result.message);
         
-        await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在為您準備最終發射控制台...', false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！正在為您準備最終發射控制台...', false);
+        }
 
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
@@ -834,10 +520,14 @@ window.submitForImageGeneration = async function() {
         showToast('✅ 圖片處理完畢！', 'success'); 
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        await window.addAgentLog('社群總監', '⏸️', '圖文皆已準備就緒！請確認最終文字，隨時可以為您發射！', false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('社群總監', '⏸️', '圖文皆已準備就緒！請確認最終文字，隨時可以為您發射！', false);
+        }
         
     } catch (error) {
-        await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${error.message}`, false);
+        }
         showToast(`❌ 生圖失敗: ${error.message}`, 'error');
     } finally {
         btn.disabled = false; 
@@ -848,7 +538,7 @@ window.submitForImageGeneration = async function() {
 
 
 // ==========================================
-// 🚀 提交 Step 3：一鍵發佈與預約排程 (Agentic 對話牆版 + 延遲 + 煙火)
+// 🚀 7. 核心流程 Step 3：一鍵發佈與預約排程
 // ==========================================
 window.publishToSocial = async function() {
     const btn = document.getElementById('btnPublish');
@@ -860,9 +550,9 @@ window.publishToSocial = async function() {
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    if (isScheduled) {
+    if (isScheduled && typeof window.addAgentLog === 'function') {
         await window.addAgentLog('系統管理員', '🗓️', `正在將任務寫入排程隊列，預計於 ${scheduleInput.value} 發射...`, true);
-    } else {
+    } else if(typeof window.addAgentLog === 'function') {
         await window.addAgentLog('社群總監', '🚀', '收到發射指令！正在啟動發射程序，為您打包圖文與 Hashtag...', true);
     }
 
@@ -876,7 +566,9 @@ window.publishToSocial = async function() {
         
         if (!result.success) throw new Error(result.message);
         
-        await window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統管理員', '✅', isScheduled ? '排程寫入成功！機器人會準時發射！' : '發送成功！圖文已成功飛上社群平台！', false);
+        }
         
         btn.innerHTML = isScheduled ? '✅ 預約排程成功！' : '✅ 發布成功！'; 
         btn.classList.replace(isScheduled ? 'bg-indigo-600' : 'bg-green-600', 'bg-gray-500');
@@ -894,7 +586,9 @@ window.publishToSocial = async function() {
         }
 
         setTimeout(async () => {
-            await window.addAgentLog('專案總監', '🎉', '辛苦了！本次專案圓滿達成。如果需要，隨時可以啟動下一篇貼文任務！', false);
+            if (typeof window.addAgentLog === 'function') {
+                await window.addAgentLog('專案總監', '🎉', '辛苦了！本次專案圓滿達成。如果需要，隨時可以啟動下一篇貼文任務！', false);
+            }
             
             btn.disabled = false; 
             btn.classList.replace('bg-gray-500', 'bg-blue-600'); 
@@ -909,7 +603,9 @@ window.publishToSocial = async function() {
         }, 2500); 
 
     } catch (error) {
-        await window.addAgentLog('系統警報', '🚨', `發佈失敗: ${error.message}`, false);
+        if (typeof window.addAgentLog === 'function') {
+            await window.addAgentLog('系統警報', '🚨', `發佈失敗: ${error.message}`, false);
+        }
         showToast(`❌ 發佈失敗: ${error.message}`, 'error'); 
         btn.disabled = false; 
         btn.innerHTML = isScheduled ? '🗓️ 重新預約排程' : '🚀 重試發射';
