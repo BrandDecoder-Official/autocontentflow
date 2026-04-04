@@ -16,39 +16,38 @@ window.closeCreateCharModal = UI.closeCreateCharModal;
 
 
 // ==========================================
-// 🤖 核心大腦對話牆控制 (動態膠囊 Mini-Player 版)
+// 🤖 核心大腦對話牆控制 (PC側邊欄 / 手機動態膠囊)
 // ==========================================
 window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// 1. 初始化動態膠囊外觀 (將原本的面板改造成可收合模式)
 window.initAgentCapsule = function() {
     const consoleEl = document.getElementById('aiTeamConsole');
     const logEl = document.getElementById('aiTeamConsoleLog');
+    const header = consoleEl.querySelector('.flex.items-center.justify-between');
+    const previewDiv = document.getElementById('aiCapsulePreview');
     
     // 如果找不到元素，或已經初始化過，就跳出
     if (!consoleEl || !logEl || consoleEl.dataset.capsuleInit) return;
 
-    const header = consoleEl.querySelector('.flex.items-center.justify-between');
-    
-    // 調整外觀，預設為收合 (膠囊) 狀態
+    // 🖥️ PC 電腦端 (寬度 >= 1024px)：直接保持展開，不啟動膠囊邏輯
+    if (window.innerWidth >= 1024) {
+        logEl.classList.remove('hidden');
+        previewDiv.classList.add('hidden');
+        consoleEl.dataset.capsuleInit = 'true';
+        return;
+    }
+
+    // 📱 手機端：調整外觀，預設為收合 (膠囊) 狀態
     logEl.classList.add('hidden'); 
-    consoleEl.classList.add('cursor-pointer', 'hover:border-gray-500', 'transition-all', 'duration-300', 'p-3', 'px-4');
+    previewDiv.classList.remove('hidden');
+    consoleEl.classList.add('cursor-pointer', 'hover:border-gray-500', 'p-3', 'px-4');
     consoleEl.classList.remove('p-5');
     header.classList.remove('mb-4', 'border-b', 'border-gray-700', 'pb-3');
     
-    // 加入「最新動態」預覽區 (單行跑馬燈)
-    const previewDiv = document.createElement('div');
-    previewDiv.id = 'aiCapsulePreview';
-    previewDiv.className = 'text-xs font-bold text-gray-300 mt-1 truncate animate-fade-in w-full';
-    previewDiv.innerHTML = '等待總編下達指令...';
-    consoleEl.insertBefore(previewDiv, logEl);
-    
-    // 修改標題加入下拉箭頭
-    const titleEl = header.querySelector('h3');
-    titleEl.innerHTML = `<span class="mr-2 animate-pulse text-green-400">●</span> 核心大腦 <span id="capsuleToggleIcon" class="ml-2 text-gray-500 text-xs">👇</span>`;
-    
     // 點擊展開/收合邏輯
     consoleEl.onclick = function(e) {
+        // 如果使用者把視窗拉大變 PC 版，關閉點擊功能
+        if (window.innerWidth >= 1024) return;
         // 避免點到對話紀錄內部觸發收合
         if (e.target.closest('#aiTeamConsoleLog')) return;
         
@@ -278,7 +277,7 @@ function compressImageToBase64(file, maxWidth = 1024, forceGrayscale = false) {
                     ctx.putImageData(imageData, 0, 0);
                 }
 
-                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6); // 降低畫質避免爆表
                 resolve({
                     data: compressedDataUrl.replace(/^data:image\/\w+;base64,/, ""),
                     mimeType: 'image/jpeg'
@@ -489,6 +488,20 @@ window.onload = async function () {
         document.getElementById("googleButtonDiv"),
         { theme: "outline", size: "large", width: 300, shape: "pill" }
     );
+
+    // 監聽螢幕大小改變，動態切換膠囊模式
+    window.addEventListener('resize', () => {
+        const consoleEl = document.getElementById('aiTeamConsole');
+        if (!consoleEl) return;
+        
+        if (window.innerWidth >= 1024) {
+            // 切換為 PC 版：強制展開
+            const logEl = document.getElementById('aiTeamConsoleLog');
+            const previewDiv = document.getElementById('aiCapsulePreview');
+            if(logEl) logEl.classList.remove('hidden');
+            if(previewDiv) previewDiv.classList.add('hidden');
+        }
+    });
 };
 
 
@@ -684,14 +697,14 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         if (!document.getElementById('skipScene').checked) {
             for (let file of (STATE.sceneFiles || [])) {
-                const base64Img = await compressImageToBase64(file, 1024, isBW);
+                const base64Img = await compressImageToBase64(file, 600, isBW); // 強力瘦身
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_background', ...base64Img });
             }
         }
         
         if (!document.getElementById('skipObject').checked) {
             for (let file of (STATE.objectFiles || [])) {
-                const base64Img = await compressImageToBase64(file, 1024, isBW);
+                const base64Img = await compressImageToBase64(file, 600, isBW); // 強力瘦身
                 if (base64Img) payload.image_options.referenceImages.push({ type: 'scene_object', ...base64Img });
             }
         }
