@@ -1,15 +1,36 @@
-// js/agent.js 全代碼
+// js/agent.js
 import * as UI from './ui.js';
 
 window.sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ==========================================
+// ⚡ 算力點數 UI 預警引擎
+// ==========================================
+window.updatePointsDisplay = function(points) {
+    const displayEl = document.getElementById('userPointsDisplay');
+    const badgeEl = document.getElementById('pointsBadge');
+    if (!displayEl || !badgeEl) return;
+
+    // 更新點數數字 (加上千分位逗號)
+    displayEl.innerText = points.toLocaleString();
+
+    // 算力見底預警：低於 100 點時亮紅燈閃爍
+    if (points < 100) {
+        badgeEl.classList.remove('text-yellow-400', 'border-gray-600');
+        badgeEl.classList.add('text-red-500', 'border-red-500', 'animate-pulse');
+    } else {
+        badgeEl.classList.add('text-yellow-400', 'border-gray-600');
+        badgeEl.classList.remove('text-red-500', 'border-red-500', 'animate-pulse');
+    }
+};
 
 // ==========================================
 // 📡 全域點擊雷達 (抓取實體目標，破解幽靈按鈕)
 // ==========================================
 window.LAST_CLICKED_EL = null;
 document.addEventListener('mousedown', (e) => {
-    // 優先抓取最近的可視互動元件
-    window.LAST_CLICKED_EL = e.target.closest('button, label, select, .cursor-pointer, .char-item') || e.target;
+    // 優先抓取最近的可視互動元件 (包含文字框、按鈕、選單、卡片)
+    window.LAST_CLICKED_EL = e.target.closest('button, label, select, textarea, input, .cursor-pointer, .char-item') || e.target;
 }, true);
 
 // ==========================================
@@ -26,22 +47,25 @@ window.drawNeuralLine = function(sourceEl, targetEl) {
 
     let animationFrameId;
 
-    // 引擎核心：每秒 60 次更新座標
+    // 引擎核心：每秒 60 次更新座標，自動追蹤捲動
     const updatePath = () => {
         const startRect = sourceEl.getBoundingClientRect();
         const endRect = targetEl.getBoundingClientRect();
 
-        // 若元素消失，提前結束
+        // 若元素消失或寬度為 0，隱藏線條並提前結束
         if (startRect.width === 0 || endRect.width === 0) {
             path.style.opacity = '0';
             return;
         }
 
+        // 起點：點擊元件的中心點
         const startX = startRect.left + startRect.width / 2;
         const startY = startRect.top + startRect.height / 2;
+        // 終點：AI 氣泡的左側中心點
         const endX = endRect.left;
         const endY = endRect.top + endRect.height / 2;
 
+        // 貝茲曲線控制點 (創造有機的柔和弧度)
         const cp1X = startX + (endX - startX) * 0.5;
         const cp1Y = startY;
         const cp2X = startX + (endX - startX) * 0.5;
@@ -54,7 +78,7 @@ window.drawNeuralLine = function(sourceEl, targetEl) {
     // 啟動引擎
     updatePath();
 
-    // 拔插頭機制：2.5 秒後自動銷毀引擎與畫布物件，釋放記憶體
+    // 拔插頭機制：2.5 秒後自動銷毀引擎與畫布物件，釋放記憶體，確保 0 負擔
     setTimeout(() => {
         cancelAnimationFrame(animationFrameId);
         path.remove();
@@ -179,8 +203,13 @@ window.addAgentLog = async function(role, icon, message, isFinalSpinner = false,
 // 🌟 UX 魔法：全方位行為攔截器
 // ==========================================
 window.initInteractions = function() {
-    window.CURRENT_USER_STATE = { topic: '' };
+    window.CURRENT_USER_STATE = { 
+        topic: '',
+        reviewCaption: '',
+        finalCaption: ''
+    };
 
+    // 1. 攔截比例與解析度
     ['aspectRatioSelect', 'resolutionSelect'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -195,18 +224,19 @@ window.initInteractions = function() {
         }
     });
 
+    // 2. 攔截社群平台
     ['platFB', 'platIG', 'platThreads'].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('change', async (e) => {
                 const platform = e.target.nextElementSibling.innerText.trim();
                 const msg = e.target.checked ? `已為您鎖定 ${platform} 平台！` : `已取消 ${platform} 的發布設定。`;
-                // 使用 LAST_CLICKED_EL 確保點到 Label 時線條也能準確
                 await window.addAgentLog('社群總監', '🚀', msg, false, window.LAST_CLICKED_EL || e.target);
             });
         }
     });
 
+    // 3. 攔截畫風
     const styleContainer = document.getElementById('styleRadioContainer');
     if (styleContainer) {
         styleContainer.addEventListener('change', async (e) => {
@@ -217,6 +247,7 @@ window.initInteractions = function() {
         });
     }
 
+    // 4. 攔截色彩模式
     document.querySelectorAll('input[name="colorMode"]').forEach(radio => {
         radio.addEventListener('change', async (e) => {
             const modeName = e.target.value === 'BW' ? '經典黑白網點' : '🌈 彩色';
@@ -224,18 +255,42 @@ window.initInteractions = function() {
         });
     });
 
-    const topicInput = document.getElementById('topic');
-    if (topicInput) {
-        topicInput.addEventListener('blur', async (e) => {
-            const val = e.target.value.trim();
-            if (val && val !== window.CURRENT_USER_STATE.topic) {
-                window.CURRENT_USER_STATE.topic = val;
-                await window.addAgentLog('專案總監', '👨‍💼', `主題內容更新成功，我已同步至任務卷宗。`, false, e.target);
+    // 5. 攔截文字框 (第一步、第二步、第三步)
+    const textareas = [
+        { id: 'topic', stateKey: 'topic', role: '專案總監', icon: '👨‍💼', msg: '主題內容更新成功，我已同步至任務卷宗。' },
+        { id: 'reviewCaption', stateKey: 'reviewCaption', role: '首席文案', icon: '✍️', msg: '腳本文字已收到您的微調，準備以此發包生圖。' },
+        { id: 'finalCaptionDisplay', stateKey: 'finalCaption', role: '社群總監', icon: '🚀', msg: '最終發文文字已鎖定！我們隨時可以發射。' }
+    ];
+
+    textareas.forEach(t => {
+        const el = document.getElementById(t.id);
+        if (el) {
+            el.addEventListener('blur', async (e) => {
+                const val = e.target.value.trim();
+                if (val && val !== window.CURRENT_USER_STATE[t.stateKey]) {
+                    window.CURRENT_USER_STATE[t.stateKey] = val;
+                    await window.addAgentLog(t.role, t.icon, t.msg, false, window.LAST_CLICKED_EL || e.target);
+                }
+            });
+        }
+    });
+
+    // 6. 攔截排程時間 (Step 3)
+    const scheduleEl = document.getElementById('scheduleTime');
+    if (scheduleEl) {
+        scheduleEl.addEventListener('change', async (e) => {
+            const val = e.target.value;
+            if (val) {
+                const dateStr = new Date(val).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                await window.addAgentLog('系統管理員', '🗓️', `排程時間已設定為「${dateStr}」，機器人將於該時間自動喚醒發布。`, false, window.LAST_CLICKED_EL || e.target);
+            } else {
+                await window.addAgentLog('系統管理員', '🗓️', `排程已取消，將改為「立即發射」模式。`, false, window.LAST_CLICKED_EL || e.target);
             }
         });
     }
 };
 
+// 重新包裝原本的 UI 函數
 const originalSwitchMode = UI.switchMode;
 window.switchMode = async function(isComic) {
     originalSwitchMode(isComic);
