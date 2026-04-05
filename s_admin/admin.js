@@ -44,7 +44,8 @@ const adminApp = {
             document.getElementById('dashboardSection').classList.remove('hidden');
             
             this.renderDashboard(data.data);
-
+            this.fetchLogs(); // 👈 連動載入日誌
+            
         } catch (error) {
             console.error(error);
             const loginSec = document.getElementById('loginSection');
@@ -226,11 +227,95 @@ const adminApp = {
             alert(`✅ ${data.message}`);
             this.closeTopupModal();
             this.fetchDashboardData(); 
+            this.fetchLogs(); // 儲值完順便更新日誌列表
         } catch (error) {
             alert(`❌ 儲值失敗: ${error.message}`);
         } finally {
             btn.innerText = '確認送出'; btn.disabled = false;
         }
+    },
+
+    // ==========================================
+    // 8. 獲取稽核日誌 (支援篩選)
+    // ==========================================
+    async fetchLogs() {
+        const tbody = document.getElementById('logTableBody');
+        if (!tbody) return; // 防呆檢查
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-indigo-400 animate-pulse font-bold">📡 撈取系統日誌中...</td></tr>';
+        
+        try {
+            // 抓取篩選器條件
+            const tenantId = document.getElementById('logTenantFilter') ? document.getElementById('logTenantFilter').value.trim() : '';
+            const type = document.getElementById('logTypeFilter') ? document.getElementById('logTypeFilter').value : '';
+            const startDate = document.getElementById('logStartDate') ? document.getElementById('logStartDate').value : '';
+            const endDate = document.getElementById('logEndDate') ? document.getElementById('logEndDate').value : '';
+            
+            // 組合 API 查詢字串
+            let queryUrl = `${CONFIG.CLOUD_RUN_URL}/api/admin/logs?limitCount=50`;
+            if (tenantId) queryUrl += `&tenantId=${tenantId}`;
+            if (type) queryUrl += `&type=${type}`;
+            if (startDate) queryUrl += `&startDate=${startDate}`;
+            if (endDate) queryUrl += `&endDate=${endDate}`;
+
+            const res = await fetch(queryUrl, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${this.token}` }
+            });
+            const data = await res.json();
+            
+            if (!res.ok) throw new Error(data.message);
+            
+            this.renderLogs(data.data);
+            
+        } catch (error) {
+            tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-red-400 font-bold">❌ 獲取日誌失敗: ${error.message}</td></tr>`;
+        }
+    },
+
+    // ==========================================
+    // 9. 渲染日誌表格
+    // ==========================================
+    renderLogs(logs) {
+        const tbody = document.getElementById('logTableBody');
+        if (!tbody) return; // 防呆檢查
+        tbody.innerHTML = '';
+        
+        if (logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-gray-500 font-bold">目前沒有符合條件的歷史紀錄。</td></tr>';
+            return;
+        }
+
+        logs.forEach(log => {
+            // 格式化時間
+            const timeStr = new Date(log.createdAt).toLocaleString('zh-TW', { hour12: false });
+            
+            // 💡 視覺化 Badge (分類標籤)
+            let typeBadge = `<span class="text-[10px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded border border-gray-600/50">${log.type || 'UNKNOWN'}</span>`;
+            if (log.type === 'SYSTEM_TOP_UP') typeBadge = `<span class="text-[10px] bg-indigo-900/50 text-indigo-400 px-2 py-0.5 rounded border border-indigo-700/50">💰 加值</span>`;
+            if (log.type === 'SYSTEM_STATUS_CHANGE') typeBadge = `<span class="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded border border-green-700/50">🛡️ 權限</span>`;
+            if (log.type && log.type.startsWith('GENERATE')) typeBadge = `<span class="text-[10px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded border border-blue-700/50">🤖 生成</span>`;
+
+            // 💡 點數異動顏色 (扣除紅字，加值綠字)
+            let amountHtml = `<span class="text-gray-500">-</span>`;
+            if (log.amount > 0) amountHtml = `<span class="text-red-400 font-bold font-mono">-${log.amount}</span>`;
+            else if (log.type === 'SYSTEM_TOP_UP') amountHtml = `<span class="text-green-400 font-bold font-mono">+${log.metrics?.addedPoints || 0}</span>`;
+
+            // 渲染該行
+            tbody.innerHTML += `
+                <tr class="hover:bg-gray-800/80 transition-colors">
+                    <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${timeStr}</td>
+                    <td class="px-4 py-3">
+                        <div class="text-[11px] font-mono text-gray-400 mb-1" title="${log.tenantId}">${log.tenantId.substring(0,10)}...</div>
+                        ${typeBadge}
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-300">${log.description || '-'}</td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        ${amountHtml}
+                        ${log.balanceAfter !== null && log.balanceAfter !== undefined ? `<div class="text-[10px] text-gray-500 mt-1">餘額: ${log.balanceAfter.toLocaleString()}</div>` : ''}
+                    </td>
+                </tr>
+            `;
+        });
     },
 
     logout() {
