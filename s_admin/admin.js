@@ -91,9 +91,9 @@ const adminApp = {
                 ? `<span class="bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-700/50">👑 管理員</span>`
                 : `<span class="bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-700/50">👤 一般用戶</span>`;
             
-           // 💡 操作區：儲值功能常駐，若是 PENDING 則額外多出放行按鈕
+           // 💡 操作區：移除透明度特效，讓按鈕常駐顯示，只保留 hover 變色效果
             let actionButtons = `
-                <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50 mr-1">
+                <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50 mr-1 transition-colors">
                     💰 儲值
                 </button>
             `;
@@ -101,7 +101,7 @@ const adminApp = {
             // 如果客戶還沒開通，再補上綠色的開通按鈕
             if (t.status === 'PENDING') {
                 actionButtons += `
-                    <button onclick="adminApp.approveTenant('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50">
+                    <button onclick="adminApp.approveTenant('${t.uid}', '${t.name}')" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50 transition-colors">
                         ✅ 放行
                     </button>
                 `;
