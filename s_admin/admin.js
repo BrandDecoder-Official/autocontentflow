@@ -91,16 +91,20 @@ const adminApp = {
                 ? `<span class="bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-700/50">👑 管理員</span>`
                 : `<span class="bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-700/50">👤 一般用戶</span>`;
             
-            // 💡 操作區：拔掉儲值，只留放行按鈕
-            let actionButtons = ``;
+           // 💡 操作區：儲值功能常駐，若是 PENDING 則額外多出放行按鈕
+            let actionButtons = `
+                <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50 mr-1">
+                    💰 儲值
+                </button>
+            `;
+
+            // 如果客戶還沒開通，再補上綠色的開通按鈕
             if (t.status === 'PENDING') {
-                actionButtons = `
+                actionButtons += `
                     <button onclick="adminApp.approveTenant('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50">
-                        ✅ 放行開通
+                        ✅ 放行
                     </button>
                 `;
-            } else {
-                actionButtons = `<span class="text-gray-600 text-xs font-bold">無須操作</span>`;
             }
 
             tbody.innerHTML += `
