@@ -1,5 +1,11 @@
 // s_admin/admin.js
-import { CONFIG } from '../js/config.js'; // 👈 完美引用上一層的全域設定
+
+const CONFIG = {
+    // 🚨 換成您的 Google Client ID (與前台一樣)
+    GOOGLE_CLIENT_ID: '217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com', 
+    // 🚨 換成您部署在 Cloud Run 的後端網址
+    API_BASE_URL: 'https://bd-autocontentflow-ofmbvh5tnq-de.a.run.app' 
+};
 
 const adminApp = {
     token: null,
@@ -8,7 +14,7 @@ const adminApp = {
     // 1. 初始化 Google 登入按鈕
     init() {
         google.accounts.id.initialize({
-            client_id: CONFIG.GOOGLE_CLIENT_ID, // 👈 使用 config.js 的參數
+            client_id: CONFIG.GOOGLE_CLIENT_ID,
             callback: this.handleCredentialResponse.bind(this)
         });
         google.accounts.id.renderButton(
@@ -29,8 +35,7 @@ const adminApp = {
     // 3. 呼叫 Dashboard API
     async fetchDashboardData() {
         try {
-            // 👈 使用 config.js 的 CLOUD_RUN_URL
-            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/dashboard`, {
+            const res = await fetch(`${CONFIG.API_BASE_URL}/api/admin/dashboard`, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${this.token}` }
             });
@@ -101,8 +106,9 @@ const adminApp = {
 
     // 5. 繪製 Chart.js
     drawChart(stats) {
+        // 反轉陣列讓時間由舊到新
         const sortedStats = [...stats].reverse();
-        const labels = sortedStats.map(s => s.date.split('-').slice(1).join('/')); 
+        const labels = sortedStats.map(s => s.date.split('-').slice(1).join('/')); // 轉成 MM/DD
         const pointsData = sortedStats.map(s => s.totalPointsConsumed || 0);
 
         const ctx = document.getElementById('trendChart').getContext('2d');
@@ -115,7 +121,7 @@ const adminApp = {
                 datasets: [{
                     label: '消耗算力 ⚡',
                     data: pointsData,
-                    borderColor: '#a855f7',
+                    borderColor: '#a855f7', // Purple-500
                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
                     borderWidth: 2,
                     tension: 0.4,
@@ -159,8 +165,7 @@ const adminApp = {
         btn.innerText = '處理中...'; btn.disabled = true;
 
         try {
-            // 👈 使用 config.js 的 CLOUD_RUN_URL
-            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/topup`, {
+            const res = await fetch(`${CONFIG.API_BASE_URL}/api/admin/topup`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
@@ -174,7 +179,7 @@ const adminApp = {
 
             alert(`✅ ${data.message}`);
             this.closeTopupModal();
-            this.fetchDashboardData(); 
+            this.fetchDashboardData(); // 重新整理表格
 
         } catch (error) {
             alert(`❌ 儲值失敗: ${error.message}`);
@@ -189,7 +194,5 @@ const adminApp = {
     }
 };
 
-// 🌟 因為使用 module 載入，必須將 app 掛載到 window 上，HTML 裡的 onclick 才能執行
-window.adminApp = adminApp;
-
+// 網頁載入後初始化 Google 登入
 window.onload = () => adminApp.init();
