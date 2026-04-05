@@ -1,11 +1,7 @@
 // s_admin/admin.js
 
-const CONFIG = {
-    // 🚨 換成您的 Google Client ID (與前台一樣)
-    GOOGLE_CLIENT_ID: '217800246535-tuc0olph401jjipa5hm34hq45h9jlq7j.apps.googleusercontent.com', 
-    // 🚨 換成您部署在 Cloud Run 的後端網址
-    API_BASE_URL: 'https://bd-autocontentflow-ofmbvh5tnq-de.a.run.app' 
-};
+// 🌟 1. 改為動態讀取上一層的 config.js，不再寫死！
+import { CONFIG } from '../js/config.js';
 
 const adminApp = {
     token: null,
@@ -32,10 +28,10 @@ const adminApp = {
         await this.fetchDashboardData();
     },
 
-    // 3. 呼叫 Dashboard API
+    // 3. 呼叫 Dashboard API (使用 CONFIG.CLOUD_RUN_URL)
     async fetchDashboardData() {
         try {
-            const res = await fetch(`${CONFIG.API_BASE_URL}/api/admin/dashboard`, {
+            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/dashboard`, {
                 method: 'GET',
                 headers: { 'Authorization': `Bearer ${this.token}` }
             });
@@ -62,7 +58,7 @@ const adminApp = {
         }
     },
 
-   // 4. 繪製畫面
+    // 4. 繪製畫面
     renderDashboard(data) {
         const { stats, tenants } = data;
 
@@ -86,23 +82,31 @@ const adminApp = {
             const lastLogin = t.lastLoginAt ? new Date(t.lastLoginAt).toLocaleDateString() : '從未登入';
             const statusColor = t.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             
-            // 💡 角色專屬 Badge (視覺化區分管理員與一般用戶)
+            // 💡 角色專屬 Badge
             const roleBadge = t.role === 'SUPER_ADMIN' 
                 ? `<span class="bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-700/50">👑 管理員</span>`
                 : `<span class="bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-700/50">👤 一般用戶</span>`;
             
-           // 💡 操作區：移除透明度特效，讓按鈕常駐顯示，只保留 hover 變色效果
+            // 💡 操作區：儲值功能常駐
             let actionButtons = `
                 <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50 mr-1 transition-colors">
                     💰 儲值
                 </button>
             `;
 
-            // 如果客戶還沒開通，再補上綠色的開通按鈕
-            if (t.status === 'PENDING') {
+            // 💡 狀態判斷：PENDING(待審核) 或 SUSPENDED(已停權) -> 顯示綠色「放行」
+            if (t.status === 'PENDING' || t.status === 'SUSPENDED') {
                 actionButtons += `
-                    <button onclick="adminApp.approveTenant('${t.uid}', '${t.name}')" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50 transition-colors">
+                    <button onclick="adminApp.changeUserStatus('${t.uid}', '${t.name}', 'ACTIVE', '開通放行')" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50 transition-colors">
                         ✅ 放行
+                    </button>
+                `;
+            } 
+            // 💡 狀態判斷：ACTIVE(使用中) -> 顯示紅色「停權」
+            else if (t.status === 'ACTIVE') {
+                actionButtons += `
+                    <button onclick="adminApp.changeUserStatus('${t.uid}', '${t.name}', 'SUSPENDED', '停權禁用')" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-red-600/50 transition-colors">
+                        ⛔ 停權
                     </button>
                 `;
             }
@@ -126,9 +130,8 @@ const adminApp = {
 
     // 5. 繪製 Chart.js
     drawChart(stats) {
-        // 反轉陣列讓時間由舊到新
         const sortedStats = [...stats].reverse();
-        const labels = sortedStats.map(s => s.date.split('-').slice(1).join('/')); // 轉成 MM/DD
+        const labels = sortedStats.map(s => s.date.split('-').slice(1).join('/')); 
         const pointsData = sortedStats.map(s => s.totalPointsConsumed || 0);
 
         const ctx = document.getElementById('trendChart').getContext('2d');
@@ -141,7 +144,7 @@ const adminApp = {
                 datasets: [{
                     label: '消耗算力 ⚡',
                     data: pointsData,
-                    borderColor: '#a855f7', // Purple-500
+                    borderColor: '#a855f7', 
                     backgroundColor: 'rgba(168, 85, 247, 0.1)',
                     borderWidth: 2,
                     tension: 0.4,
@@ -161,11 +164,82 @@ const adminApp = {
         });
     },
 
+    // 6. 萬用客戶狀態切換 (開通 / 停權)
+    async changeUserStatus(tenantId, name, newStatus, actionText) {
+        if (!confirm(`⚠️ 確定要對客戶 [${name}] 執行「${actionText}」嗎？`)) return;
+
+        try {
+            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/tenant/status`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ targetTenantId: tenantId, newStatus: newStatus })
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.message);
+
+            alert(`✅ 帳號 [${name}] 已成功 ${actionText}！`);
+            this.fetchDashboardData(); 
+
+        } catch (error) {
+            alert(`❌ 操作失敗: ${error.message}`);
+        }
+    },
+
+    // 7. 手動儲值系統 Modal 控制
+    openTopupModal(tenantId, name) {
+        document.getElementById('topupTargetName').innerText = `目標帳號：${name} (${tenantId})`;
+        document.getElementById('topupTenantId').value = tenantId;
+        document.getElementById('topupAmount').value = '';
+        document.getElementById('topupNote').value = '';
+        document.getElementById('topupModal').classList.remove('hidden');
+    },
+    closeTopupModal() {
+        document.getElementById('topupModal').classList.add('hidden');
+    },
+    async submitTopup() {
+        const tenantId = document.getElementById('topupTenantId').value;
+        const amount = document.getElementById('topupAmount').value;
+        const note = document.getElementById('topupNote').value;
+        const btn = document.getElementById('btnSubmitTopup');
+
+        if (!amount) return alert('請輸入金額！');
+
+        btn.innerText = '處理中...'; btn.disabled = true;
+
+        try {
+            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/topup`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${this.token}`
+                },
+                body: JSON.stringify({ targetTenantId: tenantId, amount, note })
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.message);
+
+            alert(`✅ ${data.message}`);
+            this.closeTopupModal();
+            this.fetchDashboardData(); 
+        } catch (error) {
+            alert(`❌ 儲值失敗: ${error.message}`);
+        } finally {
+            btn.innerText = '確認送出'; btn.disabled = false;
+        }
+    },
+
     logout() {
         this.token = null;
         location.reload();
     }
 };
 
-// 網頁載入後初始化 Google 登入
+// 🌟 核心防呆：因為使用了 import (module)，必須把 app 掛載到全域 window 上
+// 這樣 HTML 裡面的 onclick="adminApp.xxx" 才找得到函數！
+window.adminApp = adminApp;
 window.onload = () => adminApp.init();
