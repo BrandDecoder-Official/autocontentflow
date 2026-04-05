@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrandDecoder | 上帝視角戰情室</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        .glass-panel { background: rgba(31, 41, 55, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(75, 85, 99, 0.4); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4B5563; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-200 min-h-screen flex flex-col items-center justify-center relative overflow-x-hidden">
+
+    <div class="fixed inset-0 z-0 pointer-events-none opacity-20">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600 blur-[120px]"></div>
+        <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600 blur-[120px]"></div>
+    </div>
+
+    <div id="loginSection" class="z-10 w-full max-w-md p-8 glass-panel rounded-2xl shadow-2xl text-center transform transition-all duration-500">
+        <div class="text-4xl mb-4">👑</div>
+        <h1 class="text-2xl font-black text-white mb-2 tracking-wider">SUPER ADMIN</h1>
+        <p class="text-sm text-gray-400 mb-8">BrandDecoder 系統戰情室</p>
+        
+        <div class="flex justify-center mb-4">
+            <div id="googleButtonContainer"></div>
+        </div>
+        <div id="loginErrorMsg" class="hidden text-red-400 text-xs font-bold mt-4 bg-red-900/30 p-2 rounded border border-red-800"></div>
+    </div>
+
+    <div id="dashboardSection" class="hidden z-10 w-full max-w-6xl p-4 sm:p-8 flex flex-col gap-6 animate-fade-in">
+        
+        <div class="flex justify-between items-center glass-panel p-4 rounded-2xl">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">👑</span>
+                <div>
+                    <h2 class="text-lg font-black text-white">BrandDecoder 營運總部</h2>
+                    <p class="text-xs text-green-400 font-bold flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span> 系統連線正常</p>
+                </div>
+            </div>
+            <button onclick="adminApp.logout()" class="text-sm bg-gray-800 hover:bg-red-600 text-gray-300 hover:text-white px-4 py-2 rounded-lg font-bold transition-colors">登出系統</button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border-t-4 border-t-purple-500">
+                <p class="text-sm text-gray-400 font-bold mb-1">近7日消耗 Gemini Tokens</p>
+                <h3 id="statTotalTokens" class="text-3xl font-black text-white">--</h3>
+            </div>
+            <div class="glass-panel p-6 rounded-2xl border-t-4 border-t-yellow-400">
+                <p class="text-sm text-gray-400 font-bold mb-1">近7日扣除總算力 ⚡</p>
+                <h3 id="statTotalPoints" class="text-3xl font-black text-white">--</h3>
+            </div>
+            <div class="glass-panel p-6 rounded-2xl border-t-4 border-t-blue-500">
+                <p class="text-sm text-gray-400 font-bold mb-1">平台活躍租戶數</p>
+                <h3 id="statActiveUsers" class="text-3xl font-black text-white">--</h3>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <div class="lg:col-span-1 glass-panel p-6 rounded-2xl">
+                <h3 class="text-sm font-bold text-gray-300 mb-4 border-b border-gray-700 pb-2">📈 近 7 日算力消耗趨勢</h3>
+                <div class="relative h-64 w-full">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 glass-panel p-0 rounded-2xl overflow-hidden flex flex-col">
+                <div class="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
+                    <h3 class="text-sm font-bold text-gray-300">👥 租戶資產管理 (Tenants CRM)</h3>
+                    <button onclick="adminApp.fetchDashboardData()" class="text-xs bg-gray-700 hover:bg-gray-600 px-3 py-1.5 rounded text-gray-200">🔄 重新整理</button>
+                </div>
+                <div class="overflow-x-auto overflow-y-auto max-h-80 custom-scrollbar p-2">
+                    <table class="w-full text-left text-sm">
+                        <thead class="text-xs text-gray-400 uppercase bg-gray-900/50 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-3 rounded-tl-lg">客戶資訊</th>
+                                <th class="px-4 py-3">剩餘算力</th>
+                                <th class="px-4 py-3">狀態</th>
+                                <th class="px-4 py-3 text-right rounded-tr-lg">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tenantTableBody" class="divide-y divide-gray-800/50">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="topupModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center hidden backdrop-blur-sm">
+        <div class="glass-panel p-6 rounded-2xl w-full max-w-sm border border-indigo-500/50 shadow-2xl shadow-indigo-900/20">
+            <h3 class="text-lg font-black text-white mb-1">💰 算力充值</h3>
+            <p id="topupTargetName" class="text-xs text-gray-400 mb-4">目標帳號：---</p>
+            
+            <input type="hidden" id="topupTenantId">
+            <div class="mb-4">
+                <label class="block text-xs font-bold text-gray-400 mb-1">加值點數 (可輸入負數扣除)</label>
+                <input type="number" id="topupAmount" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white font-mono focus:border-indigo-500 focus:outline-none" placeholder="例如: 5000">
+            </div>
+            <div class="mb-6">
+                <label class="block text-xs font-bold text-gray-400 mb-1">內部備註 (會寫入 Log)</label>
+                <input type="text" id="topupNote" class="w-full bg-gray-900 border border-gray-600 rounded p-2 text-white text-sm focus:border-indigo-500 focus:outline-none" placeholder="例如: 匯款儲值方案 B">
+            </div>
+            
+            <div class="flex justify-end gap-2">
+                <button onclick="adminApp.closeTopupModal()" class="px-4 py-2 text-sm font-bold text-gray-400 hover:text-white">取消</button>
+                <button onclick="adminApp.submitTopup()" id="btnSubmitTopup" class="px-4 py-2 text-sm font-bold bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg shadow-lg">確認送出</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
