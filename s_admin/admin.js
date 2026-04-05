@@ -62,7 +62,7 @@ const adminApp = {
         }
     },
 
-    // 4. 繪製畫面
+   // 4. 繪製畫面
     renderDashboard(data) {
         const { stats, tenants } = data;
 
@@ -86,18 +86,34 @@ const adminApp = {
             const lastLogin = t.lastLoginAt ? new Date(t.lastLoginAt).toLocaleDateString() : '從未登入';
             const statusColor = t.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             
+            // 💡 角色專屬 Badge (視覺化區分管理員與一般用戶)
+            const roleBadge = t.role === 'SUPER_ADMIN' 
+                ? `<span class="bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-700/50">👑 管理員</span>`
+                : `<span class="bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-700/50">👤 一般用戶</span>`;
+            
+            // 💡 操作區：拔掉儲值，只留放行按鈕
+            let actionButtons = ``;
+            if (t.status === 'PENDING') {
+                actionButtons = `
+                    <button onclick="adminApp.approveTenant('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50">
+                        ✅ 放行開通
+                    </button>
+                `;
+            } else {
+                actionButtons = `<span class="text-gray-600 text-xs font-bold">無須操作</span>`;
+            }
+
             tbody.innerHTML += `
                 <tr class="hover:bg-gray-800/80 transition-colors group">
                     <td class="px-4 py-3">
                         <div class="font-bold text-gray-200">${t.name}</div>
                         <div class="text-[10px] text-gray-500">${t.email}</div>
                     </td>
+                    <td class="px-4 py-3 whitespace-nowrap">${roleBadge}</td>
                     <td class="px-4 py-3 font-mono text-yellow-400 font-bold">${t.totalPoints.toLocaleString()} ⚡</td>
                     <td class="px-4 py-3 text-xs font-bold ${statusColor}">${t.status} <br><span class="text-[9px] text-gray-600 font-normal">登入: ${lastLogin}</span></td>
-                    <td class="px-4 py-3 text-right">
-                        <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="opacity-0 group-hover:opacity-100 transition-opacity bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50">
-                            💰 儲值
-                        </button>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        ${actionButtons}
                     </td>
                 </tr>
             `;
@@ -139,53 +155,6 @@ const adminApp = {
                 }
             }
         });
-    },
-
-    // 6. 儲值系統 Modal 控制
-    openTopupModal(tenantId, name) {
-        document.getElementById('topupTargetName').innerText = `目標帳號：${name} (${tenantId})`;
-        document.getElementById('topupTenantId').value = tenantId;
-        document.getElementById('topupAmount').value = '';
-        document.getElementById('topupNote').value = '';
-        document.getElementById('topupModal').classList.remove('hidden');
-    },
-    closeTopupModal() {
-        document.getElementById('topupModal').classList.add('hidden');
-    },
-
-    // 7. 送出儲值 API
-    async submitTopup() {
-        const tenantId = document.getElementById('topupTenantId').value;
-        const amount = document.getElementById('topupAmount').value;
-        const note = document.getElementById('topupNote').value;
-        const btn = document.getElementById('btnSubmitTopup');
-
-        if (!amount) return alert('請輸入金額！');
-
-        btn.innerText = '處理中...'; btn.disabled = true;
-
-        try {
-            const res = await fetch(`${CONFIG.API_BASE_URL}/api/admin/topup`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.token}`
-                },
-                body: JSON.stringify({ targetTenantId: tenantId, amount, note })
-            });
-            const data = await res.json();
-
-            if (!res.ok) throw new Error(data.message);
-
-            alert(`✅ ${data.message}`);
-            this.closeTopupModal();
-            this.fetchDashboardData(); // 重新整理表格
-
-        } catch (error) {
-            alert(`❌ 儲值失敗: ${error.message}`);
-        } finally {
-            btn.innerText = '確認送出'; btn.disabled = false;
-        }
     },
 
     logout() {
