@@ -90,6 +90,52 @@
                 </div>
             </div>
         </div>
+
+        
+        <div class="glass-panel p-0 rounded-2xl overflow-hidden flex flex-col mt-2">
+            <div class="p-4 border-b border-gray-700 bg-gray-800/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <h3 class="text-sm font-bold text-gray-300 whitespace-nowrap">📜 系統稽核日誌 (最新 50 筆)</h3>
+                
+                <div class="flex flex-wrap items-center gap-2 text-xs w-full md:w-auto">
+                    <input type="text" id="logTenantFilter" placeholder="客戶 ID..." class="bg-gray-900 border border-gray-600 rounded p-1.5 text-white w-24 md:w-32 focus:border-indigo-500 focus:outline-none">
+                    
+                    <select id="logTypeFilter" class="bg-gray-900 border border-gray-600 rounded p-1.5 text-white focus:border-indigo-500 focus:outline-none">
+                        <option value="">所有分類</option>
+                        <option value="SYSTEM_TOP_UP">💰 系統加值</option>
+                        <option value="SYSTEM_STATUS_CHANGE">🛡️ 權限變更</option>
+                        <option value="GENERATE_DRAFT">📝 生成貼文</option>
+                        <option value="GENERATE_IMAGE">🎨 生成圖片</option>
+                    </select>
+                    
+                    <div class="flex items-center gap-1">
+                        <input type="date" id="logStartDate" class="bg-gray-900 border border-gray-600 rounded p-1.5 text-white focus:border-indigo-500 focus:outline-none">
+                        <span class="text-gray-500">-</span>
+                        <input type="date" id="logEndDate" class="bg-gray-900 border border-gray-600 rounded p-1.5 text-white focus:border-indigo-500 focus:outline-none">
+                    </div>
+                    
+                    <button onclick="adminApp.fetchLogs()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded text-white font-bold transition-colors shadow-lg">查詢</button>
+                </div>
+            </div>
+            
+            <div class="overflow-x-auto overflow-y-auto max-h-96 custom-scrollbar p-2">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-900/50 sticky top-0">
+                        <tr>
+                            <th class="px-4 py-3 rounded-tl-lg">發生時間</th>
+                            <th class="px-4 py-3">客戶 ID / 分類</th>
+                            <th class="px-4 py-3">詳細描述</th>
+                            <th class="px-4 py-3 text-right rounded-tr-lg">點數異動 / 餘額</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logTableBody" class="divide-y divide-gray-800/50">
+                        <tr><td colspan="4" class="text-center py-8 text-gray-500">載入中...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+
+        
     </div>
 
    <div id="topupModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center hidden backdrop-blur-sm">
