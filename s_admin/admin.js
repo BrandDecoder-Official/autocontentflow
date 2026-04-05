@@ -1,13 +1,12 @@
 // s_admin/admin.js
 
-// 🌟 1. 改為動態讀取上一層的 config.js，不再寫死！
 import { CONFIG } from '../js/config.js';
 
 const adminApp = {
     token: null,
     chartInstance: null,
+    tenantsData: [], // 💡 新增：用來記憶全站客戶名單，給日誌比對用
 
-    // 1. 初始化 Google 登入按鈕
     init() {
         google.accounts.id.initialize({
             client_id: CONFIG.GOOGLE_CLIENT_ID,
@@ -19,16 +18,12 @@ const adminApp = {
         );
     },
 
-    // 2. 登入回傳處理
     async handleCredentialResponse(response) {
         this.token = response.credential;
         document.getElementById('loginSection').innerHTML = '<div class="text-white animate-pulse">驗證身分中...</div>';
-        
-        // 嘗試撈取戰情資料 (順便當作權限驗證)
         await this.fetchDashboardData();
     },
 
-    // 3. 呼叫 Dashboard API (使用 CONFIG.CLOUD_RUN_URL)
     async fetchDashboardData() {
         try {
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/dashboard`, {
@@ -39,12 +34,14 @@ const adminApp = {
 
             if (!res.ok) throw new Error(data.message || '權限不足');
 
-            // 驗證成功，切換畫面
             document.getElementById('loginSection').classList.add('hidden');
             document.getElementById('dashboardSection').classList.remove('hidden');
             
+            // 💡 將客戶名單存進記憶體
+            this.tenantsData = data.data.tenants;
+            
             this.renderDashboard(data.data);
-            this.fetchLogs(); // 👈 連動載入日誌
+            this.fetchLogs(); 
             
         } catch (error) {
             console.error(error);
@@ -59,11 +56,9 @@ const adminApp = {
         }
     },
 
-    // 4. 繪製畫面
     renderDashboard(data) {
         const { stats, tenants } = data;
 
-        // --- A. 更新頂部卡片 ---
         let sumTokens = 0; let sumPoints = 0;
         stats.forEach(s => {
             sumTokens += (s.totalTokensUsed || 0);
@@ -73,38 +68,31 @@ const adminApp = {
         document.getElementById('statTotalPoints').innerText = sumPoints.toLocaleString();
         document.getElementById('statActiveUsers').innerText = tenants.length;
 
-        // --- B. 繪製折線圖 ---
         this.drawChart(stats);
 
-        // --- C. 渲染客戶列表 ---
         const tbody = document.getElementById('tenantTableBody');
         tbody.innerHTML = '';
         tenants.forEach(t => {
             const lastLogin = t.lastLoginAt ? new Date(t.lastLoginAt).toLocaleDateString() : '從未登入';
             const statusColor = t.status === 'ACTIVE' ? 'text-green-400' : 'text-red-400';
             
-            // 💡 角色專屬 Badge
             const roleBadge = t.role === 'SUPER_ADMIN' 
                 ? `<span class="bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded text-[10px] font-bold border border-purple-700/50">👑 管理員</span>`
                 : `<span class="bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-700/50">👤 一般用戶</span>`;
             
-            // 💡 操作區：儲值功能常駐
             let actionButtons = `
                 <button onclick="adminApp.openTopupModal('${t.uid}', '${t.name}')" class="bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-indigo-600/50 mr-1 transition-colors">
                     💰 儲值
                 </button>
             `;
 
-            // 💡 狀態判斷：PENDING(待審核) 或 SUSPENDED(已停權) -> 顯示綠色「放行」
             if (t.status === 'PENDING' || t.status === 'SUSPENDED') {
                 actionButtons += `
                     <button onclick="adminApp.changeUserStatus('${t.uid}', '${t.name}', 'ACTIVE', '開通放行')" class="bg-green-600/20 hover:bg-green-600 text-green-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-green-600/50 transition-colors">
                         ✅ 放行
                     </button>
                 `;
-            } 
-            // 💡 狀態判斷：ACTIVE(使用中) -> 顯示紅色「停權」
-            else if (t.status === 'ACTIVE') {
+            } else if (t.status === 'ACTIVE') {
                 actionButtons += `
                     <button onclick="adminApp.changeUserStatus('${t.uid}', '${t.name}', 'SUSPENDED', '停權禁用')" class="bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white px-3 py-1 rounded text-xs font-bold border border-red-600/50 transition-colors">
                         ⛔ 停權
@@ -129,7 +117,6 @@ const adminApp = {
         });
     },
 
-    // 5. 繪製 Chart.js
     drawChart(stats) {
         const sortedStats = [...stats].reverse();
         const labels = sortedStats.map(s => s.date.split('-').slice(1).join('/')); 
@@ -165,7 +152,6 @@ const adminApp = {
         });
     },
 
-    // 6. 萬用客戶狀態切換 (開通 / 停權)
     async changeUserStatus(tenantId, name, newStatus, actionText) {
         if (!confirm(`⚠️ 確定要對客戶 [${name}] 執行「${actionText}」嗎？`)) return;
 
@@ -190,7 +176,6 @@ const adminApp = {
         }
     },
 
-    // 7. 手動儲值系統 Modal 控制
     openTopupModal(tenantId, name) {
         document.getElementById('topupTargetName').innerText = `目標帳號：${name} (${tenantId})`;
         document.getElementById('topupTenantId').value = tenantId;
@@ -227,7 +212,7 @@ const adminApp = {
             alert(`✅ ${data.message}`);
             this.closeTopupModal();
             this.fetchDashboardData(); 
-            this.fetchLogs(); // 儲值完順便更新日誌列表
+            this.fetchLogs(); 
         } catch (error) {
             alert(`❌ 儲值失敗: ${error.message}`);
         } finally {
@@ -236,23 +221,22 @@ const adminApp = {
     },
 
     // ==========================================
-    // 8. 獲取稽核日誌 (支援篩選)
+    // 8. 獲取稽核日誌 (支援 Email 篩選)
     // ==========================================
     async fetchLogs() {
         const tbody = document.getElementById('logTableBody');
-        if (!tbody) return; // 防呆檢查
+        if (!tbody) return; 
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-indigo-400 animate-pulse font-bold">📡 撈取系統日誌中...</td></tr>';
         
         try {
-            // 抓取篩選器條件
-            const tenantId = document.getElementById('logTenantFilter') ? document.getElementById('logTenantFilter').value.trim() : '';
+            // 💡 抓取 Email 篩選器條件
+            const emailFilter = document.getElementById('logEmailFilter') ? document.getElementById('logEmailFilter').value.trim() : '';
             const type = document.getElementById('logTypeFilter') ? document.getElementById('logTypeFilter').value : '';
             const startDate = document.getElementById('logStartDate') ? document.getElementById('logStartDate').value : '';
             const endDate = document.getElementById('logEndDate') ? document.getElementById('logEndDate').value : '';
             
-            // 組合 API 查詢字串
             let queryUrl = `${CONFIG.CLOUD_RUN_URL}/api/admin/logs?limitCount=50`;
-            if (tenantId) queryUrl += `&tenantId=${tenantId}`;
+            if (emailFilter) queryUrl += `&email=${encodeURIComponent(emailFilter)}`;
             if (type) queryUrl += `&type=${type}`;
             if (startDate) queryUrl += `&startDate=${startDate}`;
             if (endDate) queryUrl += `&endDate=${endDate}`;
@@ -273,11 +257,11 @@ const adminApp = {
     },
 
     // ==========================================
-    // 9. 渲染日誌表格
+    // 9. 渲染日誌表格 (動態對照姓名與信箱)
     // ==========================================
     renderLogs(logs) {
         const tbody = document.getElementById('logTableBody');
-        if (!tbody) return; // 防呆檢查
+        if (!tbody) return; 
         tbody.innerHTML = '';
         
         if (logs.length === 0) {
@@ -286,26 +270,28 @@ const adminApp = {
         }
 
         logs.forEach(log => {
-            // 格式化時間
             const timeStr = new Date(log.createdAt).toLocaleString('zh-TW', { hour12: false });
             
-            // 💡 視覺化 Badge (分類標籤)
+            // 💡 從記憶體 (tenantsData) 中找出這個 log.tenantId 對應的客戶資料
+            const user = this.tenantsData.find(t => t.uid === log.tenantId);
+            const userName = user ? user.name : '未命名用戶';
+            const userEmail = user ? user.email : `${log.tenantId.substring(0,8)}...`;
+            
             let typeBadge = `<span class="text-[10px] bg-gray-800 text-gray-300 px-2 py-0.5 rounded border border-gray-600/50">${log.type || 'UNKNOWN'}</span>`;
             if (log.type === 'SYSTEM_TOP_UP') typeBadge = `<span class="text-[10px] bg-indigo-900/50 text-indigo-400 px-2 py-0.5 rounded border border-indigo-700/50">💰 加值</span>`;
             if (log.type === 'SYSTEM_STATUS_CHANGE') typeBadge = `<span class="text-[10px] bg-green-900/50 text-green-400 px-2 py-0.5 rounded border border-green-700/50">🛡️ 權限</span>`;
             if (log.type && log.type.startsWith('GENERATE')) typeBadge = `<span class="text-[10px] bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded border border-blue-700/50">🤖 生成</span>`;
 
-            // 💡 點數異動顏色 (扣除紅字，加值綠字)
             let amountHtml = `<span class="text-gray-500">-</span>`;
             if (log.amount > 0) amountHtml = `<span class="text-red-400 font-bold font-mono">-${log.amount}</span>`;
             else if (log.type === 'SYSTEM_TOP_UP') amountHtml = `<span class="text-green-400 font-bold font-mono">+${log.metrics?.addedPoints || 0}</span>`;
 
-            // 渲染該行
             tbody.innerHTML += `
                 <tr class="hover:bg-gray-800/80 transition-colors">
                     <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">${timeStr}</td>
                     <td class="px-4 py-3">
-                        <div class="text-[11px] font-mono text-gray-400 mb-1" title="${log.tenantId}">${log.tenantId.substring(0,10)}...</div>
+                        <div class="font-bold text-gray-200">${userName}</div>
+                        <div class="text-[10px] text-gray-500 mb-1">${userEmail}</div>
                         ${typeBadge}
                     </td>
                     <td class="px-4 py-3 text-xs text-gray-300">${log.description || '-'}</td>
@@ -324,7 +310,5 @@ const adminApp = {
     }
 };
 
-// 🌟 核心防呆：因為使用了 import (module)，必須把 app 掛載到全域 window 上
-// 這樣 HTML 裡面的 onclick="adminApp.xxx" 才找得到函數！
 window.adminApp = adminApp;
 window.onload = () => adminApp.init();
