@@ -269,7 +269,9 @@ window.initInteractions = function() {
                 const val = e.target.value.trim();
                 if (val && val !== window.CURRENT_USER_STATE[t.stateKey]) {
                     window.CURRENT_USER_STATE[t.stateKey] = val;
-                    await window.addAgentLog(t.role, t.icon, t.msg, false, window.LAST_CLICKED_EL || e.target);
+                    // 🎯 關鍵修復：拔掉 LAST_CLICKED_EL！
+                    // 強制指定發射源為 e.target (也就是這個文字框本身)
+                    await window.addAgentLog(t.role, t.icon, t.msg, false, e.target);
                 }
             });
         }
