@@ -305,16 +305,33 @@ window.onload = async function () {
 };
 
 // ==========================================
-// 🚀 核心流程 Step 1：AI 撰寫腳本 (扣 10 點)
+// 🚀 核心流程 Step 1：AI 撰寫腳本 (支援 Agent 主動攔截補齊)
 // ==========================================
+
+// 💡 1. 建立一個全局的任務接續函數 (讓對話框內的按鈕呼叫)
+window.resumeTaskWithStyle = async function(styleId) {
+    // 視覺上幫總編把剛才沒選到的按鈕打勾
+    const radio = document.querySelector(`input[name="targetStyle"][value="${styleId}"]`);
+    if(radio) radio.checked = true;
+
+    // 取得畫風名稱
+    const styleName = STATE.globalSystemStyles.find(s => s.id === styleId)?.name || '未知風格';
+    
+    // 在日誌宣告接續
+    await window.addAgentLog('專案總監', '👨‍💼', `收到！已幫您補齊畫風參數：【${styleName}】。正在重啟工廠管線...`, true);
+    
+    // 從暫存區拿出剛才被攔截的 Payload，並執行發送
+    if (STATE.pendingTaskPayload) {
+        await executeStep1Logic(STATE.pendingTaskPayload);
+    }
+};
+
+// 💡 2. 表單送出監聽 (攔截器)
 document.getElementById('agentForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-   // 🎯 這裡強制定向：不管有沒有抓到 LAST_CLICKED_EL，我們直接指定發射源
     const topicInput = document.getElementById('topic'); 
-    const btnSubmit = document.getElementById('btnStep1Submit');
-    
-    const publishBtn = document.getElementById('btnPublish');
-    if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
+    const topic = topicInput.value.trim();
+    if (!topic) return showToast('❌ 請輸入主題！', 'error');
 
     const selectedPlatforms = [];
     if(document.getElementById('platFB')?.checked) selectedPlatforms.push('FB');
@@ -322,15 +339,51 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
     if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
 
-    const topic = document.getElementById('topic').value.trim();
-    if (!topic) return showToast('❌ 請輸入主題！', 'error');
+    // 🕵️‍♂️ 檢查畫風是否為空
+    const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
+
+    // 🛑 Agent 攔截機制：如果有漏選畫風
+    if (!selectedStyleId) {
+        await window.addAgentLog('專案總監', '👨‍💼', '收到任務！正在解析參數...', true, topicInput);
+        await window.addAgentLog('美術總監', '⚠️', '報告總編，偵測到關鍵參數缺失！您還沒選擇「畫風」。請直接點擊下方按鈕補齊：', true);
+        
+        // 暫存目前的任務參數
+        STATE.pendingTaskPayload = { topic, selectedPlatforms };
+
+        // 🌟 在日誌中動態畫出互動按鈕
+        const logContainer = document.getElementById('aiTeamConsoleLog');
+        if (logContainer && STATE.globalSystemStyles) {
+            const optionsDiv = document.createElement('div');
+            optionsDiv.className = 'ml-8 mt-1 mb-2 animate-fade-in flex flex-wrap gap-1.5';
+            
+            // 根據目前的系統畫風，長出對應的按鈕
+            STATE.globalSystemStyles.forEach(s => {
+                // 過濾掉不符合目前模式(動漫/寫實)的選項
+                const currentMode = STATE.isComicModeActive ? 'ANIME' : 'REALISTIC';
+                if (s.category === currentMode || s.category === 'ALL') {
+                    optionsDiv.innerHTML += `<button type="button" onclick="window.resumeTaskWithStyle('${s.id}')" class="bg-indigo-600/20 hover:bg-indigo-500 text-indigo-400 hover:text-white px-3 py-1.5 rounded text-xs font-bold border border-indigo-500/50 transition-colors shadow-sm">${s.name}</button>`;
+                }
+            });
+            logContainer.appendChild(optionsDiv);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+        return; // ⛔ 中斷原生表單提交流程，等待總編點擊日誌按鈕！
+    }
+
+    // ✅ 如果一開始就有選畫風，直接執行
+    STATE.pendingTaskPayload = { topic, selectedPlatforms };
+    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在打包卷宗並解析平台設定...', true, document.getElementById('btnStep1Submit'));
+    await executeStep1Logic(STATE.pendingTaskPayload);
+});
+
+// 💡 3. 實際執行發送的底層引擎
+async function executeStep1Logic(payloadData) {
+    const btnSubmit = document.getElementById('btnStep1Submit');
+    const publishBtn = document.getElementById('btnPublish');
+    if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
 
     btnSubmit.disabled = true; btnSubmit.classList.replace('bg-blue-600', 'bg-gray-500');
     document.getElementById('btnTextStep1').innerHTML = '⚡ 執行中，請看右側進度...';
-
-    await window.addAgentLog('專案總監', '👨‍💼', '收到任務！正在解析主題...', true, topicInput);
-    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！正在打包卷宗並解析平台設定...', true, btnSubmit);
-    
 
     try {
         const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
@@ -343,7 +396,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
 
         const colorMode = document.querySelector('input[name="colorMode"]:checked')?.value || 'COLOR';
         const payload = {
-            tenantId: getTenantIdFromToken(), platforms: selectedPlatforms, topic: topic, isComicMode: STATE.isComicModeActive,
+            tenantId: getTenantIdFromToken(), platforms: payloadData.selectedPlatforms, topic: payloadData.topic, isComicMode: STATE.isComicModeActive,
             colorMode: colorMode, aspectRatio: document.getElementById('aspectRatioSelect').value, style: promptStyle,             
             negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
         };
@@ -378,10 +431,9 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
         window.showPointDeduction(btnSubmit, 10); 
-        // 🌟 明確報帳
         await window.addAgentLog('財務總監', '💳', '(AI算力扣除 10 點)', false);
-        
         await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！渲染排版中...', false);
+        
         STATE.currentTaskId = result.taskId; 
         STATE.multiImages = [{ id: `cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
         window.renderMultiImages();
@@ -396,16 +448,21 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             panContainer.classList.remove('hidden');
             let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認</label>';
             result.draftContent.panels.forEach(p => {
-                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
+                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
             });
             panContainer.innerHTML = html;
         } else panContainer.classList.add('hidden');
         
         showToast('✅ 腳本生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，請總編審核。');
-    } catch (e) { await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${e.message}`); showToast(`❌ 錯誤: ${e.message}`, 'error'); } 
-    finally { btnSubmit.disabled = false; btnSubmit.classList.replace('bg-gray-500', 'bg-blue-600'); document.getElementById('btnTextStep1').innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; }
-});
+    } catch (e) { 
+        await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${e.message}`); 
+        showToast(`❌ 錯誤: ${e.message}`, 'error'); 
+    } finally { 
+        btnSubmit.disabled = false; btnSubmit.classList.replace('bg-gray-500', 'bg-blue-600'); 
+        document.getElementById('btnTextStep1').innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; 
+    }
+}
 
 // ==========================================
 // 🎨 核心流程 Step 2：發包生圖
@@ -461,36 +518,100 @@ window.submitForImageGeneration = async function() {
 };
 
 // ==========================================
-// 🚀 核心流程 Step 3：一鍵發佈與排程
+// 🚀 核心流程 Step 3：一鍵發佈與排程 (具備 AI 自我修復與重試智商)
 // ==========================================
-window.publishToSocial = async function() {
+window.publishToSocial = async function(manualRetryPlatforms = null) {
     const btn = document.getElementById('btnPublish');
     const scheduleTime = document.getElementById('scheduleTime').value;
     const scheduledAt = scheduleTime ? new Date(scheduleTime).toISOString() : null;
+    
     btn.disabled = true; window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    if (scheduledAt) await window.addAgentLog('系統管理員', '🗓️', `排程任務寫入中...`, true, btn);
-    else await window.addAgentLog('社群總監', '🚀', '啟動發射程序，打包圖文與 Hashtag...', true, btn);
+    if (scheduledAt) {
+        await window.addAgentLog('系統管理員', '🗓️', `排程任務寫入中...`, true, btn);
+    } else {
+        const actionText = manualRetryPlatforms ? `啟動針對 [${manualRetryPlatforms.join(', ')}] 的手動重試程序...` : '啟動發射程序，打包圖文與跨平台參數...';
+        await window.addAgentLog('社群總監', '🚀', actionText, true, btn);
+    }
+
+    // 💡 Agent 自我修復設定
+    const MAX_AUTO_RETRIES = 1; // 自動重發次數 (1次代表總共嘗試2次)
+    let currentAttempt = 0;
+    let targetPlatforms = manualRetryPlatforms; // 如果有指定平台，就只發指定的
+    let finalFailedPlatforms = [];
 
     try {
-        const res = await window.executeWithRetry(() => API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt }), '社群總監', '社群發射');
-        
+        // 🔄 進入 Agent 自動發送/重試迴圈
+        while (currentAttempt <= MAX_AUTO_RETRIES) {
+            const res = await window.executeWithRetry(() => API.publishContentAPI({ 
+                taskId: STATE.currentTaskId, 
+                tenantId: getTenantIdFromToken(), 
+                finalCaption: document.getElementById('finalCaptionDisplay').value, 
+                scheduledAt,
+                retryPlatforms: targetPlatforms // 傳給後端，告訴它只需重試這些平台
+            }), '社群總監', '社群發射');
+            
+            // 檢查是否有局部失敗
+            if (res.failedPlatforms && res.failedPlatforms.length > 0) {
+                if (currentAttempt < MAX_AUTO_RETRIES && !scheduledAt) {
+                    // 🤖 Agent 主動攔截並自動重試
+                    const failedNames = res.failedPlatforms.join(', ');
+                    await window.addAgentLog('社群總監', '🔄', `偵測到 [${failedNames}] 發送無回應。Agent 啟動自我修復機制，等待 3 秒後自動為您重試...`, true);
+                    
+                    currentAttempt++;
+                    targetPlatforms = res.failedPlatforms; // 縮小範圍，下一次只發失敗的平台
+                    
+                    // 暫停 3 秒再出發，給 Meta 伺服器喘息時間
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    continue; // 繼續下一次迴圈
+                } else {
+                    // 已經重試過了還是失敗，或者這是排程任務，那就真的放棄，交給人類
+                    finalFailedPlatforms = res.failedPlatforms;
+                    break;
+                }
+            } else {
+                // 完全成功，清空失敗名單並跳出迴圈
+                finalFailedPlatforms = [];
+                break;
+            }
+        }
+
+        // 📊 迴圈結束，結算最終成績
+        if (finalFailedPlatforms.length > 0) {
+            const failedNames = finalFailedPlatforms.join(', ');
+            await window.addAgentLog('社群總監', '⚠️', `報告總編，已盡力重試，但以下平台依然發射失敗：[${failedNames}]。可能是 Meta API 限制或權限過期，請您手動點擊重試。`, false);
+            
+            btn.innerHTML = '🔄 重試失敗平台';
+            btn.classList.replace('bg-gray-500', 'bg-yellow-500');
+            btn.disabled = false;
+            // 綁定手動重試參數
+            btn.onclick = () => window.publishToSocial(finalFailedPlatforms);
+            showToast(`⚠️ 部分發布失敗 (${failedNames})，請重試！`, 'warning');
+            return; // ⛔ 局部失敗，中斷流程，不放煙火
+        }
+
+        // 🎉 全線大捷，開始扣款與慶祝
         window.showPointDeduction(btn, 5); 
-        // 🌟 明確報帳
         await window.addAgentLog('財務總監', '💳', '(AI算力扣除 5 點)', false);
         
-        await window.addAgentLog('系統管理員', '✅', scheduledAt ? '排程成功！' : '發送成功！', false);
+        await window.addAgentLog('系統管理員', '✅', scheduledAt ? '全平台排程成功！' : '全平台發送成功！', false);
         btn.innerHTML = scheduledAt ? '✅ 預約成功！' : '✅ 發布成功！';
         btn.classList.replace('bg-green-600', 'bg-gray-500');
-        showToast('🎉 操作成功！', 'success');
+        showToast('🎉 全平台發布大成功！', 'success');
 
         if (!scheduledAt && typeof confetti === 'function') {
             const dur = 2000, end = Date.now() + dur;
             (function f() { confetti({ particleCount: 4, angle: 60, spread: 55, origin: { x: 0 } }); confetti({ particleCount: 4, angle: 120, spread: 55, origin: { x: 1 } }); if (Date.now() < end) requestAnimationFrame(f); }());
         }
         setTimeout(async () => {
-            await window.addAgentLog('專案總監', '🎉', '圓滿達成！隨時啟動下一篇任務。');
+            await window.addAgentLog('專案總監', '🎉', '任務圓滿達成！隨時準備啟動下一篇任務。');
             btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-blue-600'); btn.innerHTML = '✨ 再來一篇！'; btn.onclick = window.resetToStep1;
         }, 2500);
-    } catch (e) { await window.addAgentLog('系統警報', '🚨', `發佈失敗: ${e.message}`); showToast(`❌ 失敗: ${e.message}`, 'error'); btn.disabled = false; btn.innerHTML = '🚀 重試發射'; }
+
+    } catch (e) { 
+        await window.addAgentLog('系統警報', '🚨', `發佈徹底失敗: ${e.message}`); 
+        showToast(`❌ 失敗: ${e.message}`, 'error'); 
+        btn.disabled = false; btn.innerHTML = '🚀 重試發射'; 
+        btn.onclick = () => window.publishToSocial(targetPlatforms);
+    }
 };
