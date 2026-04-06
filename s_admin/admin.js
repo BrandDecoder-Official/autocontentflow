@@ -273,19 +273,28 @@ const adminApp = {
         
         const tbody = document.getElementById('pricingTableBody');
         tbody.innerHTML = '';
+
+        // 🌟 關鍵修正：告訴戰情室目前的匯率 (1 TWD = 1000 點)
+        const TWD_TO_POINTS = 1000;
         
         for(const [actionKey, data] of Object.entries(this.pricingConfig.actions)) {
-            // 自動計算建議點數 (成本 * 倍率，無條件進位)
-            const suggested = Math.ceil(data.baseCostTWD * multiplier);
+            
+            // 1. 先把 DB 裡的台幣成本，換算成「點數成本」
+            const baseCostPoints = data.baseCostTWD * TWD_TO_POINTS;
+
+            // 2. 計算建議售價 (點數成本 * 倍率，無條件進位)
+            const suggested = Math.ceil(baseCostPoints * multiplier);
             const retail = data.retailPoints || 0;
-            const profit = retail - data.baseCostTWD;
-            const margin = retail > 0 ? (profit / retail) * 100 : (profit < 0 ? -100 : 0);
+            
+            // 3. 毛利計算 (統一用點數相減：售價點數 - 成本點數)
+            const profitPoints = retail - baseCostPoints;
+            const margin = retail > 0 ? (profitPoints / retail) * 100 : (profitPoints < 0 ? -100 : 0);
             
             let statusHtml = '';
             let rowClass = 'transition-colors';
             
             // 🚨 毛利防呆視覺判定
-            if (profit < 0) {
+            if (profitPoints < 0) {
                 statusHtml = `<div class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-[10px] font-bold border border-red-700/50 inline-block text-center w-full">🚨 嚴重虧損</div>`;
                 rowClass = 'bg-red-900/20 border-l-4 border-red-500';
             } else if (margin < 50) {
@@ -299,16 +308,16 @@ const adminApp = {
             tbody.innerHTML += `
                 <tr class="${rowClass}">
                     <td class="px-4 py-3 font-bold text-gray-200">${data.name} <br><span class="text-[9px] text-gray-500 font-mono tracking-wider">${actionKey}</span></td>
-                    <td class="px-4 py-3 text-gray-400 font-mono">${data.baseCostTWD.toFixed(2)}</td>
+                    <td class="px-4 py-3 text-gray-400 font-mono">${data.baseCostTWD.toFixed(2)} <span class="text-[10px]">TWD</span></td>
                     <td class="px-4 py-3 text-indigo-400 font-mono font-bold">${suggested}</td>
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
-                            <input type="number" id="retail_${actionKey}" value="${retail}" onchange="adminApp.handleRetailChange('${actionKey}')" class="w-16 bg-gray-900 border border-gray-600 rounded p-1 text-white font-mono text-center focus:border-indigo-500 focus:outline-none text-sm">
+                            <input type="number" id="retail_${actionKey}" value="${retail}" onchange="adminApp.handleRetailChange('${actionKey}')" class="w-20 bg-gray-900 border border-gray-600 rounded p-1 text-white font-mono text-center focus:border-indigo-500 focus:outline-none text-sm">
                             <button onclick="adminApp.applySuggested('${actionKey}', ${suggested})" class="text-[10px] bg-indigo-600/20 text-indigo-400 px-2 py-1.5 rounded hover:bg-indigo-600 hover:text-white transition-colors font-bold border border-indigo-500/30 shadow-sm whitespace-nowrap">👉 套用</button>
                         </div>
                     </td>
                     <td class="px-4 py-3">
-                        <div class="font-bold font-mono ${profit < 0 ? 'text-red-400' : 'text-green-400'}">${profit > 0 ? '+' : ''}${profit.toFixed(2)}</div>
+                        <div class="font-bold font-mono ${profitPoints < 0 ? 'text-red-400' : 'text-green-400'}">${profitPoints > 0 ? '+' : ''}${Math.round(profitPoints)} <span class="text-[10px]">點</span></div>
                         <div class="text-[10px] ${margin < 50 ? 'text-yellow-400' : 'text-gray-500'}">利潤率: ${margin.toFixed(1)}%</div>
                     </td>
                     <td class="px-4 py-3 flex justify-center items-center h-full">${statusHtml}</td>
