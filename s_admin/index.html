@@ -61,7 +61,6 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            
             <div class="lg:col-span-1 glass-panel p-6 rounded-2xl">
                 <h3 class="text-sm font-bold text-gray-300 mb-4 border-b border-gray-700 pb-2">📈 近 7 日算力消耗趨勢</h3>
                 <div class="relative h-64 w-full">
@@ -85,9 +84,41 @@
                             </tr>
                         </thead>
                         <tbody id="tenantTableBody" class="divide-y divide-gray-800/50">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div class="glass-panel p-0 rounded-2xl overflow-hidden flex flex-col mt-2">
+            <div class="p-4 border-b border-gray-700 bg-gray-800/50 flex justify-between items-center">
+                <h3 class="text-sm font-bold text-gray-300">💰 系統動態定價與毛利防禦中控台</h3>
+                <button onclick="adminApp.savePricing()" class="bg-indigo-600 hover:bg-indigo-500 px-4 py-1.5 rounded text-white text-xs font-bold transition-colors shadow-lg shadow-indigo-900/50">💾 儲存最新定價</button>
+            </div>
+            
+            <div class="p-4 bg-gray-900/30 flex flex-col md:flex-row items-center gap-4 border-b border-gray-700/50">
+                <label class="text-sm font-bold text-gray-400 whitespace-nowrap">🎯 全局利潤目標倍率：</label>
+                <input type="range" id="globalMultiplier" min="1" max="10" step="0.5" value="4" class="w-full max-w-xs accent-indigo-500 cursor-pointer" oninput="adminApp.updatePricingUI()">
+                <span id="multiplierValue" class="text-xl font-black text-indigo-400 w-12 text-center">4.0x</span>
+                <span class="text-xs text-gray-500 ml-auto hidden md:block">⚠️ 調整倍率會即時影響建議點數，但須手動套用與儲存才生效。</span>
+            </div>
+
+            <div class="overflow-x-auto custom-scrollbar p-2">
+                <table class="w-full text-left text-sm">
+                    <thead class="text-xs text-gray-400 uppercase bg-gray-900/50">
+                        <tr>
+                            <th class="px-4 py-3 rounded-tl-lg">動作名稱</th>
+                            <th class="px-4 py-3">預估成本 (TWD)</th>
+                            <th class="px-4 py-3 text-indigo-400">建議售價 (點)</th>
+                            <th class="px-4 py-3">實際扣除點數 (可覆寫)</th>
+                            <th class="px-4 py-3">單筆毛利 / 利率</th>
+                            <th class="px-4 py-3 text-center rounded-tr-lg">健康狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pricingTableBody" class="divide-y divide-gray-800/50">
+                        <tr><td colspan="6" class="text-center py-6 text-gray-500">載入定價表...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -134,8 +165,6 @@
             </div>
         </div>
 
-
-        
     </div>
 
    <div id="topupModal" class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center hidden backdrop-blur-sm">
