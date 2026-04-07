@@ -512,13 +512,31 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3-publish').classList.remove('hidden');
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
-        let imgHtml = '';
-        if (res.images?.length > 0) {
-            res.images.forEach(img => { imgHtml += `<img src="${img.finalUrl}" class="w-full object-cover rounded-xl shadow-sm border animate-fade-in" style="aspect-ratio: 1/1;">`; });
-            document.getElementById('finalImageContainer').innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-3">${imgHtml}</div>`;
+        // ==========================================
+        // 🌟 升級版：智慧型圖片排版與渲染引擎
+        // ==========================================
+        const finalContainer = document.getElementById('finalImageContainer');
+        // 重置容器 class，確保不會被舊的置中高度吃掉空間
+        finalContainer.className = 'w-full my-4'; 
+        
+        if (res.images && res.images.length > 1) {
+            // 🖼️ 情況 A：多張圖 (大於 1 張) -> 啟動 Grid 雙排網格
+            let imgHtml = '';
+            res.images.forEach(img => { 
+                imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
+            });
+            finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
         } else {
-            document.getElementById('finalImageContainer').innerHTML = `<img src="${res.imageUrl}" class="w-full rounded-xl shadow-md border animate-fade-in">`;
+            // 🖼️ 情況 B：單張圖 (包含四格漫畫拼圖) -> 滿版自適應顯示
+            const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
+            finalContainer.innerHTML = `
+                <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
+                    <img src="${displayUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">
+                </div>
+                <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
+            `;
         }
+
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('社群總監', '⏸️', '隨時可以為您發射！');
