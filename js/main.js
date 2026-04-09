@@ -563,9 +563,6 @@ window.triggerAICompress = async function() {
     }
 };
 
-// ==========================================
-// 🎨 核心流程 Step 2：發包生圖
-// ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     if (!STATE.multiImages?.length) return showToast('❌ 需要至少 1 張圖片！', 'error');
@@ -622,24 +619,48 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3-publish').classList.remove('hidden');
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
+        // ==========================================
+        // 🌟 升級版：真・圖文分離與動態遮罩排版引擎
+        // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
+        finalContainer.innerHTML = ''; // 清空容器
         
-        if (res.images && res.images.length > 1) {
-            let imgHtml = '';
-            res.images.forEach(img => { 
-                imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
-            });
-            finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
-        } else {
-            const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
-            finalContainer.innerHTML = `
-                <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
-                    <img src="${displayUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">
-                </div>
-                <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
+        let containerHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full p-4 bg-gray-100 rounded-xl">';
+        
+        // 將所有圖片與對應的分鏡文字組合
+        res.images.forEach((img, imgIndex) => {
+            // 計算這張圖負責哪幾格對白 (例如 imgIndex 0 負責 0~3 格)
+            const chunkPanels = editedPanels.slice(imgIndex * 4, (imgIndex + 1) * 4);
+            
+            // 建立一個 relative 的畫布容器，讓文字可以 absolute 定位在上面
+            let panelHtml = `
+                <div class="relative w-full overflow-hidden rounded-xl shadow-md border border-gray-200 comic-canvas" style="aspect-ratio: 1/1;">
+                    <img src="${img.finalUrl}" class="w-full h-full object-cover pointer-events-none">
             `;
-        }
+
+            // 為這張圖負責的每一句對白，生成一個「自帶遮罩、可拖拽」的文字塊
+            chunkPanels.forEach((panel, i) => {
+                // 初始化散佈邏輯：預設將 4 格文字散佈在圖片的四個角落附近
+                const topPos = i < 2 ? 10 + (i * 10) : 60 + ((i - 2) * 10); // 上方或下方，稍微交錯
+                const leftPos = i % 2 === 0 ? 10 : 50; // 左側或右側
+
+                panelHtml += `
+                    <div class="absolute cursor-move text-gray-900 font-black tracking-wider leading-snug shadow-sm border-2 border-gray-800 bg-white p-2 rounded-xl transition-all draggable-text hover:ring-4 hover:ring-blue-400" 
+                         style="top: ${topPos}%; left: ${leftPos}%; max-width: 45%; width: max-content; font-size: clamp(12px, 2vw, 16px); z-index: 10;"
+                         contenteditable="true" spellcheck="false"
+                         onmousedown="window.startDrag(event)" ontouchstart="window.startDrag(event)">
+                        ${panel.dialogue}
+                    </div>
+                `;
+            });
+            
+            panelHtml += `</div>`; // 結束相對定位容器
+            containerHtml += panelHtml;
+        });
+
+        containerHtml += `</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 💡 提示：請將文字拖曳到對話框內！點擊文字可直接修改。</p>`;
+        finalContainer.innerHTML = containerHtml;
 
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
