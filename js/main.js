@@ -484,10 +484,12 @@ window.submitForImageGeneration = async function() {
 
     const editedPanels = [];
     if (STATE.isComicModeActive) {
-        for(let i=1; i<=4; i++) {
-            const ta = document.getElementById(`panel_${i}`);
-            if(ta) editedPanels.push({ panel_number: i, dialogue: ta.value });
-        }
+        // 動態抓取畫面上所有的 textarea (不論 AI 生成了 3 格還是 6 格)
+        const textareas = document.querySelectorAll('textarea[id^="panel_"]');
+        textareas.forEach(ta => {
+            const panelNum = parseInt(ta.id.split('_')[1]);
+            editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
+        });
     }
 
     try {
