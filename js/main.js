@@ -528,24 +528,13 @@ window.triggerAICompress = async function() {
     await window.addAgentLog('首席文案', '✨', '收到濃縮請求！正在為您將史詩長篇提煉為完美的 4 格精華...', true);
 
     try {
-        // 修正：ES6 Module 是唯讀的，我們改用本地變數來宣告這支 API 呼叫
-        const compressFn = API.compressComicPanelsAPI || async function(payload) {
-            const response = await fetch(`${CONFIG.API_BASE_URL}/compressComicPanels`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
-            return response.json();
-        };
-
         const editedPanels = [];
         document.querySelectorAll('textarea[id^="panel_"]').forEach(ta => {
             editedPanels.push({ panel_number: parseInt(ta.id.split('_')[1]), dialogue: ta.value });
         });
 
-        // 呼叫我們剛剛在後端佈署好的 compressComicPanels 引擎
-        const res = await window.executeWithRetry(() => compressFn({
+        // 🌟 修正：直接使用我們剛剛在 api.js 註冊好的乾淨函數
+        const res = await window.executeWithRetry(() => API.compressComicPanelsAPI({
             taskId: STATE.currentTaskId,
             tenantId: getTenantIdFromToken(),
             panels: editedPanels
