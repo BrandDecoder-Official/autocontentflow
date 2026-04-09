@@ -518,7 +518,7 @@ window.proceedWithSplurge = function(requiredImages) {
     window.submitForImageGeneration(); // 再次觸發發包程序
 };
 
-// 用戶點擊 [✨ AI 魔法濃縮] 的處理邏輯 (預留給 Phase 2 API)
+// 用戶點擊 [✨ AI 魔法濃縮] 的處理邏輯
 window.triggerAICompress = async function() {
     document.getElementById('decisionModal').remove();
     const btn = document.getElementById('btnStep2Submit');
@@ -528,26 +528,24 @@ window.triggerAICompress = async function() {
     await window.addAgentLog('首席文案', '✨', '收到濃縮請求！正在為您將史詩長篇提煉為完美的 4 格精華...', true);
 
     try {
-        // 確保 API 存在 (若尚未實作則動態宣告，避免當機)
-        if (!API.compressComicPanelsAPI) {
-            API.compressComicPanelsAPI = async (payload) => {
-                const token = STATE.globalAuthToken;
-                const response = await fetch(`${CONFIG.API_BASE_URL}/compressComicPanels`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify(payload)
-                });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            };
-        }
+        // 修正：ES6 Module 是唯讀的，我們改用本地變數來宣告這支 API 呼叫
+        const compressFn = API.compressComicPanelsAPI || async function(payload) {
+            const response = await fetch(`${CONFIG.API_BASE_URL}/compressComicPanels`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+                body: JSON.stringify(payload)
+            });
+            if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
+            return response.json();
+        };
 
         const editedPanels = [];
         document.querySelectorAll('textarea[id^="panel_"]').forEach(ta => {
             editedPanels.push({ panel_number: parseInt(ta.id.split('_')[1]), dialogue: ta.value });
         });
 
-        const res = await window.executeWithRetry(() => API.compressComicPanelsAPI({
+        // 呼叫我們剛剛在後端佈署好的 compressComicPanels 引擎
+        const res = await window.executeWithRetry(() => compressFn({
             taskId: STATE.currentTaskId,
             tenantId: getTenantIdFromToken(),
             panels: editedPanels
@@ -567,8 +565,8 @@ window.triggerAICompress = async function() {
         await window.addAgentLog('首席文案', '✅', '濃縮完畢！您可以再次點擊發包生圖了。');
 
     } catch (e) {
-        showToast(`❌ 濃縮失敗: ${e.message}。請等待後端升級或手動修改。`, 'error');
-        await window.addAgentLog('系統管理員', '🚨', `請告知開發者部署 Phase 2 的 compress API: ${e.message}`);
+        showToast(`❌ 濃縮失敗: ${e.message}`, 'error');
+        await window.addAgentLog('系統管理員', '🚨', `發生錯誤: ${e.message}`);
     } finally {
         btn.disabled = false;
         btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖';
