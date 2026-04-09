@@ -588,7 +588,10 @@ window.submitForImageGeneration = async function() {
     // ==== 🚨 決策攔截器結束 ====
 
     btn.disabled = true; btn.classList.replace('bg-indigo-600', 'bg-gray-500');
-    document.getElementById('btnTextStep2').innerHTML = '🎨 執行中...';
+    
+    // 🌟 修正：直接改 btn.innerHTML，不要再去抓很容易被刪除的 btnTextStep2
+    btn.innerHTML = '🎨 執行中...'; 
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
     await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！打包圖文參數中...', true, btn);
 
@@ -659,7 +662,7 @@ window.submitForImageGeneration = async function() {
             containerHtml += panelHtml;
         });
 
-        containerHtml += `</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 💡 提示：請將文字拖曳到對話框內！點擊文字可直接修改。</p>`;
+        containerHtml += `</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 提示：請將文字拖曳到對話框內！點擊文字可直接修改。</p>`;
         finalContainer.innerHTML = containerHtml;
 
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
@@ -670,7 +673,10 @@ window.submitForImageGeneration = async function() {
         showToast(`❌ 生圖失敗: ${e.message}`, 'error'); 
     } finally { 
         STATE.userAgreedToSplurge = false; // 🔄 任務結束，重置放行標記
-        btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); document.getElementById('btnTextStep2').innerHTML = '🎨 2️⃣ 第二步：發包生圖'; 
+        btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); 
+        
+        // 🌟 修正：同上，直接改 btn.innerHTML
+        btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖'; 
     }
 };
 
