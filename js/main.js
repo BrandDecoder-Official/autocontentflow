@@ -21,21 +21,16 @@ window.toggleAuditLogDrawer = function() {
     const isOpen = !drawer.classList.contains('translate-x-full');
 
     if (isOpen) {
-        // 關閉抽屜動畫
         drawer.classList.add('translate-x-full');
         overlay.classList.remove('opacity-100');
         setTimeout(() => overlay.classList.add('hidden'), 300);
     } else {
-        // 開啟抽屜動畫
         overlay.classList.remove('hidden');
-        void overlay.offsetWidth; // 強制瀏覽器重繪 (Trigger reflow)
+        void overlay.offsetWidth; 
         overlay.classList.add('opacity-100');
         drawer.classList.remove('translate-x-full');
         
-        // 更新抽屜內的餘額顯示
         document.getElementById('drawerBalanceDisplay').innerText = `${STATE.userPoints || 0} ⚡`;
-        
-        // 呼叫 API 撈取資料
         window.fetchAndRenderAuditLogs();
     }
 };
@@ -50,11 +45,7 @@ window.fetchAndRenderAuditLogs = async function() {
 
     try {
         const tenantId = getTenantIdFromToken();
-        
-        // 🌟 呼叫真實 API 撈取資料
         const res = await window.executeWithRetry(() => API.fetchAuditLogsAPI(tenantId), '系統管理員', '讀取歷史卷宗');
-        
-        // 取得後端回傳的真實陣列
         const realLogs = res.logs || [];
 
         if (realLogs.length === 0) {
@@ -64,7 +55,6 @@ window.fetchAndRenderAuditLogs = async function() {
 
         let html = '<div class="space-y-4">';
         realLogs.forEach(log => {
-            // 根據動作給予不同的 UI 顏色
             let icon = '⚡'; let colorClass = 'bg-gray-100 text-gray-600';
             if(log.type === 'GENERATE_IMAGE') { icon = '🎨'; colorClass = 'bg-purple-100 text-purple-700'; }
             if(log.type === 'GENERATE_DRAFT') { icon = '✍️'; colorClass = 'bg-blue-100 text-blue-700'; }
@@ -77,7 +67,6 @@ window.fetchAndRenderAuditLogs = async function() {
             html += `
                 <div class="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
                     <div class="absolute left-0 top-0 bottom-0 w-1 ${colorClass.split(' ')[0].replace('100', '400')}"></div>
-                    
                     <div class="flex justify-between items-start mb-2 pl-2">
                         <div class="flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center text-sm shadow-sm">${icon}</span>
@@ -91,7 +80,6 @@ window.fetchAndRenderAuditLogs = async function() {
                             <div class="text-[10px] text-gray-400 font-bold">結餘: ${log.balanceAfter}</div>
                         </div>
                     </div>
-                    
                     <div class="pl-12 pr-2 text-right">
                          <span class="text-[10px] text-gray-300 font-mono tracking-wider">Tokens: ${log.metrics?.geminiTokensUsed || 0}</span>
                     </div>
@@ -105,7 +93,6 @@ window.fetchAndRenderAuditLogs = async function() {
         contentBox.innerHTML = `<div class="text-center text-red-500 mt-10 text-sm font-bold">讀取失敗：${e.message}</div>`;
     }
 };
-
 
 // ==========================================
 // 💸 微型計費系統：浮動扣點特效與餘額更新
@@ -173,6 +160,7 @@ window.resetToStep1 = () => {
     
     STATE.sceneFiles = [];
     STATE.objectFiles = [];
+    STATE.userAgreedToSplurge = false; // 🔄 重置決策狀態
 
     window.resetAgentConsole();
     setTimeout(async () => { await window.addAgentLog('專案總監', '👨‍💼', '任務已重置，全新的卷宗已就緒！'); }, 500);
@@ -183,12 +171,9 @@ window.resetToStep1 = () => {
 window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
-        
-        // 抓取畫風、角色等
         const res = await window.executeWithRetry(() => API.fetchSystemOptionsAPI(tenantId), '系統管理員', '載入資料庫');
         STATE.globalSystemStyles = res.data.styles || [];
         
-        // 💰 抓取最新動態價目表 (若尚未在 API 實作，以 catch 防呆不中斷流程)
         try {
             if (API.fetchSystemPricingAPI) {
                 const priceRes = await window.executeWithRetry(() => API.fetchSystemPricingAPI(), '財務總監', '載入即時牌價');
@@ -247,7 +232,6 @@ window.submitNewCharacter = async function() {
         
         showToast(res.message, 'success'); 
         
-        // 💰 動態扣款：建立專屬角色
         const charCost = STATE.globalPricing?.CREATE_CHARACTER?.retailPoints ?? 5;
         window.showPointDeduction(btn, charCost); 
         if (typeof window.addAgentLog === 'function') await window.addAgentLog('財務總監', '💳', `(AI算力扣除 ${charCost} 點)`, false, targetButton);
@@ -435,7 +419,6 @@ async function executeStep1Logic(payloadData) {
         await window.addAgentLog('首席文案', '✍️', '正在與大腦連線撰寫腳本...', true);
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
-        // 💰 動態扣款：寫腳本
         const draftCost = STATE.globalPricing?.GENERATE_DRAFT?.retailPoints ?? 10;
         window.showPointDeduction(btnSubmit, draftCost); 
         await window.addAgentLog('財務總監', '💳', `(AI算力扣除 ${draftCost} 點)`, false);
@@ -455,7 +438,7 @@ async function executeStep1Logic(payloadData) {
             panContainer.classList.remove('hidden');
             let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認</label>';
             result.draftContent.panels.forEach(p => {
-                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
+                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action_en || '場景'}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
             });
             panContainer.innerHTML = html;
         } else panContainer.classList.add('hidden');
@@ -472,37 +455,175 @@ async function executeStep1Logic(payloadData) {
 }
 
 // ==========================================
+// 🚨 擴展功能：決策攔截視窗 (UI 動態生成)
+// ==========================================
+window.showDecisionModal = function(panels, hasTooManyPanels, hasLongText) {
+    if (document.getElementById('decisionModal')) return;
+
+    const requiredImages = Math.ceil(panels.length / 4);
+    const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
+    const totalPoints = requiredImages * imageCost;
+
+    let warningReasons = [];
+    if (hasTooManyPanels) warningReasons.push(`共有 <b>${panels.length} 格</b> 分鏡`);
+    if (hasLongText) warningReasons.push(`部分對白<b>超過 15 個字</b>`);
+
+    const modalHtml = `
+    <div id="decisionModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-4">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
+            <div class="bg-red-500 p-4 text-center">
+                <h3 class="text-white text-lg font-black tracking-wider">🚨 系統偵測：史詩級腳本！</h3>
+            </div>
+            <div class="p-6 space-y-4 text-gray-700 text-sm">
+                <p>總編，您的腳本非常豐富！目前 ${warningReasons.join('，且')}。</p>
+                <p>為了確保畫面清晰與文字完美，系統需要為您切割生成 <b>${requiredImages} 張</b> 漫畫拼圖。</p>
+                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
+                    本次發包將消耗：<span class="text-red-500 font-black text-lg">${totalPoints} ⚡</span> <br>
+                    <span class="text-xs text-gray-400">(${requiredImages} 張 x ${imageCost} 點)</span>
+                </div>
+                <p class="font-bold text-center mt-2">請選擇您的決策：</p>
+
+                <div class="flex flex-col gap-3 mt-4">
+                    <button onclick="window.proceedWithSplurge(${requiredImages})" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex justify-between items-center group">
+                        <span class="flex items-center gap-2">💰 豪氣發包</span>
+                        <span class="text-xs bg-black/20 px-2 py-1 rounded text-indigo-100 group-hover:text-white transition-colors">生成 ${requiredImages} 張多頁連載</span>
+                    </button>
+                    <button onclick="window.triggerAICompress()" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex justify-between items-center group">
+                        <span class="flex items-center gap-2">✨ AI 魔法濃縮</span>
+                        <span class="text-xs bg-black/20 px-2 py-1 rounded text-purple-100 group-hover:text-white transition-colors">免費提煉為單張 4 格</span>
+                    </button>
+                    <button onclick="document.getElementById('decisionModal').remove()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl transition-all flex justify-between items-center">
+                        <span class="flex items-center gap-2">✍️ 我自己來</span>
+                        <span class="text-xs text-gray-400">取消，返回手動修改</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// 用戶點擊 [💰 豪氣發包] 的處理邏輯
+window.proceedWithSplurge = function(requiredImages) {
+    document.getElementById('decisionModal').remove();
+    STATE.userAgreedToSplurge = true; // 放行標記
+
+    // 🌟 動態擴充 STATE.multiImages，讓 API 知道要生幾張圖
+    STATE.multiImages = [];
+    for (let i = 0; i < requiredImages; i++) {
+        STATE.multiImages.push({ id: `img_${Date.now()}_${i}`, originalUrl: '', processType: 'AI_SYNTHESIS' });
+    }
+
+    window.submitForImageGeneration(); // 再次觸發發包程序
+};
+
+// 用戶點擊 [✨ AI 魔法濃縮] 的處理邏輯 (預留給 Phase 2 API)
+window.triggerAICompress = async function() {
+    document.getElementById('decisionModal').remove();
+    const btn = document.getElementById('btnStep2Submit');
+    btn.disabled = true;
+    btn.innerHTML = '✨ AI 魔法濃縮中...';
+
+    await window.addAgentLog('首席文案', '✨', '收到濃縮請求！正在為您將史詩長篇提煉為完美的 4 格精華...', true);
+
+    try {
+        // 確保 API 存在 (若尚未實作則動態宣告，避免當機)
+        if (!API.compressComicPanelsAPI) {
+            API.compressComicPanelsAPI = async (payload) => {
+                const token = STATE.globalAuthToken;
+                const response = await fetch(`${CONFIG.API_BASE_URL}/compressComicPanels`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            };
+        }
+
+        const editedPanels = [];
+        document.querySelectorAll('textarea[id^="panel_"]').forEach(ta => {
+            editedPanels.push({ panel_number: parseInt(ta.id.split('_')[1]), dialogue: ta.value });
+        });
+
+        const res = await window.executeWithRetry(() => API.compressComicPanelsAPI({
+            taskId: STATE.currentTaskId,
+            tenantId: getTenantIdFromToken(),
+            panels: editedPanels
+        }), '首席文案', 'AI魔法濃縮');
+
+        // 把後端濃縮回傳的精華覆蓋回畫面上
+        const panContainer = document.getElementById('reviewPanelsContainer');
+        if (res.panels && res.panels.length > 0) {
+            let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認 (✨已濃縮精華)</label>';
+            res.panels.forEach(p => {
+                html += `<div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action_en || '場景'}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-white border border-yellow-300 rounded-lg text-sm cursor-text font-bold text-gray-800">${p.dialogue}</textarea></div>`;
+            });
+            panContainer.innerHTML = html;
+        }
+
+        showToast('✨ 濃縮完成！字數與格數已達到最佳狀態！', 'success');
+        await window.addAgentLog('首席文案', '✅', '濃縮完畢！您可以再次點擊發包生圖了。');
+
+    } catch (e) {
+        showToast(`❌ 濃縮失敗: ${e.message}。請等待後端升級或手動修改。`, 'error');
+        await window.addAgentLog('系統管理員', '🚨', `請告知開發者部署 Phase 2 的 compress API: ${e.message}`);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖';
+        STATE.userAgreedToSplurge = false; // 重置放行標記
+    }
+};
+
+// ==========================================
 // 🎨 核心流程 Step 2：發包生圖
 // ==========================================
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     if (!STATE.multiImages?.length) return showToast('❌ 需要至少 1 張圖片！', 'error');
-    btn.disabled = true; btn.classList.replace('bg-indigo-600', 'bg-gray-500');
-    document.getElementById('btnTextStep2').innerHTML = '🎨 執行中...';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！打包圖文參數中...', true, btn);
 
+    // ==== 🚨 決策攔截器啟動 ====
     const editedPanels = [];
     if (STATE.isComicModeActive) {
-        // 動態抓取畫面上所有的 textarea (不論 AI 生成了 3 格還是 6 格)
         const textareas = document.querySelectorAll('textarea[id^="panel_"]');
         textareas.forEach(ta => {
             const panelNum = parseInt(ta.id.split('_')[1]);
             editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
         });
+
+        const hasTooManyPanels = editedPanels.length > 4;
+        const hasLongText = editedPanels.some(p => p.dialogue.length > 15);
+
+        // 如果超標且使用者還沒同意付款放行，就跳出決策視窗並阻斷 API 呼叫
+        if ((hasTooManyPanels || hasLongText) && !STATE.userAgreedToSplurge) {
+            window.showDecisionModal(editedPanels, hasTooManyPanels, hasLongText);
+            return; // 🛑 攔截成功，停止向下執行
+        }
     }
+    // ==== 🚨 決策攔截器結束 ====
+
+    btn.disabled = true; btn.classList.replace('bg-indigo-600', 'bg-gray-500');
+    document.getElementById('btnTextStep2').innerHTML = '🎨 執行中...';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！打包圖文參數中...', true, btn);
 
     try {
         const aiCount = STATE.multiImages.filter(img => img.processType === 'AI_SYNTHESIS').length;
         
-        // 💰 動態扣款：精算總生圖成本
         const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
         const totalCost = aiCount * imageCost; 
         
         if(aiCount > 0) await window.addAgentLog('算圖農場', '🤖', `極速生成 ${aiCount} 張圖片中...`, true);
         else await window.addAgentLog('影像處理組', '☁️', '原圖上傳中 (不消耗點數)...', true);
 
-        const res = await window.executeWithRetry(() => API.generateImageAPI({ taskId: STATE.currentTaskId, tenantId: getTenantIdFromToken(), editedCaption: document.getElementById('reviewCaption').value, editedPanels, incomingImages: STATE.multiImages.map(img => ({ processType: img.processType, originalUrl: img.originalUrl })) }), '算圖農場', '雲端算圖');
+        const res = await window.executeWithRetry(() => API.generateImageAPI({ 
+            taskId: STATE.currentTaskId, 
+            tenantId: getTenantIdFromToken(), 
+            editedCaption: document.getElementById('reviewCaption').value, 
+            editedPanels, // 直接傳入上面攔截器抓好的資料
+            incomingImages: STATE.multiImages.map(img => ({ processType: img.processType, originalUrl: img.originalUrl })) 
+        }), '算圖農場', '雲端算圖');
         
         if (totalCost > 0) {
             window.showPointDeduction(btn, totalCost); 
@@ -514,22 +635,16 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3-publish').classList.remove('hidden');
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
-        // ==========================================
-        // 🌟 升級版：智慧型圖片排版與渲染引擎
-        // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
-        // 重置容器 class，確保不會被舊的置中高度吃掉空間
         finalContainer.className = 'w-full my-4'; 
         
         if (res.images && res.images.length > 1) {
-            // 🖼️ 情況 A：多張圖 (大於 1 張) -> 啟動 Grid 雙排網格
             let imgHtml = '';
             res.images.forEach(img => { 
                 imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
             });
             finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
         } else {
-            // 🖼️ 情況 B：單張圖 (包含四格漫畫拼圖) -> 滿版自適應顯示
             const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
             finalContainer.innerHTML = `
                 <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
@@ -542,8 +657,13 @@ window.submitForImageGeneration = async function() {
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('社群總監', '⏸️', '隨時可以為您發射！');
-    } catch (e) { await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${e.message}`); showToast(`❌ 生圖失敗: ${e.message}`, 'error'); } 
-    finally { btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); document.getElementById('btnTextStep2').innerHTML = '🎨 2️⃣ 第二步：發包生圖'; }
+    } catch (e) { 
+        await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${e.message}`); 
+        showToast(`❌ 生圖失敗: ${e.message}`, 'error'); 
+    } finally { 
+        STATE.userAgreedToSplurge = false; // 🔄 任務結束，重置放行標記
+        btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); document.getElementById('btnTextStep2').innerHTML = '🎨 2️⃣ 第二步：發包生圖'; 
+    }
 };
 
 // ==========================================
@@ -610,7 +730,6 @@ window.publishToSocial = async function(manualRetryPlatforms = null) {
             return; 
         }
 
-        // 💰 動態扣款：社群發射
         const publishCost = STATE.globalPricing?.PUBLISH_POST?.retailPoints ?? 5;
         window.showPointDeduction(btn, publishCost); 
         await window.addAgentLog('財務總監', '💳', `(AI算力扣除 ${publishCost} 點)`, false);
