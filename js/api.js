@@ -130,3 +130,17 @@ export async function verifyLoginAPI(credential) {
         throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試');
     }
 }
+
+// 🌟 AI 魔法濃縮 API
+export async function compressComicPanelsAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/compress`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
+        body: JSON.stringify(payload)
+    });
+    if (!response.ok) throw new Error(`HTTP 錯誤: ${response.status}`);
+    return response.json();
+}
