@@ -618,79 +618,29 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
         // ==========================================
-        // 🎬 終極 Webtoon 電影字幕排版引擎 (支援黑白/彩色雙宇宙)
+        // 🌟 原始還原版：不加任何前端排版，純粹顯示 AI 生成的原圖
         // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
-        finalContainer.innerHTML = ''; 
         
-        let containerHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full p-4 bg-gray-100 rounded-xl">';
-        
-        // 🔍 智能偵測：是否為黑白模式 (根據畫風名稱或您的狀態參數)
-        const isBW = STATE.currentStyleName && STATE.currentStyleName.includes('黑白');
-
-        res.images.forEach((img, imgIndex) => {
-            let panelHtml = `
-                <div class="relative w-full overflow-hidden rounded-xl shadow-md border border-gray-200" style="aspect-ratio: 1/1;">
-                    <img src="${img.finalUrl}" class="w-full h-full object-cover pointer-events-none">
+        if (res.images && res.images.length > 1) {
+            // 多張圖片：顯示兩排網格
+            let imgHtml = '';
+            res.images.forEach(img => { 
+                imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
+            });
+            finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
+        } else {
+            // 單張圖片：置中放大顯示
+            const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
+            finalContainer.innerHTML = `
+                <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
+                    <img src="${displayUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">
+                </div>
+                <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
             `;
-
-            // 🌟 只有「漫畫模式」且「有對白」時，才渲染漸層與字幕
-            if (STATE.isComicModeActive) {
-                const chunkPanels = editedPanels.slice(imgIndex * 4, (imgIndex + 1) * 4);
-                
-                if (chunkPanels.length > 0) {
-                    // 動態計算漸層高度：對白越多，遮罩長得越高，確保對白不會滿出來
-                    const gradientHeight = chunkPanels.length > 2 ? '65%' : '40%';
-                    
-                    panelHtml += `
-                        <div class="absolute bottom-0 left-0 w-full flex flex-col gap-4 p-4 justify-end pointer-events-none" 
-                             style="height: ${gradientHeight}; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%); z-index: 5;">
-                    `;
-
-                    chunkPanels.forEach((panel, i) => {
-                        // 雙方對話視覺分流：偶數靠左，奇數靠右
-                        const isLeft = (i % 2 === 0);
-                        const speakerName = panel.speaker_zh || panel.speaker_en || '角色';
-                        
-                        // 🎨 雙宇宙色彩邏輯
-                        const badgeColor = isBW 
-                            ? 'bg-black text-white border border-gray-500' // 黑白漫畫的高冷名牌
-                            : (isLeft ? 'bg-blue-600 text-white' : 'bg-rose-500 text-white'); // 彩色漫畫的活潑名牌
-                        
-                        const alignClass = isLeft ? 'self-start' : 'self-end';
-                        const tailPosition = isLeft ? 'left-5' : 'right-5';
-                        const borderColor = isBW ? 'border-gray-800' : 'border-gray-200';
-
-                        panelHtml += `
-                            <div class="relative flex flex-col ${alignClass} max-w-[85%] pointer-events-auto transition-all hover:scale-[1.02]">
-                                <div class="absolute -top-2 ${tailPosition} w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[10px] border-b-white z-20 drop-shadow-sm"></div>
-                                
-                                <div class="bg-white rounded-2xl p-3 shadow-lg border-2 ${borderColor} relative z-10 flex flex-col">
-                                    <span class="absolute -top-3 ${isLeft ? 'left-2' : 'right-2'} text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap ${badgeColor}">
-                                        ${speakerName}
-                                    </span>
-                                    <div class="text-gray-900 font-black tracking-wide leading-snug text-sm mt-1" 
-                                         contenteditable="true" spellcheck="false">
-                                        ${panel.dialogue}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    panelHtml += `</div>`; // 結束漸層容器
-                }
-            }
-            panelHtml += `</div>`; // 結束單張圖片容器
-            containerHtml += panelHtml;
-        });
-
-        containerHtml += `</div>`;
-        if (STATE.isComicModeActive) {
-            containerHtml += `<p class="text-center text-[10px] text-gray-400 mt-2">💡 提示：點擊底部對白框內的文字可直接修改。</p>`;
         }
-        
-        finalContainer.innerHTML = containerHtml;
+
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('社群總監', '⏸️', '隨時可以為您發射！');
