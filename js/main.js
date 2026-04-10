@@ -618,20 +618,20 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
         // ==========================================
-        // 🌟 原始還原版：不加任何前端排版，純粹顯示 AI 生成的原圖
+        // 🌟 原始還原版：不加任何前端文字與遮罩，純粹顯示 AI 原圖
         // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
         
         if (res.images && res.images.length > 1) {
-            // 多張圖片：顯示兩排網格
+            // 多圖網格顯示
             let imgHtml = '';
             res.images.forEach(img => { 
                 imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
             });
             finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
         } else {
-            // 單張圖片：置中放大顯示
+            // 單圖置中放大顯示
             const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
             finalContainer.innerHTML = `
                 <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
