@@ -37,6 +37,9 @@ window.submitForImageGeneration = WorkflowMod.submitForImageGeneration;
 window.retrySingleImage = WorkflowMod.retrySingleImage;
 window.publishToSocial = WorkflowMod.publishToSocial;
 window.resumeTaskWithStyle = WorkflowMod.resumeTaskWithStyle;
+// ✅ 新增這兩行綁定 Lightbox
+window.openLightbox = WorkflowMod.openLightbox;
+window.closeLightbox = WorkflowMod.closeLightbox;
 
 // ==========================================
 // 🛡️ 全域工具函數
