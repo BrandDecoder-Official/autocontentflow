@@ -579,25 +579,20 @@ window.submitForImageGeneration = async function() {
         const hasTooManyPanels = editedPanels.length > 4;
         const hasLongText = editedPanels.some(p => p.dialogue.length > 15);
 
-        // 如果超標且使用者還沒同意付款放行，就跳出決策視窗並阻斷 API 呼叫
         if ((hasTooManyPanels || hasLongText) && !STATE.userAgreedToSplurge) {
             window.showDecisionModal(editedPanels, hasTooManyPanels, hasLongText);
-            return; // 🛑 攔截成功，停止向下執行
+            return; 
         }
     }
     // ==== 🚨 決策攔截器結束 ====
 
     btn.disabled = true; btn.classList.replace('bg-indigo-600', 'bg-gray-500');
-    
-    // 🌟 修正：直接改 btn.innerHTML，不要再去抓很容易被刪除的 btnTextStep2
     btn.innerHTML = '🎨 執行中...'; 
-    
     window.scrollTo({ top: 0, behavior: 'smooth' });
     await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！打包圖文參數中...', true, btn);
 
     try {
         const aiCount = STATE.multiImages.filter(img => img.processType === 'AI_SYNTHESIS').length;
-        
         const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
         const totalCost = aiCount * imageCost; 
         
@@ -608,7 +603,7 @@ window.submitForImageGeneration = async function() {
             taskId: STATE.currentTaskId, 
             tenantId: getTenantIdFromToken(), 
             editedCaption: document.getElementById('reviewCaption').value, 
-            editedPanels, // 直接傳入上面攔截器抓好的資料
+            editedPanels, 
             incomingImages: STATE.multiImages.map(img => ({ processType: img.processType, originalUrl: img.originalUrl })) 
         }), '算圖農場', '雲端算圖');
         
@@ -623,48 +618,79 @@ window.submitForImageGeneration = async function() {
         document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
         
         // ==========================================
-        // 🌟 升級版：真・圖文分離與動態遮罩排版引擎
+        // 🎬 終極 Webtoon 電影字幕排版引擎 (支援黑白/彩色雙宇宙)
         // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
-        finalContainer.innerHTML = ''; // 清空容器
+        finalContainer.innerHTML = ''; 
         
         let containerHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4 w-full p-4 bg-gray-100 rounded-xl">';
         
-        // 將所有圖片與對應的分鏡文字組合
+        // 🔍 智能偵測：是否為黑白模式 (根據畫風名稱或您的狀態參數)
+        const isBW = STATE.currentStyleName && STATE.currentStyleName.includes('黑白');
+
         res.images.forEach((img, imgIndex) => {
-            // 計算這張圖負責哪幾格對白 (例如 imgIndex 0 負責 0~3 格)
-            const chunkPanels = editedPanels.slice(imgIndex * 4, (imgIndex + 1) * 4);
-            
-            // 建立一個 relative 的畫布容器，讓文字可以 absolute 定位在上面
             let panelHtml = `
-                <div class="relative w-full overflow-hidden rounded-xl shadow-md border border-gray-200 comic-canvas" style="aspect-ratio: 1/1;">
+                <div class="relative w-full overflow-hidden rounded-xl shadow-md border border-gray-200" style="aspect-ratio: 1/1;">
                     <img src="${img.finalUrl}" class="w-full h-full object-cover pointer-events-none">
             `;
 
-            // 為這張圖負責的每一句對白，生成一個「自帶遮罩、可拖拽」的文字塊
-            chunkPanels.forEach((panel, i) => {
-                // 初始化散佈邏輯：預設將 4 格文字散佈在圖片的四個角落附近
-                const topPos = i < 2 ? 10 + (i * 10) : 60 + ((i - 2) * 10); // 上方或下方，稍微交錯
-                const leftPos = i % 2 === 0 ? 10 : 50; // 左側或右側
+            // 🌟 只有「漫畫模式」且「有對白」時，才渲染漸層與字幕
+            if (STATE.isComicModeActive) {
+                const chunkPanels = editedPanels.slice(imgIndex * 4, (imgIndex + 1) * 4);
+                
+                if (chunkPanels.length > 0) {
+                    // 動態計算漸層高度：對白越多，遮罩長得越高，確保對白不會滿出來
+                    const gradientHeight = chunkPanels.length > 2 ? '65%' : '40%';
+                    
+                    panelHtml += `
+                        <div class="absolute bottom-0 left-0 w-full flex flex-col gap-4 p-4 justify-end pointer-events-none" 
+                             style="height: ${gradientHeight}; background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 40%, transparent 100%); z-index: 5;">
+                    `;
 
-                panelHtml += `
-                    <div class="absolute cursor-move text-gray-900 font-black tracking-wider leading-snug shadow-sm border-2 border-gray-800 bg-white p-2 rounded-xl transition-all draggable-text hover:ring-4 hover:ring-blue-400" 
-                         style="top: ${topPos}%; left: ${leftPos}%; max-width: 45%; width: max-content; font-size: clamp(12px, 2vw, 16px); z-index: 10;"
-                         contenteditable="true" spellcheck="false"
-                         onmousedown="window.startDrag(event)" ontouchstart="window.startDrag(event)">
-                        ${panel.dialogue}
-                    </div>
-                `;
-            });
-            
-            panelHtml += `</div>`; // 結束相對定位容器
+                    chunkPanels.forEach((panel, i) => {
+                        // 雙方對話視覺分流：偶數靠左，奇數靠右
+                        const isLeft = (i % 2 === 0);
+                        const speakerName = panel.speaker_zh || panel.speaker_en || '角色';
+                        
+                        // 🎨 雙宇宙色彩邏輯
+                        const badgeColor = isBW 
+                            ? 'bg-black text-white border border-gray-500' // 黑白漫畫的高冷名牌
+                            : (isLeft ? 'bg-blue-600 text-white' : 'bg-rose-500 text-white'); // 彩色漫畫的活潑名牌
+                        
+                        const alignClass = isLeft ? 'self-start' : 'self-end';
+                        const tailPosition = isLeft ? 'left-5' : 'right-5';
+                        const borderColor = isBW ? 'border-gray-800' : 'border-gray-200';
+
+                        panelHtml += `
+                            <div class="relative flex flex-col ${alignClass} max-w-[85%] pointer-events-auto transition-all hover:scale-[1.02]">
+                                <div class="absolute -top-2 ${tailPosition} w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[10px] border-b-white z-20 drop-shadow-sm"></div>
+                                
+                                <div class="bg-white rounded-2xl p-3 shadow-lg border-2 ${borderColor} relative z-10 flex flex-col">
+                                    <span class="absolute -top-3 ${isLeft ? 'left-2' : 'right-2'} text-[11px] font-bold px-2 py-0.5 rounded-full shadow-sm whitespace-nowrap ${badgeColor}">
+                                        ${speakerName}
+                                    </span>
+                                    <div class="text-gray-900 font-black tracking-wide leading-snug text-sm mt-1" 
+                                         contenteditable="true" spellcheck="false">
+                                        ${panel.dialogue}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    panelHtml += `</div>`; // 結束漸層容器
+                }
+            }
+            panelHtml += `</div>`; // 結束單張圖片容器
             containerHtml += panelHtml;
         });
 
-        containerHtml += `</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 提示：請將文字拖曳到對話框內！點擊文字可直接修改。</p>`;
+        containerHtml += `</div>`;
+        if (STATE.isComicModeActive) {
+            containerHtml += `<p class="text-center text-[10px] text-gray-400 mt-2">💡 提示：點擊底部對白框內的文字可直接修改。</p>`;
+        }
+        
         finalContainer.innerHTML = containerHtml;
-
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('社群總監', '⏸️', '隨時可以為您發射！');
@@ -672,10 +698,8 @@ window.submitForImageGeneration = async function() {
         await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${e.message}`); 
         showToast(`❌ 生圖失敗: ${e.message}`, 'error'); 
     } finally { 
-        STATE.userAgreedToSplurge = false; // 🔄 任務結束，重置放行標記
+        STATE.userAgreedToSplurge = false; 
         btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); 
-        
-        // 🌟 修正：同上，直接改 btn.innerHTML
         btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖'; 
     }
 };
