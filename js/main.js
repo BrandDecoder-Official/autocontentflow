@@ -36,6 +36,30 @@ window.setAppMode = async function(mode) {
 };
 
 // ==========================================
+// 🏷️ 標籤泡泡系統 (Tag Chips Engine)
+// ==========================================
+STATE.currentTags = [];
+
+window.renderTagChips = function() {
+    const container = document.getElementById('tagChipsContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    STATE.currentTags.forEach((tag, index) => {
+        const cleanTag = tag.replace(/^#/, '').trim(); // 脫掉使用者可能誤打的 #
+        if (!cleanTag) return;
+        const chip = document.createElement('span');
+        chip.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shadow-sm border border-blue-200 animate-fade-in mb-1 mr-1';
+        chip.innerHTML = `#${cleanTag} <button type="button" class="ml-1.5 text-blue-500 hover:text-blue-800 focus:outline-none" onclick="window.removeTag(${index})">&times;</button>`;
+        container.appendChild(chip);
+    });
+};
+
+window.removeTag = function(index) {
+    STATE.currentTags.splice(index, 1);
+    window.renderTagChips();
+};
+
+// ==========================================
 // 📜 歷史卷宗抽屜 UI 引擎
 // ==========================================
 window.toggleAuditLogDrawer = function() {
@@ -183,6 +207,8 @@ window.resetToStep1 = () => {
     
     STATE.sceneFiles = [];
     STATE.objectFiles = [];
+    STATE.currentTags = []; // 重置標籤
+    window.renderTagChips();
 
     window.resetAgentConsole();
     setTimeout(async () => { await window.addAgentLog('專案總監', '👨‍💼', '任務已重置，全新的卷宗已就緒！'); }, 500);
@@ -314,6 +340,23 @@ window.onload = async function () {
             }
         }
     });
+
+    // 🌟 綁定標籤輸入框的 Enter 事件
+    const tagInput = document.getElementById('newTagInput');
+    if (tagInput) {
+        tagInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const val = e.target.value.trim();
+                if (val) {
+                    const newTags = val.split(/[,，\s]+/).filter(t => t.trim() !== '');
+                    STATE.currentTags = [...STATE.currentTags, ...newTags];
+                    window.renderTagChips();
+                    e.target.value = '';
+                }
+            }
+        });
+    }
 };
 
 // ==========================================
@@ -406,11 +449,8 @@ async function executeStep1Logic(payloadData) {
 
         const colorMode = document.querySelector('input[name="colorMode"]:checked')?.value || 'COLOR';
         
-        // 🌟 核心修改 1：精準抓取使用者選擇的格數
         const panelCountEl = document.getElementById('panelCountSelect');
         const desiredPanelCount = (STATE.isComicModeActive && panelCountEl) ? parseInt(panelCountEl.value) : 1;
-
-        // 🌟 新增：抓取呈現模式
         const presentationMode = document.querySelector('input[name="presentationMode"]:checked')?.value || 'CLASSIC';
 
         const payload = {
@@ -425,8 +465,8 @@ async function executeStep1Logic(payloadData) {
             resolution: document.getElementById('resolutionSelect').value, 
             comicCharacters: [], 
             image_options: { referenceImages: [] },
-            panelCount: desiredPanelCount, // 送出格數
-            presentationMode: presentationMode // 🌟 送出呈現模式
+            panelCount: desiredPanelCount,
+            presentationMode: presentationMode
         };
 
         if (STATE.isComicModeActive) {
@@ -474,7 +514,10 @@ async function executeStep1Logic(payloadData) {
         document.getElementById('step2StyleBadge').innerText = `🎨 模式：${STATE.currentStyleName}`;
         document.getElementById('reviewCaption').value = result.draftContent.post_caption;
         
-        // 🌟 核心修改 2：拔掉下拉選單，直接渲染大腦回傳的格數
+        // 🌟 新增：接住 AI 大腦寫好的標籤並渲染成泡泡
+        STATE.currentTags = result.draftContent.hashtags || [];
+        window.renderTagChips();
+        
         const panContainer = document.getElementById('reviewPanelsContainer');
         if (STATE.isComicModeActive && result.draftContent.panels) {
             panContainer.classList.remove('hidden');
@@ -486,7 +529,6 @@ async function executeStep1Logic(payloadData) {
                 <div id="panelsWrapper">
             `;
             
-            // 原汁原味呈現大腦寫好的所有格子
             result.draftContent.panels.forEach(p => {
                 html += `<div class="panel-item mb-4 p-4 bg-white rounded-xl shadow-sm transition-all" data-panel="${p.panel_number}">
                     <p class="text-xs text-gray-500 font-bold mb-1">🎥 ${p.action_zh || p.action_en || '場景'}</p>
@@ -519,7 +561,6 @@ window.submitForImageGeneration = async function() {
 
     const editedPanels = [];
     if (STATE.isComicModeActive) {
-        // 🌟 核心修改 3：因為沒有隱藏的格子了，直接抓全部
         const textareas = document.querySelectorAll('.panel-item textarea');
         textareas.forEach(ta => {
             const panelNum = parseInt(ta.id.split('_')[1]);
@@ -533,7 +574,7 @@ window.submitForImageGeneration = async function() {
     await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！我們將為您生成【1 張】極致的合成美圖，其餘格位請放心地保留給您上傳的真實照片。', true, btn);
 
     try {
-        const aiCount = 1; // 永遠只算一張的錢
+        const aiCount = 1; 
         const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
         const totalCost = aiCount * imageCost; 
         
@@ -559,7 +600,6 @@ window.submitForImageGeneration = async function() {
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
         
-        // 👁️ 鷹眼質檢攔截與 UI 渲染
         const mainAiImage = res.images.find(img => img.processType === 'AI_SYNTHESIS');
         if (mainAiImage && mainAiImage.qaStatus === 'ERROR') {
              const retryHtml = `<br><button onclick="window.retrySingleImage(0)" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">✨ 點我啟動免費 VIP 重抽</button>`;
@@ -568,7 +608,6 @@ window.submitForImageGeneration = async function() {
              await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字與畫風完美融合。', false);
         }
 
-        // 單圖置中渲染 (附帶錯誤警示)
         const displayUrl = res.images[0].finalUrl;
         finalContainer.innerHTML = `
             <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative">
@@ -578,7 +617,13 @@ window.submitForImageGeneration = async function() {
             <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
         `;
 
-        document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
+        // 🌟 新增：動態組裝內文與泡泡標籤
+        let combinedCaption = document.getElementById('reviewCaption').value.trim();
+        if (STATE.currentTags && STATE.currentTags.length > 0) {
+            combinedCaption += '\n\n' + STATE.currentTags.map(t => '#' + t.replace(/^#/, '').trim()).join(' ');
+        }
+        document.getElementById('finalCaptionDisplay').value = combinedCaption;
+
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
         await window.addAgentLog('社群總監', '🚀', '隨時可以為您發射至各大平台！');
     } catch (e) { 
