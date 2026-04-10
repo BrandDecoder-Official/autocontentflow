@@ -410,6 +410,9 @@ async function executeStep1Logic(payloadData) {
         const panelCountEl = document.getElementById('panelCountSelect');
         const desiredPanelCount = (STATE.isComicModeActive && panelCountEl) ? parseInt(panelCountEl.value) : 1;
 
+        // 🌟 新增：抓取呈現模式
+        const presentationMode = document.querySelector('input[name="presentationMode"]:checked')?.value || 'CLASSIC';
+
         const payload = {
             tenantId: getTenantIdFromToken(), 
             platforms: payloadData.selectedPlatforms, 
@@ -422,7 +425,8 @@ async function executeStep1Logic(payloadData) {
             resolution: document.getElementById('resolutionSelect').value, 
             comicCharacters: [], 
             image_options: { referenceImages: [] },
-            panelCount: desiredPanelCount // 🌟 將格數打包送給後端大腦
+            panelCount: desiredPanelCount, // 送出格數
+            presentationMode: presentationMode // 🌟 送出呈現模式
         };
 
         if (STATE.isComicModeActive) {
