@@ -18,7 +18,6 @@ window.closeCreateCharModal = UI.closeCreateCharModal;
 window.setAppMode = async function(mode) {
     STATE.isComicModeActive = (mode === 'manga');
     
-    // 請確認 HTML 中有對應的 ID，若無可自行調整
     const styleSection = document.getElementById('style-selector-area'); 
     const charLibrary = document.getElementById('character-library-area');
     const photoOptions = document.getElementById('photo-mode-options');
@@ -263,17 +262,6 @@ window.submitNewCharacter = async function() {
     } catch(e) { showToast(`❌ 建立失敗: ${e.message}`, 'error'); } finally { btn.disabled = false; btn.innerHTML = '🧬 開始基因掃描'; }
 };
 
-window.deleteChar = async function(charId) {
-    if (!confirm('⚠️ 永久刪除角色？')) return;
-    const targetButton = window.LAST_CLICKED_EL; 
-    try {
-        await window.executeWithRetry(() => API.deleteCharacterAPI({ charId, tenantId: getTenantIdFromToken() }), '系統管理員', '清理雲端');
-        showToast('✅ 已刪除！', 'success'); 
-        await window.initSystemData();
-        if (typeof window.addAgentLog === 'function') await window.addAgentLog('系統管理員', '🗑️', `已將該角色的視覺基因徹底抹除！`, false, targetButton);
-    } catch(e) { showToast(`❌ 失敗: ${e.message}`, 'error'); }
-};
-
 window.onload = async function () {
     google.accounts.id.initialize({
         client_id: CONFIG.GOOGLE_CLIENT_ID, 
@@ -356,7 +344,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
     if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
 
-    // 檢查風格 (如果是漫畫模式才需要強制選畫風，攝影模式由系統接管)
+    // 檢查風格
     const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
 
     if (STATE.isComicModeActive && !selectedStyleId) {
@@ -398,7 +386,6 @@ async function executeStep1Logic(payloadData) {
     try {
         let promptStyle = '', negativeStyle = '', styleName = '預設風格';
         
-        // 攝影模式由系統動態組裝 Style Prompt
         if (!STATE.isComicModeActive) {
             const photoModeType = document.querySelector('input[name="photoMode"]:checked')?.value || 'BEAUTY';
             if (photoModeType === 'BEAUTY') {
@@ -409,7 +396,6 @@ async function executeStep1Logic(payloadData) {
                 styleName = '商品展示模式';
             }
         } else {
-            // 漫畫模式依照選擇的畫風
             const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
             if (selectedStyleId && STATE.globalSystemStyles) {
                 const obj = STATE.globalSystemStyles.find(s => s.id === selectedStyleId);
@@ -419,10 +405,24 @@ async function executeStep1Logic(payloadData) {
         STATE.currentStyleName = styleName;
 
         const colorMode = document.querySelector('input[name="colorMode"]:checked')?.value || 'COLOR';
+        
+        // 🌟 核心修改 1：精準抓取使用者選擇的格數
+        const panelCountEl = document.getElementById('panelCountSelect');
+        const desiredPanelCount = (STATE.isComicModeActive && panelCountEl) ? parseInt(panelCountEl.value) : 1;
+
         const payload = {
-            tenantId: getTenantIdFromToken(), platforms: payloadData.selectedPlatforms, topic: payloadData.topic, isComicMode: STATE.isComicModeActive,
-            colorMode: colorMode, aspectRatio: document.getElementById('aspectRatioSelect').value, style: promptStyle,             
-            negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
+            tenantId: getTenantIdFromToken(), 
+            platforms: payloadData.selectedPlatforms, 
+            topic: payloadData.topic, 
+            isComicMode: STATE.isComicModeActive,
+            colorMode: colorMode, 
+            aspectRatio: document.getElementById('aspectRatioSelect').value, 
+            style: promptStyle,              
+            negativePrompt: negativeStyle, 
+            resolution: document.getElementById('resolutionSelect').value, 
+            comicCharacters: [], 
+            image_options: { referenceImages: [] },
+            panelCount: desiredPanelCount // 🌟 將格數打包送給後端大腦
         };
 
         if (STATE.isComicModeActive) {
@@ -453,7 +453,7 @@ async function executeStep1Logic(payloadData) {
             }
         }
 
-        await window.addAgentLog('首席文案', '✍️', '正在與大腦連線撰寫腳本...', true);
+        await window.addAgentLog('首席文案', '✍️', `正在與大腦連線，撰寫【${desiredPanelCount}格】腳本...`, true);
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
         const draftCost = STATE.globalPricing?.GENERATE_DRAFT?.retailPoints ?? 10;
@@ -463,7 +463,6 @@ async function executeStep1Logic(payloadData) {
         
         STATE.currentTaskId = result.taskId; 
         
-        // 🌟 最關鍵的商業邏輯：無論如何，AI 陣列裡只初始化「唯一一張圖」！
         STATE.multiImages = [{ id: `cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
         
         document.getElementById('step1-setup').classList.add('hidden');
@@ -471,24 +470,20 @@ async function executeStep1Logic(payloadData) {
         document.getElementById('step2StyleBadge').innerText = `🎨 模式：${STATE.currentStyleName}`;
         document.getElementById('reviewCaption').value = result.draftContent.post_caption;
         
-        // 渲染腳本與動態格數選擇器
+        // 🌟 核心修改 2：拔掉下拉選單，直接渲染大腦回傳的格數
         const panContainer = document.getElementById('reviewPanelsContainer');
         if (STATE.isComicModeActive && result.draftContent.panels) {
             panContainer.classList.remove('hidden');
             let html = `
                 <div class="flex justify-between items-end mb-2">
                     <label class="block text-sm font-bold text-gray-700">🎬 分鏡腳本確認</label>
-                    <select id="panelCountSelect" class="text-xs border border-gray-300 rounded p-1 bg-white font-bold text-indigo-600 shadow-sm" onchange="window.updatePanelVisibility()">
-                        <option value="1">生成 1 格 (最高品質)</option>
-                        <option value="2">生成 2 格</option>
-                        <option value="3">生成 3 格</option>
-                        <option value="4" selected>生成 4 格 (標準連載)</option>
-                    </select>
+                    <span class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded font-bold shadow-sm">共 ${result.draftContent.panels.length} 格</span>
                 </div>
                 <div id="panelsWrapper">
             `;
             
-            result.draftContent.panels.slice(0, 4).forEach(p => {
+            // 原汁原味呈現大腦寫好的所有格子
+            result.draftContent.panels.forEach(p => {
                 html += `<div class="panel-item mb-4 p-4 bg-white rounded-xl shadow-sm transition-all" data-panel="${p.panel_number}">
                     <p class="text-xs text-gray-500 font-bold mb-1">🎥 ${p.action_zh || p.action_en || '場景'}</p>
                     <textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text focus:ring-2 focus:ring-indigo-300 transition-shadow">${p.dialogue}</textarea>
@@ -496,21 +491,12 @@ async function executeStep1Logic(payloadData) {
             });
             html += `</div>`;
             panContainer.innerHTML = html;
-
-            // 註冊切換顯示的函數
-            window.updatePanelVisibility = function() {
-                const count = parseInt(document.getElementById('panelCountSelect').value);
-                document.querySelectorAll('.panel-item').forEach((el, index) => {
-                    el.style.display = index < count ? 'block' : 'none';
-                });
-            };
-            window.updatePanelVisibility(); // 初始化顯示
         } else {
             panContainer.classList.add('hidden');
         }
         
         showToast('✅ 腳本生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
-        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，您可以透過下拉選單決定這張圖要畫幾格，確認後即可發包。');
+        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，請核對台詞，確認無誤後即可發包。');
     } catch (e) { 
         await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${e.message}`); 
         showToast(`❌ 錯誤: ${e.message}`, 'error'); 
@@ -529,8 +515,8 @@ window.submitForImageGeneration = async function() {
 
     const editedPanels = [];
     if (STATE.isComicModeActive) {
-        // 🌟 核心邏輯：只抓取畫面上「有顯示」的 textarea 來生成圖片
-        const textareas = document.querySelectorAll('.panel-item[style*="display: block"] textarea, .panel-item:not([style*="display: none"]) textarea');
+        // 🌟 核心修改 3：因為沒有隱藏的格子了，直接抓全部
+        const textareas = document.querySelectorAll('.panel-item textarea');
         textareas.forEach(ta => {
             const panelNum = parseInt(ta.id.split('_')[1]);
             editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
@@ -614,16 +600,15 @@ window.retrySingleImage = async function(index) {
     try {
         const editedPanels = [];
         if (STATE.isComicModeActive) {
-            const textareas = document.querySelectorAll('.panel-item[style*="display: block"] textarea, .panel-item:not([style*="display: none"]) textarea');
+            const textareas = document.querySelectorAll('.panel-item textarea');
             textareas.forEach(ta => {
                 const panelNum = parseInt(ta.id.split('_')[1]);
                 editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
             });
         }
 
-        // 使用 fetch 直接呼叫我們剛寫好的新 API
         const regenerateCall = async () => {
-            const response = await fetch('/api/content/regenerate-single', { // ✅ 對齊 index.js
+            const response = await fetch('/api/content/regenerate-single', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
@@ -640,11 +625,9 @@ window.retrySingleImage = async function(index) {
 
         if (!res.success) throw new Error(res.message);
 
-        // 局部更新圖片
         const imgEl = document.getElementById(`finalRenderedImg_${index}`);
         if(imgEl) {
             imgEl.src = res.image.finalUrl;
-            // 移除警示標籤
             const badge = imgEl.parentElement.querySelector('.bg-red-500');
             if(badge) badge.remove();
         }
