@@ -154,6 +154,19 @@
                                         </label>
                                     </div>
                                 </div>
+
+                                <div id="panelCountContainer" class="mt-4 pt-4 border-t border-gray-200">
+                                    <div class="flex justify-between items-end mb-1">
+                                        <label class="block text-xs font-bold text-gray-500">🎞️ 漫畫呈現格數</label>
+                                        <span class="text-[10px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded">將合成於 1 張圖內</span>
+                                    </div>
+                                    <select id="panelCountSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-bold text-sm cursor-pointer text-indigo-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                                        <option value="1">生成 1 格 (電影海報級 / 細節極致)</option>
+                                        <option value="2">生成 2 格 (強烈對比 / 轉折)</option>
+                                        <option value="3">生成 3 格 (起、承、轉)</option>
+                                        <option value="4" selected>生成 4 格 (標準連載起承轉合)</option>
+                                    </select>
+                                </div>
                                 <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200 mt-4">
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
