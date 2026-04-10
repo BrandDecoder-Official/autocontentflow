@@ -386,7 +386,12 @@
             <button onclick="window.toggleAuditLogDrawer()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors">關閉</button>
         </div>
     </div>
-    
+    <div id="imageLightbox" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity opacity-0" onclick="window.closeLightbox()">
+        <button class="absolute top-4 right-4 text-white hover:text-gray-300 focus:outline-none p-2" onclick="window.closeLightbox()">
+            <svg class="w-8 h-8 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <img id="lightboxImage" src="" class="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl scale-95 transition-transform duration-300" onclick="event.stopPropagation()">
+    </div>
     <script type="module" src="/js/main.js"></script>
 </body>
 </html>
