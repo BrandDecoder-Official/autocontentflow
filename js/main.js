@@ -13,6 +13,30 @@ window.openCreateCharModal = UI.openCreateCharModal;
 window.closeCreateCharModal = UI.closeCreateCharModal;
 
 // ==========================================
+// 📸 動態模式切換 (漫畫 vs 真實攝影)
+// ==========================================
+window.setAppMode = async function(mode) {
+    STATE.isComicModeActive = (mode === 'manga');
+    
+    // 請確認 HTML 中有對應的 ID，若無可自行調整
+    const styleSection = document.getElementById('style-selector-area'); 
+    const charLibrary = document.getElementById('character-library-area');
+    const photoOptions = document.getElementById('photo-mode-options');
+
+    if (mode === 'photo') {
+        if(styleSection) styleSection.classList.add('hidden');
+        if(charLibrary) charLibrary.classList.add('hidden');
+        if(photoOptions) photoOptions.classList.remove('hidden');
+        await window.addAgentLog('美術總監', '📸', '已切換至「真實攝影模式」。請選擇您的拍攝主題：網美拍照 或 商品展示。');
+    } else {
+        if(styleSection) styleSection.classList.remove('hidden');
+        if(charLibrary) charLibrary.classList.remove('hidden');
+        if(photoOptions) photoOptions.classList.add('hidden');
+        await window.addAgentLog('美術總監', '🎨', '已切換至「漫畫連載模式」。請挑選您喜愛的畫風！');
+    }
+};
+
+// ==========================================
 // 📜 歷史卷宗抽屜 UI 引擎
 // ==========================================
 window.toggleAuditLogDrawer = function() {
@@ -135,7 +159,7 @@ window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries
             const errMsg = error.message || String(error);
             if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('auth') || attempt === maxRetries) throw error;
             const waitTime = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 1000);
-            await window.addAgentLog(role, '🛡️', `偵測到「${actionName}」擁塞，將於 ${Math.round(waitTime/1000)} 秒後自動重試...`, true, window.LAST_CLICKED_EL);
+            await window.addAgentLog(role, '🛡️', `偵測到「${actionName}」擁塞，系統已自動啟動修復與重試機制... (${Math.round(waitTime/1000)}秒)`, true, window.LAST_CLICKED_EL);
             await window.sleep(waitTime);
         }
     }
@@ -160,14 +184,12 @@ window.resetToStep1 = () => {
     
     STATE.sceneFiles = [];
     STATE.objectFiles = [];
-    STATE.userAgreedToSplurge = false; // 🔄 重置決策狀態
 
     window.resetAgentConsole();
     setTimeout(async () => { await window.addAgentLog('專案總監', '👨‍💼', '任務已重置，全新的卷宗已就緒！'); }, 500);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
-// 🌟 升級：開機同時抓取畫風庫與動態價目表
 window.initSystemData = async function() {
     try {
         const tenantId = getTenantIdFromToken();
@@ -179,7 +201,6 @@ window.initSystemData = async function() {
                 const priceRes = await window.executeWithRetry(() => API.fetchSystemPricingAPI(), '財務總監', '載入即時牌價');
                 if (priceRes && priceRes.data) {
                     STATE.globalPricing = priceRes.data.actions; 
-                    console.log("💰 最新動態定價表載入完成:", STATE.globalPricing);
                 }
             }
         } catch (priceErr) {
@@ -282,7 +303,6 @@ window.onload = async function () {
                     setTimeout(async () => {
                         await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 工作室已就緒。');
                         await window.addAgentLog('社群總監', '🚀', '請先為我們勾選發布平台戰場！');
-                        await window.addAgentLog('美術總監', '👨‍🎨', '畫布預設為「🌈 彩色」與「1:1」比例。');
                     }, 1000);
                 }
             } catch (e) { loginMsg.innerHTML = `❌ 登入失敗：${e.message}`; }
@@ -336,9 +356,10 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
     if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
     if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
 
+    // 檢查風格 (如果是漫畫模式才需要強制選畫風，攝影模式由系統接管)
     const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
 
-    if (!selectedStyleId) {
+    if (STATE.isComicModeActive && !selectedStyleId) {
         await window.addAgentLog('專案總監', '👨‍💼', '收到任務！正在解析參數...', true, topicInput);
         await window.addAgentLog('美術總監', '⚠️', '報告總編，偵測到關鍵參數缺失！您還沒選擇「畫風」。請直接點擊下方按鈕補齊：', true);
         
@@ -350,7 +371,7 @@ document.getElementById('agentForm').addEventListener('submit', async (e) => {
             optionsDiv.className = 'ml-8 mt-1 mb-2 animate-fade-in flex flex-wrap gap-1.5';
             
             STATE.globalSystemStyles.forEach(s => {
-                const currentMode = STATE.isComicModeActive ? 'ANIME' : 'REALISTIC';
+                const currentMode = 'ANIME';
                 if (s.category === currentMode || s.category === 'ALL') {
                     optionsDiv.innerHTML += `<button type="button" onclick="window.resumeTaskWithStyle('${s.id}')" class="bg-indigo-600/20 hover:bg-indigo-500 text-indigo-400 hover:text-white px-3 py-1.5 rounded text-xs font-bold border border-indigo-500/50 transition-colors shadow-sm">${s.name}</button>`;
                 }
@@ -375,11 +396,25 @@ async function executeStep1Logic(payloadData) {
     document.getElementById('btnTextStep1').innerHTML = '⚡ 執行中，請看右側進度...';
 
     try {
-        const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
         let promptStyle = '', negativeStyle = '', styleName = '預設風格';
-        if (selectedStyleId && STATE.globalSystemStyles) {
-            const obj = STATE.globalSystemStyles.find(s => s.id === selectedStyleId);
-            if (obj) { promptStyle = obj.promptPrefix; negativeStyle = obj.negativePrompt; styleName = obj.name; }
+        
+        // 攝影模式由系統動態組裝 Style Prompt
+        if (!STATE.isComicModeActive) {
+            const photoModeType = document.querySelector('input[name="photoMode"]:checked')?.value || 'BEAUTY';
+            if (photoModeType === 'BEAUTY') {
+                promptStyle = 'Instagram influencer photography style. Beautiful face, soft aesthetic lighting, shallow depth of field, stunning background.';
+                styleName = '網美拍照模式';
+            } else {
+                promptStyle = 'Commercial product photography. Studio lighting, crisp details, high-end presentation, minimalist background.';
+                styleName = '商品展示模式';
+            }
+        } else {
+            // 漫畫模式依照選擇的畫風
+            const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
+            if (selectedStyleId && STATE.globalSystemStyles) {
+                const obj = STATE.globalSystemStyles.find(s => s.id === selectedStyleId);
+                if (obj) { promptStyle = obj.promptPrefix; negativeStyle = obj.negativePrompt; styleName = obj.name; }
+            }
         }
         STATE.currentStyleName = styleName;
 
@@ -390,16 +425,18 @@ async function executeStep1Logic(payloadData) {
             negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] }
         };
 
-        const charItems = document.querySelectorAll('#characterList .char-item');
-        if (charItems.length > 0) await window.addAgentLog('視覺工程師', '👁️', `正在轉換 ${charItems.length} 位角色的 AI 基因參數...`, true);
-        charItems.forEach(item => {
-            const name = item.querySelector('[name="charName"]')?.value;
-            if (name) {
-                payload.comicCharacters.push({ name, persona: item.querySelector('[name="charPersona"]')?.value, aiExtractedFeatures: item.querySelector('.char-db-features')?.value });
-                const url = item.querySelector('.char-image-url')?.value;
-                if (url) payload.image_options.referenceImages.push({ type: 'character', name, imageUrl: url });
-            }
-        });
+        if (STATE.isComicModeActive) {
+            const charItems = document.querySelectorAll('#characterList .char-item');
+            if (charItems.length > 0) await window.addAgentLog('視覺工程師', '👁️', `正在轉換 ${charItems.length} 位角色的 AI 基因參數...`, true);
+            charItems.forEach(item => {
+                const name = item.querySelector('[name="charName"]')?.value;
+                if (name) {
+                    payload.comicCharacters.push({ name, persona: item.querySelector('[name="charPersona"]')?.value, aiExtractedFeatures: item.querySelector('.char-db-features')?.value });
+                    const url = item.querySelector('.char-image-url')?.value;
+                    if (url) payload.image_options.referenceImages.push({ type: 'character', name, imageUrl: url });
+                }
+            });
+        }
 
         if (STATE.sceneFiles && STATE.sceneFiles.length > 0) {
             await window.addAgentLog('影像處理組', '📐', `偵測到 ${STATE.sceneFiles.length} 張背景圖，特徵分析中...`, true);
@@ -425,26 +462,55 @@ async function executeStep1Logic(payloadData) {
         await window.addAgentLog('系統管理員', '⚙️', '草稿接收成功！渲染排版中...', false);
         
         STATE.currentTaskId = result.taskId; 
+        
+        // 🌟 最關鍵的商業邏輯：無論如何，AI 陣列裡只初始化「唯一一張圖」！
         STATE.multiImages = [{ id: `cover_${Date.now()}`, originalUrl: '', processType: 'AI_SYNTHESIS' }];
-        window.renderMultiImages();
-
+        
         document.getElementById('step1-setup').classList.add('hidden');
         document.getElementById('step2-review').classList.remove('hidden');
-        document.getElementById('step2StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
+        document.getElementById('step2StyleBadge').innerText = `🎨 模式：${STATE.currentStyleName}`;
         document.getElementById('reviewCaption').value = result.draftContent.post_caption;
         
+        // 渲染腳本與動態格數選擇器
         const panContainer = document.getElementById('reviewPanelsContainer');
         if (result.isComicMode && result.draftContent.panels) {
             panContainer.classList.remove('hidden');
-            let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認</label>';
-            result.draftContent.panels.forEach(p => {
-                html += `<div class="mb-4 p-4 bg-white rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action_en || '場景'}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text">${p.dialogue}</textarea></div>`;
+            let html = `
+                <div class="flex justify-between items-end mb-2">
+                    <label class="block text-sm font-bold text-gray-700">🎬 分鏡腳本確認</label>
+                    <select id="panelCountSelect" class="text-xs border border-gray-300 rounded p-1 bg-white font-bold text-indigo-600 shadow-sm" onchange="window.updatePanelVisibility()">
+                        <option value="1">生成 1 格 (最高品質)</option>
+                        <option value="2">生成 2 格</option>
+                        <option value="3">生成 3 格</option>
+                        <option value="4" selected>生成 4 格 (標準連載)</option>
+                    </select>
+                </div>
+                <div id="panelsWrapper">
+            `;
+            
+            result.draftContent.panels.slice(0, 4).forEach(p => {
+                html += `<div class="panel-item mb-4 p-4 bg-white rounded-xl shadow-sm transition-all" data-panel="${p.panel_number}">
+                    <p class="text-xs text-gray-500 font-bold mb-1">🎥 ${p.action_zh || p.action_en || '場景'}</p>
+                    <textarea id="panel_${p.panel_number}" class="w-full p-2 bg-gray-50 border rounded-lg text-sm cursor-text focus:ring-2 focus:ring-indigo-300 transition-shadow">${p.dialogue}</textarea>
+                </div>`;
             });
+            html += `</div>`;
             panContainer.innerHTML = html;
-        } else panContainer.classList.add('hidden');
+
+            // 註冊切換顯示的函數
+            window.updatePanelVisibility = function() {
+                const count = parseInt(document.getElementById('panelCountSelect').value);
+                document.querySelectorAll('.panel-item').forEach((el, index) => {
+                    el.style.display = index < count ? 'block' : 'none';
+                });
+            };
+            window.updatePanelVisibility(); // 初始化顯示
+        } else {
+            panContainer.classList.add('hidden');
+        }
         
         showToast('✅ 腳本生成完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
-        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，請總編審核。');
+        await window.addAgentLog('專案總監', '⏸️', '腳本已就緒，您可以透過下拉選單決定這張圖要畫幾格，確認後即可發包。');
     } catch (e) { 
         await window.addAgentLog('系統警報', '🚨', `發生錯誤: ${e.message}`); 
         showToast(`❌ 錯誤: ${e.message}`, 'error'); 
@@ -455,149 +521,33 @@ async function executeStep1Logic(payloadData) {
 }
 
 // ==========================================
-// 🚨 擴展功能：決策攔截視窗 (UI 動態生成)
+// 🎨 Step 2：發包生圖 (嚴格單張合成 + 鷹眼重抽)
 // ==========================================
-window.showDecisionModal = function(panels, hasTooManyPanels, hasLongText) {
-    if (document.getElementById('decisionModal')) return;
-
-    const requiredImages = Math.ceil(panels.length / 4);
-    const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
-    const totalPoints = requiredImages * imageCost;
-
-    let warningReasons = [];
-    if (hasTooManyPanels) warningReasons.push(`共有 <b>${panels.length} 格</b> 分鏡`);
-    if (hasLongText) warningReasons.push(`部分對白<b>超過 15 個字</b>`);
-
-    const modalHtml = `
-    <div id="decisionModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in px-4">
-        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden border border-gray-100">
-            <div class="bg-red-500 p-4 text-center">
-                <h3 class="text-white text-lg font-black tracking-wider">🚨 系統偵測：史詩級腳本！</h3>
-            </div>
-            <div class="p-6 space-y-4 text-gray-700 text-sm">
-                <p>總編，您的腳本非常豐富！目前 ${warningReasons.join('，且')}。</p>
-                <p>為了確保畫面清晰與文字完美，系統需要為您切割生成 <b>${requiredImages} 張</b> 漫畫拼圖。</p>
-                <div class="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
-                    本次發包將消耗：<span class="text-red-500 font-black text-lg">${totalPoints} ⚡</span> <br>
-                    <span class="text-xs text-gray-400">(${requiredImages} 張 x ${imageCost} 點)</span>
-                </div>
-                <p class="font-bold text-center mt-2">請選擇您的決策：</p>
-
-                <div class="flex flex-col gap-3 mt-4">
-                    <button onclick="window.proceedWithSplurge(${requiredImages})" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex justify-between items-center group">
-                        <span class="flex items-center gap-2">💰 豪氣發包</span>
-                        <span class="text-xs bg-black/20 px-2 py-1 rounded text-indigo-100 group-hover:text-white transition-colors">生成 ${requiredImages} 張多頁連載</span>
-                    </button>
-                    <button onclick="window.triggerAICompress()" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 px-4 rounded-xl shadow-md transition-all flex justify-between items-center group">
-                        <span class="flex items-center gap-2">✨ AI 魔法濃縮</span>
-                        <span class="text-xs bg-black/20 px-2 py-1 rounded text-purple-100 group-hover:text-white transition-colors">免費提煉為單張 4 格</span>
-                    </button>
-                    <button onclick="document.getElementById('decisionModal').remove()" class="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl transition-all flex justify-between items-center">
-                        <span class="flex items-center gap-2">✍️ 我自己來</span>
-                        <span class="text-xs text-gray-400">取消，返回手動修改</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    `;
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-};
-
-// 用戶點擊 [💰 豪氣發包] 的處理邏輯
-window.proceedWithSplurge = function(requiredImages) {
-    document.getElementById('decisionModal').remove();
-    STATE.userAgreedToSplurge = true; // 放行標記
-
-    // 🌟 動態擴充 STATE.multiImages，讓 API 知道要生幾張圖
-    STATE.multiImages = [];
-    for (let i = 0; i < requiredImages; i++) {
-        STATE.multiImages.push({ id: `img_${Date.now()}_${i}`, originalUrl: '', processType: 'AI_SYNTHESIS' });
-    }
-
-    window.submitForImageGeneration(); // 再次觸發發包程序
-};
-
-// 用戶點擊 [✨ AI 魔法濃縮] 的處理邏輯
-window.triggerAICompress = async function() {
-    document.getElementById('decisionModal').remove();
-    const btn = document.getElementById('btnStep2Submit');
-    btn.disabled = true;
-    btn.innerHTML = '✨ AI 魔法濃縮中...';
-
-    await window.addAgentLog('首席文案', '✨', '收到濃縮請求！正在為您將史詩長篇提煉為完美的 4 格精華...', true);
-
-    try {
-        const editedPanels = [];
-        document.querySelectorAll('textarea[id^="panel_"]').forEach(ta => {
-            editedPanels.push({ panel_number: parseInt(ta.id.split('_')[1]), dialogue: ta.value });
-        });
-
-        // 🌟 修正：直接使用我們剛剛在 api.js 註冊好的乾淨函數
-        const res = await window.executeWithRetry(() => API.compressComicPanelsAPI({
-            taskId: STATE.currentTaskId,
-            tenantId: getTenantIdFromToken(),
-            panels: editedPanels
-        }), '首席文案', 'AI魔法濃縮');
-
-        // 把後端濃縮回傳的精華覆蓋回畫面上
-        const panContainer = document.getElementById('reviewPanelsContainer');
-        if (res.panels && res.panels.length > 0) {
-            let html = '<label class="block text-sm font-bold text-gray-700 mb-2">🎬 分鏡腳本確認 (✨已濃縮精華)</label>';
-            res.panels.forEach(p => {
-                html += `<div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-xl shadow-sm"><p class="text-xs text-gray-500">🎥 ${p.action_zh || p.action_en || '場景'}</p><textarea id="panel_${p.panel_number}" class="w-full p-2 bg-white border border-yellow-300 rounded-lg text-sm cursor-text font-bold text-gray-800">${p.dialogue}</textarea></div>`;
-            });
-            panContainer.innerHTML = html;
-        }
-
-        showToast('✨ 濃縮完成！字數與格數已達到最佳狀態！', 'success');
-        await window.addAgentLog('首席文案', '✅', '濃縮完畢！您可以再次點擊發包生圖了。');
-
-    } catch (e) {
-        showToast(`❌ 濃縮失敗: ${e.message}`, 'error');
-        await window.addAgentLog('系統管理員', '🚨', `發生錯誤: ${e.message}`);
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖';
-        STATE.userAgreedToSplurge = false; // 重置放行標記
-    }
-};
-
 window.submitForImageGeneration = async function() {
     const btn = document.getElementById('btnStep2Submit');
     if (!STATE.multiImages?.length) return showToast('❌ 需要至少 1 張圖片！', 'error');
 
-    // ==== 🚨 決策攔截器啟動 ====
     const editedPanels = [];
     if (STATE.isComicModeActive) {
-        const textareas = document.querySelectorAll('textarea[id^="panel_"]');
+        // 🌟 核心邏輯：只抓取畫面上「有顯示」的 textarea 來生成圖片
+        const textareas = document.querySelectorAll('.panel-item[style*="display: block"] textarea, .panel-item:not([style*="display: none"]) textarea');
         textareas.forEach(ta => {
             const panelNum = parseInt(ta.id.split('_')[1]);
             editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
         });
-
-        const hasTooManyPanels = editedPanels.length > 4;
-        const hasLongText = editedPanels.some(p => p.dialogue.length > 15);
-
-        if ((hasTooManyPanels || hasLongText) && !STATE.userAgreedToSplurge) {
-            window.showDecisionModal(editedPanels, hasTooManyPanels, hasLongText);
-            return; 
-        }
     }
-    // ==== 🚨 決策攔截器結束 ====
 
     btn.disabled = true; btn.classList.replace('bg-indigo-600', 'bg-gray-500');
     btn.innerHTML = '🎨 執行中...'; 
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！打包圖文參數中...', true, btn);
+    await window.addAgentLog('美術總監', '👨‍🎨', '收到發包指令！我們將為您生成【1 張】極致的合成美圖，其餘格位請放心地保留給您上傳的真實照片。', true, btn);
 
     try {
-        const aiCount = STATE.multiImages.filter(img => img.processType === 'AI_SYNTHESIS').length;
+        const aiCount = 1; // 永遠只算一張的錢
         const imageCost = STATE.globalPricing?.GENERATE_IMAGE?.retailPoints ?? 20;
         const totalCost = aiCount * imageCost; 
         
-        if(aiCount > 0) await window.addAgentLog('算圖農場', '🤖', `極速生成 ${aiCount} 張圖片中...`, true);
-        else await window.addAgentLog('影像處理組', '☁️', '原圖上傳中 (不消耗點數)...', true);
+        await window.addAgentLog('算圖農場', '🤖', `極速渲染中，請稍候...`, true);
 
         const res = await window.executeWithRetry(() => API.generateImageAPI({ 
             taskId: STATE.currentTaskId, 
@@ -612,45 +562,113 @@ window.submitForImageGeneration = async function() {
             await window.addAgentLog('財務總監', '💳', `(AI算力扣除 ${totalCost} 點)`, false);
         }
         
-        await window.addAgentLog('系統管理員', '✨', '圖片處理完畢！準備發射...', false);
         document.getElementById('step2-review').classList.add('hidden');
         document.getElementById('step3-publish').classList.remove('hidden');
-        document.getElementById('step3StyleBadge').innerText = `🎨 畫風：${STATE.currentStyleName}`;
+        document.getElementById('step3StyleBadge').innerText = `🎨 模式：${STATE.currentStyleName}`;
         
-        // ==========================================
-        // 🌟 原始還原版：不加任何前端文字與遮罩，純粹顯示 AI 原圖
-        // ==========================================
         const finalContainer = document.getElementById('finalImageContainer');
         finalContainer.className = 'w-full my-4'; 
         
-        if (res.images && res.images.length > 1) {
-            // 多圖網格顯示
-            let imgHtml = '';
-            res.images.forEach(img => { 
-                imgHtml += `<img src="${img.finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full object-cover rounded-xl shadow-sm border border-gray-200 cursor-pointer hover:shadow-md transition-all animate-fade-in" style="aspect-ratio: 1/1;">`; 
-            });
-            finalContainer.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full p-2 bg-gray-50 rounded-xl">${imgHtml}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>`;
+        // 👁️ 鷹眼質檢攔截與 UI 渲染
+        const mainAiImage = res.images.find(img => img.processType === 'AI_SYNTHESIS');
+        if (mainAiImage && mainAiImage.qaStatus === 'ERROR') {
+             const retryHtml = `<br><button onclick="window.retrySingleImage(0)" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">✨ 點我啟動免費 VIP 重抽</button>`;
+             await window.addAgentLog('視覺工程師', '👁️', `報告總編，鷹眼偵測到圖片文字可能因為筆畫過於密集而模糊。不用擔心，我已為您開啟免費修復通道！${retryHtml}`, false);
         } else {
-            // 單圖置中放大顯示
-            const displayUrl = (res.images && res.images.length === 1) ? res.images[0].finalUrl : res.imageUrl;
-            finalContainer.innerHTML = `
-                <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center">
-                    <img src="${displayUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">
-                </div>
-                <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
-            `;
+             await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字與畫風完美融合。', false);
         }
+
+        // 單圖置中渲染 (附帶錯誤警示)
+        const displayUrl = res.images[0].finalUrl;
+        finalContainer.innerHTML = `
+            <div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative">
+                <img id="finalRenderedImg_0" src="${displayUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">
+                ${mainAiImage && mainAiImage.qaStatus === 'ERROR' ? `<span class="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-md">文字需修復</span>` : ''}
+            </div>
+            <p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊圖片可放大檢視</p>
+        `;
 
         document.getElementById('finalCaptionDisplay').value = document.getElementById('reviewCaption').value;
         showToast('✅ 圖片處理完畢！', 'success'); window.scrollTo({ top: 0, behavior: 'smooth' });
-        await window.addAgentLog('社群總監', '⏸️', '隨時可以為您發射！');
+        await window.addAgentLog('社群總監', '🚀', '隨時可以為您發射至各大平台！');
     } catch (e) { 
         await window.addAgentLog('系統警報', '🚨', `生圖失敗: ${e.message}`); 
         showToast(`❌ 生圖失敗: ${e.message}`, 'error'); 
     } finally { 
-        STATE.userAgreedToSplurge = false; 
         btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); 
         btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖'; 
+    }
+};
+
+// ==========================================
+// 🔄 單圖免扣點重抽引擎 (VIP 通道)
+// ==========================================
+window.retrySingleImage = async function(index) {
+    const btn = window.event?.target;
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⚙️ 系統重繪中...';
+    }
+    await window.addAgentLog('視覺工程師', '⚙️', '收到！正在啟動免扣點通道為您重新繪製，請稍候...', true);
+
+    try {
+        const editedPanels = [];
+        if (STATE.isComicModeActive) {
+            const textareas = document.querySelectorAll('.panel-item[style*="display: block"] textarea, .panel-item:not([style*="display: none"]) textarea');
+            textareas.forEach(ta => {
+                const panelNum = parseInt(ta.id.split('_')[1]);
+                editedPanels.push({ panel_number: panelNum, dialogue: ta.value });
+            });
+        }
+
+        // 使用 fetch 直接呼叫我們剛寫好的新 API
+        const regenerateCall = async () => {
+            const response = await fetch('/api/tasks/regenerate-single', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    taskId: STATE.currentTaskId, 
+                    tenantId: getTenantIdFromToken(), 
+                    imageIndex: index, 
+                    editedPanels 
+                })
+            });
+            return response.json();
+        };
+
+        const res = await window.executeWithRetry(regenerateCall, '算圖農場', '免扣點修復');
+
+        if (!res.success) throw new Error(res.message);
+
+        // 局部更新圖片
+        const imgEl = document.getElementById(`finalRenderedImg_${index}`);
+        if(imgEl) {
+            imgEl.src = res.image.finalUrl;
+            // 移除警示標籤
+            const badge = imgEl.parentElement.querySelector('.bg-red-500');
+            if(badge) badge.remove();
+        }
+
+        if(btn) {
+            btn.innerHTML = '✅ 修復完成';
+            btn.classList.replace('bg-red-100', 'bg-green-100');
+            btn.classList.replace('text-red-600', 'text-green-600');
+            btn.classList.replace('border-red-200', 'border-green-200');
+        }
+
+        if (res.image.qaStatus === 'ERROR') {
+            const retryHtml = `<br><button onclick="window.retrySingleImage(${index})" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">🔄 還是怪怪的？再抽一次</button>`;
+            await window.addAgentLog('視覺工程師', '⚠️', `修復完畢，但 AI 好像有點倔強，文字還是不太對。您可以選擇再抽一次！${retryHtml}`, false);
+        } else {
+            await window.addAgentLog('視覺工程師', '✨', '修復完美成功！文字已經清晰可見。', false);
+        }
+
+    } catch (e) {
+        await window.addAgentLog('系統警報', '🚨', `修復失敗: ${e.message}`);
+        if(btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🔄 重新嘗試';
+        }
     }
 };
 
@@ -689,7 +707,7 @@ window.publishToSocial = async function(manualRetryPlatforms = null) {
             if (res.failedPlatforms && res.failedPlatforms.length > 0) {
                 if (currentAttempt < MAX_AUTO_RETRIES && !scheduledAt) {
                     const failedNames = res.failedPlatforms.join(', ');
-                    await window.addAgentLog('社群總監', '🔄', `偵測到 [${failedNames}] 發送無回應。Agent 啟動自我修復機制，等待 3 秒後自動為您重試...`, true);
+                    await window.addAgentLog('社群總監', '🔄', `偵測到 [${failedNames}] 發送無回應。已自動啟動修復機制，等待 3 秒後為您重新推送...`, true);
                     
                     currentAttempt++;
                     targetPlatforms = res.failedPlatforms; 
@@ -708,7 +726,7 @@ window.publishToSocial = async function(manualRetryPlatforms = null) {
 
         if (finalFailedPlatforms.length > 0) {
             const failedNames = finalFailedPlatforms.join(', ');
-            await window.addAgentLog('社群總監', '⚠️', `報告總編，已盡力重試，但以下平台依然發射失敗：[${failedNames}]。可能是 Meta API 限制或權限過期，請您手動點擊重試。`, false);
+            await window.addAgentLog('社群總監', '⚠️', `報告總編，已盡力重試，但以下平台依然發射失敗：[${failedNames}]。可能是 Meta 授權過期，請您檢查後點擊按鈕手動重發。`, false);
             
             btn.innerHTML = '🔄 重試失敗平台';
             btn.classList.replace('bg-gray-500', 'bg-yellow-500');
