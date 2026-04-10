@@ -473,7 +473,7 @@ async function executeStep1Logic(payloadData) {
         
         // 渲染腳本與動態格數選擇器
         const panContainer = document.getElementById('reviewPanelsContainer');
-        if (result.isComicMode && result.draftContent.panels) {
+        if (STATE.isComicModeActive && result.draftContent.panels) {
             panContainer.classList.remove('hidden');
             let html = `
                 <div class="flex justify-between items-end mb-2">
