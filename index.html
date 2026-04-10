@@ -167,6 +167,27 @@
                                         <option value="4" selected>生成 4 格 (標準連載起承轉合)</option>
                                     </select>
                                 </div>
+                                
+                                <div id="presentationModeContainer" class="mt-4 pt-4 border-t border-gray-200">
+                                    <label class="block text-xs font-bold text-gray-500 mb-2">🎬 畫面呈現模式</label>
+                                    <div class="flex flex-col gap-3">
+                                        <label class="flex items-center cursor-pointer p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                            <input type="radio" name="presentationMode" value="CLASSIC" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                            <div class="ml-3">
+                                                <span class="block text-sm font-bold text-gray-800">💬 經典漫畫 (實體對話框)</span>
+                                                <span class="block text-xs text-gray-500 mt-0.5">AI 將在畫面中繪製對話框並寫入繁體中文</span>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center cursor-pointer p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                            <input type="radio" name="presentationMode" value="CINEMATIC" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
+                                            <div class="ml-3">
+                                                <span class="block text-sm font-bold text-gray-800">🖼️ 電影海報 (無字純圖)</span>
+                                                <span class="block text-xs text-gray-500 mt-0.5">移除對白，純粹以角色表情與光影氛圍說故事 (良率極高)</span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                
                                 <div class="grid grid-cols-2 gap-3 pt-4 border-t border-gray-200 mt-4">
                                     <div>
                                         <label class="block text-xs font-bold text-gray-500 mb-1">📐 比例</label>
