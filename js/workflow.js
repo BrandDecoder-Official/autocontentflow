@@ -5,6 +5,42 @@ import * as UI from './ui.js';
 import { showToast } from './utils.js';
 import { compressImageToBase64 } from './image.js';
 
+// ==========================================
+// 🔍 圖片放大鏡控制 (Lightbox)
+// ==========================================
+export function openLightbox(imgSrc) {
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('lightboxImage');
+    if (!lightbox || !lightboxImg) return;
+    
+    lightboxImg.src = imgSrc;
+    lightbox.classList.remove('hidden');
+    lightbox.classList.add('flex');
+    
+    // 強制重繪以觸發動畫
+    void lightbox.offsetWidth;
+    
+    lightbox.classList.remove('opacity-0');
+    lightboxImg.classList.remove('scale-95');
+    lightboxImg.classList.add('scale-100');
+}
+
+export function closeLightbox() {
+    const lightbox = document.getElementById('imageLightbox');
+    const lightboxImg = document.getElementById('lightboxImage');
+    if (!lightbox) return;
+    
+    lightbox.classList.add('opacity-0');
+    lightboxImg.classList.remove('scale-100');
+    lightboxImg.classList.add('scale-95');
+    
+    setTimeout(() => {
+        lightbox.classList.add('hidden');
+        lightbox.classList.remove('flex');
+        lightboxImg.src = '';
+    }, 300); // 對齊 transition-opacity 的時間
+}
+
 export async function setAppMode(mode) {
     STATE.isComicModeActive = (mode === 'manga');
     const styleSection = document.getElementById('style-selector-area'); 
@@ -223,7 +259,7 @@ export async function submitForImageGeneration() {
              await window.addAgentLog('視覺工程師', '👁️', `報告總編，偵測到文字模糊，已為您開啟修復通道！<br><button onclick="window.retrySingleImage(0)" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">✨ 免費 VIP 重抽</button>`, false);
         } else { await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字與畫風完美融合。', false); }
 
-        finalContainer.innerHTML = `<div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative"><img id="finalRenderedImg_0" src="${res.images[0].finalUrl}" onclick="window.open(this.src, '_blank')" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-pointer hover:shadow-lg transition-all animate-fade-in">${mainAiImage && mainAiImage.qaStatus === 'ERROR' ? `<span class="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-md">文字需修復</span>` : ''}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊放大檢視</p>`;
+        finalContainer.innerHTML = `<div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative"><img id="finalRenderedImg_0" src="${res.images[0].finalUrl}" onclick="window.openLightbox(this.src)" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-zoom-in hover:shadow-lg transition-all animate-fade-in">${mainAiImage && mainAiImage.qaStatus === 'ERROR' ? `<span class="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-md">文字需修復</span>` : ''}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊放大檢視</p>`;
 
         let combinedCaption = document.getElementById('reviewCaption').value.trim();
         if (STATE.currentTags && STATE.currentTags.length > 0) combinedCaption += '\n\n' + STATE.currentTags.map(t => '#' + t.replace(/^#/, '').trim()).join(' ');
