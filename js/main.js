@@ -623,7 +623,7 @@ window.retrySingleImage = async function(index) {
 
         // 使用 fetch 直接呼叫我們剛寫好的新 API
         const regenerateCall = async () => {
-            const response = await fetch('/api/tasks/regenerate-single', {
+            const response = await fetch('/api/content/regenerate-single', { // ✅ 對齊 index.js
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
