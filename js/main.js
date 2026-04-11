@@ -37,12 +37,81 @@ window.submitForImageGeneration = WorkflowMod.submitForImageGeneration;
 window.retrySingleImage = WorkflowMod.retrySingleImage;
 window.publishToSocial = WorkflowMod.publishToSocial;
 window.resumeTaskWithStyle = WorkflowMod.resumeTaskWithStyle;
-// ✅ 新增這兩行綁定 Lightbox
 window.openLightbox = WorkflowMod.openLightbox;
 window.closeLightbox = WorkflowMod.closeLightbox;
-// ✨ [新增] UI 與微調快捷鍵綁定
+
 window.togglePublishMode = function(mode) { UI.togglePublishMode(mode); };
 window.sendAiCommand = function(cmd) { /* 稍後實作 */ };
+
+// 🌟 [新增] 真實攝影子模式與主模式切換連動
+window.switchMode = function(isComic) {
+    STATE.isComicModeActive = isComic; // 同步狀態
+    
+    const btnComic = document.getElementById('btnComicMode');
+    const btnStandard = document.getElementById('btnStandardMode');
+    const realSubOptions = document.getElementById('realModeSubOptions');
+    const colorOptions = document.getElementById('colorModeContainer');
+    const panelCountOptions = document.getElementById('panelCountContainer');
+    const styleOptions = document.getElementById('styleOptionsWrapper');
+
+    if (isComic) {
+        btnComic?.classList.add('mode-active');
+        btnStandard?.classList.remove('mode-active');
+        realSubOptions?.classList.add('hidden');
+        colorOptions?.classList.remove('hidden');
+        panelCountOptions?.classList.remove('hidden');
+        styleOptions?.classList.remove('hidden');
+        STATE.currentAction = 'GENERATE_IMAGE'; // 回歸一般計費
+    } else {
+        btnStandard?.classList.add('mode-active');
+        btnComic?.classList.remove('mode-active');
+        realSubOptions?.classList.remove('hidden');
+        colorOptions?.classList.add('hidden');
+        panelCountOptions?.classList.add('hidden');
+        styleOptions?.classList.add('hidden');
+        
+        // 預設切換到網紅模式
+        window.setRealSubMode('INFLUENCER');
+    }
+};
+
+window.setRealSubMode = function(mode) {
+    STATE.currentRealMode = mode;
+    
+    // 1. 更新計費標記 (對應 DB: 50/50/30)
+    STATE.currentAction = (mode === 'ENHANCE') ? 'PHOTO_ENHANCEMENT' : `GENERATE_REAL_${mode}`;
+
+    // 2. 更新 UI 樣式
+    const subModes = ['Influencer', 'Supermodel', 'Enhance'];
+    subModes.forEach(m => {
+        const btn = document.getElementById(`btnReal${m}`);
+        if (btn) {
+            if (m.toUpperCase() === mode) {
+                btn.classList.add('real-submode-active', 'ring-2', 'ring-indigo-500');
+                btn.classList.remove('text-gray-400');
+            } else {
+                btn.classList.remove('real-submode-active', 'ring-2', 'ring-indigo-500');
+                btn.classList.add('text-gray-400');
+            }
+        }
+    });
+
+    // 3. 更新描述與上傳按鈕文字
+    const descMap = {
+        'INFLUENCER': '📸 網紅模式：人為主，環境為輔，強調自然生活感。',
+        'SUPERMODEL': '💎 超模展示：商品為主，人為輔，強調極致細節與棚拍感。',
+        'ENHANCE': '✨ 原圖美化：不改變結構，僅針對光影與材質進行 AI 高級精修。'
+    };
+    const descEl = document.getElementById('realModeDesc');
+    const uploadBtn = document.getElementById('btnUploadScene');
+    if (descEl) descEl.innerText = descMap[mode];
+    if (uploadBtn) uploadBtn.innerText = (mode === 'ENHANCE') ? '+ 上傳待美化原圖' : '+ 從相簿選擇背景圖';
+
+    // 4. 通知導播間 AI (Directing Room)
+    if (window.addAgentLog) {
+        window.addAgentLog('導播間', '📽️', `模式已變更為：${mode === 'ENHANCE' ? '✨ 原圖美化' : '📸 真實攝影-' + mode}`, true);
+    }
+};
 
 // ==========================================
 // 🛡️ 全域工具函數
@@ -66,8 +135,8 @@ window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries
             const errMsg = error.message || String(error);
             if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('auth') || attempt === maxRetries) throw error;
             const waitTime = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 1000);
-            await window.addAgentLog(role, '🛡️', `偵測到「${actionName}」擁塞，重試中... (${Math.round(waitTime/1000)}秒)`, true, window.LAST_CLICKED_EL);
-            await window.sleep(waitTime);
+            await window.addAgentLog(role, '🛡️', `偵測到「${actionName}」擁塞，重試中... (${Math.round(waitTime/1000)}秒)`, true);
+            await new Promise(r => setTimeout(r, waitTime));
         }
     }
 };
@@ -101,7 +170,7 @@ window.onload = async function () {
                     await window.initSystemData(); 
                     window.initAgentCapsule();
                     window.initInteractions(); 
-                    TagsMod.initTags(); // 🌟 啟動標籤引擎監聽
+                    TagsMod.initTags(); 
                     
                     setTimeout(async () => {
                         await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 工作室已就緒。');
@@ -128,13 +197,19 @@ window.onload = async function () {
             if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
 
             const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
+            // 如果是漫畫模式才檢查畫風
             if (STATE.isComicModeActive && !selectedStyleId) {
                 await window.addAgentLog('美術總監', '⚠️', '偵測到參數缺失！請補齊「畫風」。', true);
-                STATE.pendingTaskPayload = { topic, selectedPlatforms };
                 return; 
             }
 
-            STATE.pendingTaskPayload = { topic, selectedPlatforms };
+            STATE.pendingTaskPayload = { 
+                topic, 
+                selectedPlatforms,
+                mode: STATE.isComicModeActive ? 'COMIC' : STATE.currentRealMode,
+                action: STATE.currentAction 
+            };
+            
             await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！打包卷宗中...', true, document.getElementById('btnStep1Submit'));
             await WorkflowMod.executeStep1Logic(STATE.pendingTaskPayload);
         });
