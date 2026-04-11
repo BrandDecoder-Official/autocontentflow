@@ -1,6 +1,9 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
+// 🌟 版本控制號 (每次修改都會在此更新)
+const APP_VERSION = "V0.1版";
+
 // 🚀 任務卷宗 (漏斗數據中心)
 const MISSION = {
     platforms: [],
@@ -13,7 +16,7 @@ const MISSION = {
     objectFiles: []
 };
 
-// 🌟 關鍵修正：判斷是否為「局部修改模式」
+// 🌟 判斷是否為「局部修改模式」
 let IS_EDIT_MODE = false;
 
 // ==========================================
@@ -25,7 +28,8 @@ export async function initAgentFunnel() {
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", "總編您好，任務引擎已就緒。我們將依序鎖定平台、主題與視覺配置。");
+    // 🌟 歡迎文字加入版本號
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，任務引擎已就緒。我們將依序鎖定平台、主題與視覺配置。`);
     await triggerPlatformSkill();
 }
 
@@ -57,9 +61,8 @@ async function triggerPlatformSkill() {
         lockUI(ui);
         await addLog("社群總監", "✅", `已鎖定平台：${selected.join(' / ')}。`);
         
-        // 🌟 編輯模式判斷：如果是回溯修改，改完直接看總覽
         if (IS_EDIT_MODE) {
-            IS_EDIT_MODE = false; // 歸零
+            IS_EDIT_MODE = false;
             await triggerMissionSummary();
         } else {
             await unlockTopicInput();
@@ -80,7 +83,7 @@ async function unlockTopicInput() {
     input.disabled = false;
     input.classList.replace('input-locked', 'input-active');
     input.placeholder = "輸入主題...";
-    if (MISSION.topic) input.value = MISSION.topic; // 如果是修改模式，帶入舊值
+    if (MISSION.topic) input.value = MISSION.topic; 
     input.focus();
     btn.disabled = false;
     btn.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -97,7 +100,6 @@ async function unlockTopicInput() {
 
         await addLog("總編指令", "🗣️", val);
         
-        // 🌟 編輯模式判斷
         if (IS_EDIT_MODE) {
             IS_EDIT_MODE = false;
             await triggerMissionSummary();
@@ -108,7 +110,7 @@ async function unlockTopicInput() {
 }
 
 /**
- * 🛠️ Skill 3: 視覺決策中心 (升級為大面板互動)
+ * 🛠️ Skill 3: 視覺決策中心 
  */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
@@ -160,7 +162,6 @@ async function triggerVisualSkill() {
         </div>
     `);
 
-    // 全域快速展開面板
     window.quickEdit = (type) => {
         ui.querySelector('#customPanel').classList.remove('hidden');
         ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth' });
@@ -171,7 +172,7 @@ async function triggerVisualSkill() {
             MISSION.ratio = btn.dataset.val;
             ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600'));
             btn.classList.add('bg-blue-600');
-            ui.querySelector('.tag-ratio').innerText = MISSION.ratio; // 即時更新標籤
+            ui.querySelector('.tag-ratio').innerText = MISSION.ratio; 
         };
     });
 
@@ -184,14 +185,13 @@ async function triggerVisualSkill() {
 
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
         lockUI(ui);
-        // 如果是編輯模式，這裡採納後一樣回到總覽；如果不是，也是去總覽。邏輯一致。
         IS_EDIT_MODE = false; 
         await triggerMissionSummary();
     };
 }
 
 /**
- * 🛠️ Skill 4: 任務最終摘要 (支持 QR 式回溯)
+ * 🛠️ Skill 4: 任務最終摘要
  */
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION");
@@ -201,7 +201,7 @@ async function triggerMissionSummary() {
         <div class="bg-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-white/10 pb-3">
                 <span class="text-xs font-black text-blue-400">MISSION BRIEF</span>
-                <span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">V9-AGENT-MODE</span>
+                <span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">${APP_VERSION}</span>
             </div>
             
             <div class="space-y-3">
@@ -229,10 +229,9 @@ async function triggerMissionSummary() {
         </div>
     `);
 
-    // 🌟 全域回溯功能：啟動 IS_EDIT_MODE
     window.retryStep = (step) => {
-        IS_EDIT_MODE = true; // 標記進入修改模式
-        lockUI(summaryUI); // 把當前的卡片鎖起來
+        IS_EDIT_MODE = true; 
+        lockUI(summaryUI); 
         addLog("系統", "🔄", `收到回溯指令：正在為您展開「${step}」配置介面...`);
         
         if(step === 'PLATFORM') triggerPlatformSkill();
@@ -243,7 +242,7 @@ async function triggerMissionSummary() {
     summaryUI.querySelector('#btnLaunch').onclick = async () => {
         lockUI(summaryUI);
         await addLog("專案總監", "🔥", "任務正式啟動！正在調度核心算力進行生成，請勿離開對話框...");
-        // 🚀 此處串接 API...
+        // 🚀 此處串接 API
     };
 }
 
