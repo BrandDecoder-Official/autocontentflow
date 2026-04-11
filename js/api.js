@@ -42,15 +42,29 @@ export async function deleteCharacterAPI(payload) {
 // ==========================================
 
 export async function createDraftAPI(payload) {
-    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/draft`, {
-        method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${STATE.globalAuthToken}` 
-        },
-        body: JSON.stringify(payload)
-    });
-    return response.json();
+    // 🌟 新增：設定 30 秒強制逾時
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); 
+
+    try {
+        const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/draft`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${STATE.globalAuthToken}` 
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal // 🌟 綁定控制器
+        });
+        clearTimeout(timeoutId); // 成功拿到資料，清除計時器
+        return await response.json();
+    } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+            throw new Error('伺服器響應逾時，正在嘗試自動重連...');
+        }
+        throw error;
+    }
 }
 
 // 🌟 這裡會自動把前端包裝好的多圖陣列 (incomingImages) 送往後端
