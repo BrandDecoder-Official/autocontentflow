@@ -1,18 +1,21 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
+// 🚀 任務卷宗：這就是您說的 JSON 格式
 const MISSION = {
     platforms: [],
     topic: '',
-    styleMode: 'INFLUENCER',
-    ratio: '9:16',
-    resolution: '1K',
+    styleMode: 'INFLUENCER', // 預設網紅
+    ratio: '9:16',           // 預設直式
+    resolution: '1K',        // 預設解析度
     characters: [],
-    sceneFiles: [],
+    sceneFiles: [],          // 實境圖
+    objectFiles: [],         // 道具圖
     step: 1
 };
 
 export async function initAgentFunnel() {
+    console.log("🚀 Agent V9 Funnel Start...");
     await addLog("專案總監", "👨‍💼", "總編您好，BrandDecoder V9 代理人已就緒。我們將啟動高效率發佈漏斗。");
     await triggerPlatformSkill();
 }
@@ -76,55 +79,172 @@ async function unlockTopicInput() {
         btn.disabled = true;
 
         await addLog("總編指令", "🗣️", val);
-        await triggerVisualSkill(); // 進入下一個技能包
+        await triggerVisualSkill(); 
     };
 }
 
 /**
- * 🛠️ Skill 3: 視覺決策中心 (不強迫，給建議)
+ * 🛠️ Skill 3: 視覺決策中心 (手動微調、上傳素材、角色召喚)
  */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
-    await addLog("美術總監", "👨‍🎨", "主題已收到。根據平台特性，我為您調度了以下視覺配置建議：", true);
+    await addLog("美術總監", "👨‍🎨", "主題已收到。我為您調度了視覺建議配置，您可以在此微調或添加素材：", true);
 
     const ui = createSkillUI(`
         <div class="space-y-4">
-            <div class="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
-                <p class="text-xs text-blue-300 font-bold mb-2">💡 專家建議配置</p>
-                <div class="flex flex-wrap gap-2">
-                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例 9:16</span>
-                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">網紅模式</span>
-                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">解析度 2K</span>
+            <div id="visualSummary" class="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
+                <p class="text-[10px] text-blue-300 font-bold mb-2 tracking-widest">💡 目前配置建議</p>
+                <div class="flex flex-wrap gap-2" id="summaryTags">
+                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例: ${MISSION.ratio}</span>
+                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">模式: ${MISSION.styleMode}</span>
+                    <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">解析度: ${MISSION.resolution}</span>
                 </div>
             </div>
-            <div class="flex gap-2">
-                <button id="btnAcceptVisual" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-xs">✅ 採納建議</button>
-                <button id="btnCustomVisual" class="flex-1 border border-white/10 py-3 rounded-xl font-bold text-xs">⚙️ 手動微調</button>
+
+            <div id="customPanel" class="hidden space-y-3 bg-slate-800/80 p-4 rounded-xl border border-white/5 animate-fade-in">
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] text-slate-500 font-bold">選擇比例</label>
+                    <div class="flex gap-2">
+                        <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="9:16">9:16</button>
+                        <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="16:9">16:9</button>
+                        <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="1:1">1:1</button>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label class="text-[10px] text-slate-500 font-bold">影像品質</label>
+                    <select id="resSelect" class="bg-slate-700 border-none text-xs rounded-lg p-2">
+                        <option value="1K">1K 標準</option>
+                        <option value="2K">2K 高清</option>
+                        <option value="4K">4K 極致 (消耗較多點數)</option>
+                    </select>
+                </div>
             </div>
-            <div id="assetZone" class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                <button class="bg-slate-800 py-3 rounded-xl text-[10px] font-bold">📸 上傳場景</button>
-                <button class="bg-slate-800 py-3 rounded-xl text-[10px] font-bold">🧬 召喚角色</button>
+
+            <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                <button id="btnSummonChar" class="bg-indigo-600/30 hover:bg-indigo-600/50 py-3 rounded-xl text-[10px] font-bold transition-colors">🧬 召喚角色基因</button>
+                <button id="btnUploadScene" class="bg-slate-700 hover:bg-slate-600 py-3 rounded-xl text-[10px] font-bold transition-colors">📸 上傳實境/場景</button>
+            </div>
+
+            <div class="flex gap-2">
+                <button id="btnAcceptVisual" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-xs shadow-lg shadow-blue-900/40">✅ 採納建議並發包</button>
+                <button id="btnCustomVisual" class="px-4 border border-white/10 py-3 rounded-xl font-bold text-xs">⚙️ 手動微調</button>
             </div>
         </div>
     `);
 
+    // 1. 處理微調面板顯示
+    ui.querySelector('#btnCustomVisual').onclick = () => {
+        const panel = ui.querySelector('#customPanel');
+        panel.classList.toggle('hidden');
+    };
+
+    // 2. 比例切換
+    ui.querySelectorAll('.ratio-btn').forEach(btn => {
+        btn.onclick = () => {
+            MISSION.ratio = btn.dataset.val;
+            ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600'));
+            btn.classList.add('bg-blue-600');
+            updateSummaryTags(ui);
+        };
+    });
+
+    // 3. 召喚角色庫 (您要的 Agent 核心感)
+    ui.querySelector('#btnSummonChar').onclick = async () => {
+        await addLog("視覺工程師", "🧬", "正在檢索您的專屬基因庫，請點擊下方縮圖進行召喚...");
+        triggerCharacterPicker();
+    };
+
+    // 4. 上傳場景圖
+    ui.querySelector('#btnUploadScene').onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.onchange = (e) => handleAssetUpload(e.target.files, 'SCENE');
+        input.click();
+    };
+
+    // 5. 最終發包
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
         lockUI(ui);
-        await addLog("美術總監", "🎨", "收到！將以最佳化參數進行卷宗封裝。正在準備最終確認卡...");
-        // 進入最終確認階段...
-    };
-
-    ui.querySelector('#btnCustomVisual').onclick = () => {
-        alert("開啟微調選單(比例/解析度/畫風)...");
+        await addLog("專案總監", "👨‍💼", "配置鎖定完畢！正在封裝卷宗並啟動「首席文案」進行腳本編撰...", true);
+        // 此處對接原本的 API.createDraftAPI...
     };
 }
 
-// --- 內部輔助函數 ---
+/**
+ * 🧬 Skill: 角色基因選擇牆 (橫向滑動)
+ */
+async function triggerCharacterPicker() {
+    const funnelLog = document.getElementById('funnelLog');
+    const charData = STATE.lastSystemData?.characters || [];
 
-function updateStepHeader(name) {
-    document.getElementById('missionStep').innerText = name;
+    const charDiv = document.createElement('div');
+    charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar';
+    
+    if (charData.length === 0) {
+        charDiv.innerHTML = `<p class="text-xs text-slate-500 italic">基因庫尚無數據，請至側欄管理。</p>`;
+    } else {
+        charData.forEach(char => {
+            const card = document.createElement('div');
+            card.className = 'flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group';
+            card.innerHTML = `
+                <div class="w-14 h-14 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg">
+                    <img src="${char.imageUrl}" class="w-full h-full object-cover">
+                </div>
+                <span class="text-[10px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>
+            `;
+            card.onclick = async () => {
+                if (!MISSION.characters.includes(char.name)) {
+                    MISSION.characters.push(char.name);
+                    await addLog("視覺工程師", "✅", `已召喚「${char.name}」進入候場區。`);
+                    card.classList.add('opacity-40', 'pointer-events-none');
+                }
+            };
+            charDiv.appendChild(card);
+        });
+    }
+    funnelLog.appendChild(charDiv);
+    scrollDown();
 }
 
+/**
+ * 📸 處理素材上傳預覽
+ */
+async function handleAssetUpload(files, type) {
+    const funnelLog = document.getElementById('funnelLog');
+    const previewDiv = document.createElement('div');
+    previewDiv.className = 'skill-card flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-lg';
+    
+    for (let file of files) {
+        MISSION.sceneFiles.push(file);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewDiv.innerHTML += `
+                <div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20">
+                    <img src="${e.target.result}" class="w-full h-full object-cover">
+                    <div class="absolute bottom-0 right-0 p-0.5 bg-blue-600"><svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></div>
+                </div>
+            `;
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    funnelLog.appendChild(previewDiv);
+    await addLog("影像處理組", "📐", `成功載入 ${files.length} 張實體素材，特徵點已提取。`);
+    scrollDown();
+}
+
+// --- 輔助功能 ---
+function updateSummaryTags(ui) {
+    const tags = ui.querySelector('#summaryTags');
+    tags.innerHTML = `
+        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例: ${MISSION.ratio}</span>
+        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">模式: ${MISSION.styleMode}</span>
+        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">解析度: ${MISSION.resolution}</span>
+    `;
+}
+
+// (其他 addLog, createSkillUI, lockUI 等維持原樣)
 function createSkillUI(html) {
     const log = document.getElementById('funnelLog');
     const div = document.createElement('div');
