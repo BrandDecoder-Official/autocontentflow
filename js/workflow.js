@@ -273,7 +273,30 @@ export async function submitForImageGeneration() {
 
         // 🌟 結束後啟動微調對話框
         const quickReplies = document.getElementById('aiQuickReplies');
-        if (quickReplies) quickReplies.classList.remove('hidden');
+        if (quickReplies) {
+            // 🌟 清空舊的「換背景/變開心」等無關快捷鍵
+            quickReplies.innerHTML = ''; 
+            
+            const mainAiImage = res.images[0]; // 假設第 0 張是主合成圖
+        
+            if (mainAiImage.qaStatus === 'ERROR') {
+                // 🚨 偵測到文字可能有亂碼
+                await window.addAgentLog('視覺工程師', '⚠️', '報告總編：質檢偵測到圖片文字可能存在亂碼或模糊。', false);
+                
+                // 加入專屬「免費重繪」快捷鍵
+                quickReplies.innerHTML = `
+                    <button onclick="window.retrySingleImage(0)" class="whitespace-nowrap px-3 py-1.5 bg-red-600 border border-red-400 text-white text-xs font-bold rounded-full hover:bg-red-700 transition-colors shadow-lg animate-pulse">
+                        ✨ 文字有誤？免費重繪一次
+                    </button>
+                `;
+                quickReplies.classList.remove('hidden');
+            } else {
+                // ✅ 文字看起來很完美
+                await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字清晰度符合標準。', false);
+                // 隱藏快捷鍵，不干擾發布
+                quickReplies.classList.add('hidden');
+            }
+        }
 
         await window.addAgentLog('視覺工程師', '✅', '任務圓滿完成！請確認最終成品。', false);
         showToast('✅ 影像處理完畢！', 'success');
