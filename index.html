@@ -12,6 +12,7 @@
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; padding-bottom: 100px; }
         .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         .mode-active { border-color: #3b82f6 !important; background-color: #eff6ff !important; }
+        .real-submode-active { border-color: #8b5cf6 !important; background-color: #f5f3ff !important; color: #6d28d9 !important; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
@@ -26,7 +27,6 @@
         .typing-dot:nth-child(2) { animation-delay: -0.16s; }
         @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
 
-        /* 🧠 神經元連線特效 (生命週期 2.5 秒：畫 1s -> 停 1s -> 淡出 0.5s) */
         .neural-line {
             fill: none;
             stroke: url(#lineGradient);
@@ -107,7 +107,7 @@
                 <div id="step1-setup" class="space-y-6 animate-fade-in">
                     <div class="w-full text-center lg:text-left mb-6">
                         <h1 class="text-3xl font-black text-gray-900 tracking-tight">🚀 BrandDecoder <span class="text-blue-600">V8.29</span></h1>
-                        <p class="text-gray-500 font-medium text-sm mt-1">4-2-4 視覺引擎 ✕ 實境融合</p>
+                        <p class="text-gray-500 font-medium text-sm mt-1">4-2-4 視覺引擎 ✕ 全方位實境狙擊</p>
                     </div>
 
                     <form id="agentForm" class="w-full space-y-5">
@@ -148,9 +148,29 @@
                                     <div class="font-bold text-gray-800 text-sm">真實攝影</div>
                                 </div>
                             </div>
+
+                            <div id="realModeSubOptions" class="hidden animate-fade-in mb-4 bg-indigo-50/50 p-3 rounded-xl border border-indigo-100">
+                                <label class="block text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">📸 真實攝影戰術選擇</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button type="button" onclick="window.setRealSubMode('INFLUENCER')" id="btnRealInfluencer" class="flex flex-col items-center justify-center p-2 border-2 border-white bg-white rounded-lg text-gray-400 transition-all hover:border-indigo-200">
+                                        <span class="text-lg">🤳</span>
+                                        <span class="text-[10px] font-bold mt-1">網紅模式</span>
+                                    </button>
+                                    <button type="button" onclick="window.setRealSubMode('SUPERMODEL')" id="btnRealSupermodel" class="flex flex-col items-center justify-center p-2 border-2 border-white bg-white rounded-lg text-gray-400 transition-all hover:border-indigo-200">
+                                        <span class="text-lg">💎</span>
+                                        <span class="text-[10px] font-bold mt-1">超模展示</span>
+                                    </button>
+                                    <button type="button" onclick="window.setRealSubMode('ENHANCE')" id="btnRealEnhance" class="flex flex-col items-center justify-center p-2 border-2 border-white bg-white rounded-lg text-gray-400 transition-all hover:border-indigo-200">
+                                        <span class="text-lg">✨</span>
+                                        <span class="text-[10px] font-bold mt-1">原圖美化</span>
+                                    </button>
+                                </div>
+                                <p id="realModeDesc" class="text-[10px] text-indigo-500 mt-2 font-medium italic text-center">請選擇攝影策略</p>
+                            </div>
+
                             <div class="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-500 mb-2">🎨 畫風模式 (由資料庫載入)</label>
+                                <div id="styleOptionsWrapper">
+                                    <label class="block text-xs font-bold text-gray-500 mb-2">🎨 畫風模式 (資料庫載入)</label>
                                     <div id="styleRadioContainer" class="flex flex-wrap gap-3">
                                         <span class="text-xs text-gray-400">連線資料庫中...</span>
                                     </div>
@@ -171,8 +191,8 @@
 
                                 <div id="panelCountContainer" class="mt-4 pt-4 border-t border-gray-200">
                                     <div class="flex justify-between items-end mb-1">
-                                        <label class="block text-xs font-bold text-gray-500">🎞️ 漫畫呈現格數</label>
-                                        <span class="text-[10px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded">將合成於 1 張圖內</span>
+                                        <label class="block text-xs font-bold text-gray-500">🎞️ 畫面呈現格數</label>
+                                        <span id="panelNote" class="text-[10px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded">將合成於 1 張圖內</span>
                                     </div>
                                     <select id="panelCountSelect" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 font-bold text-sm cursor-pointer text-indigo-700 shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                                         <option value="1">生成 1 格 (電影海報級 / 細節極致)</option>
@@ -188,15 +208,15 @@
                                         <label class="flex items-center cursor-pointer p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                             <input type="radio" name="presentationMode" value="CLASSIC" checked class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
                                             <div class="ml-3">
-                                                <span class="block text-sm font-bold text-gray-800">💬 經典漫畫 (實體對話框)</span>
-                                                <span class="block text-xs text-gray-500 mt-0.5">AI 將在畫面中繪製對話框並寫入繁體中文</span>
+                                                <span class="block text-sm font-bold text-gray-800">💬 經典模式 (含對話框)</span>
+                                                <span class="block text-[10px] text-gray-500 mt-0.5">AI 將在畫面中加入繁體中文對白</span>
                                             </div>
                                         </label>
                                         <label class="flex items-center cursor-pointer p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
                                             <input type="radio" name="presentationMode" value="CINEMATIC" class="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500">
                                             <div class="ml-3">
-                                                <span class="block text-sm font-bold text-gray-800">🖼️ 電影海報 (無字純圖)</span>
-                                                <span class="block text-xs text-gray-500 mt-0.5">移除對白，純粹以角色表情與光影氛圍說故事 (良率極高)</span>
+                                                <span class="block text-sm font-bold text-gray-800">🖼️ 電影模式 (純圖無字)</span>
+                                                <span class="block text-[10px] text-gray-500 mt-0.5">移除文字，純粹以氛圍說故事 (良率極高)</span>
                                             </div>
                                         </label>
                                     </div>
@@ -249,12 +269,12 @@
                         <div class="glass-card rounded-2xl shadow-sm border border-gray-200 p-5">
                             <div class="flex justify-between items-center mb-3">
                                 <h2 class="text-md font-bold text-gray-800 flex items-center">
-                                    <span class="mr-2">🌍</span> 實境背景圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張，非必填)</span>
+                                    <span class="mr-2">🌍</span> 實境背景 / 美化原圖 <span class="text-xs text-gray-400 ml-1">(最多 2 張，非必填)</span>
                                 </h2>
                             </div>
                             <div id="sceneContainer" class="transition-opacity duration-300">
                                 <input type="file" id="sceneInput" accept="image/*" multiple class="hidden" onchange="window.handleFileSelect(this, 'scene', 2, 'scenePreview')">
-                                <button type="button" onclick="document.getElementById('sceneInput').click()" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
+                                <button type="button" onclick="document.getElementById('sceneInput').click()" id="btnUploadScene" class="bg-gray-100 text-gray-700 border border-gray-300 px-4 py-2 rounded-lg text-sm font-bold w-full mb-3 hover:bg-gray-200">+ 從相簿選擇背景圖</button>
                                 <div id="scenePreview" class="flex flex-wrap gap-3"></div>
                             </div>
                         </div>
@@ -286,14 +306,14 @@
                     <div class="bg-yellow-50 border-2 border-yellow-200 rounded-2xl p-5 shadow-inner">
                         <h2 class="text-xl font-black text-yellow-800 mb-2 flex items-center justify-between">
                             <div><span class="mr-2">💡</span> 步驟二：審核與修改腳本</div>
-                            <span id="step2StyleBadge" class="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
+                            <span id="step2StyleBadge" class="text-xs bg-yellow-200 text-yellow-900 px-2 py-1 rounded-md shadow-sm">🎨 模式：未指定</span>
                         </h2>
                         <textarea id="reviewCaption" rows="4" class="w-full p-3 bg-white border-2 border-gray-300 rounded-xl font-medium shadow-inner cursor-text"></textarea>
                         
                         <div class="mt-3 pt-3 border-t border-yellow-200">
                             <label class="block text-sm font-bold text-yellow-800 mb-2 flex items-center"><span class="mr-2">🏷️</span> 貼文標籤 (Hashtags)</label>
                             <div id="tagChipsContainer" class="flex flex-wrap gap-2 mb-2 min-h-[32px] p-2 bg-white/50 rounded-lg border border-yellow-200/50"></div>
-                            <input type="text" id="newTagInput" placeholder="輸入自訂標籤後按 Enter (不需打 # 號)" class="w-full p-2 bg-white border border-yellow-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 font-bold placeholder-yellow-500 text-yellow-900 shadow-inner transition-shadow">
+                            <input type="text" id="newTagInput" placeholder="輸入標籤後按 Enter" class="w-full p-2 bg-white border border-yellow-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-400 font-bold placeholder-yellow-500 shadow-inner">
                         </div>
 
                         <div id="reviewPanelsContainer" class="space-y-3 hidden mt-4"></div>
@@ -320,11 +340,11 @@
                 <div id="step3-publish" class="hidden space-y-6 animate-fade-in pb-40">
                     <div class="glass-card rounded-2xl p-5 shadow-sm border border-gray-200 text-center">
                         <h2 class="text-xl font-black text-green-700 mb-4 flex items-center justify-between">
-                            <div><span class="mr-2">🎉</span> 步驟三：圖文準備就緒！</div>
-                            <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 畫風：未指定</span>
+                            <div><span class="mr-2">🎉</span> 步驟三：準備就緒！</div>
+                            <span id="step3StyleBadge" class="text-xs bg-green-100 text-green-800 border border-green-200 px-2 py-1 rounded-md shadow-sm">🎨 模式：未指定</span>
                         </h2>
                         <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner"></div>
-                        <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm cursor-text"></textarea>
+                        <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm"></textarea>
                         
                         <div class="mt-5 p-1 bg-gray-200 rounded-xl flex relative">
                             <div id="publishModeSlider" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white rounded-lg shadow transition-all duration-300 ease-in-out"></div>
@@ -333,26 +353,17 @@
                         </div>
                         
                         <div id="scheduleTimeContainer" class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner mt-3 hidden animate-slide-up">
-                            <label class="block text-sm font-black text-indigo-800 mb-2 flex items-center"><span class="mr-2">⏰</span> 選擇黃金發射時間</label>
-                            <input type="datetime-local" id="scheduleTime" step="900" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all cursor-pointer">
-                            <p class="text-xs text-indigo-500 mt-2 font-bold">⚠️ 提示：排程任務將於建立時預扣 1 點算力。</p>
+                            <label class="block text-sm font-black text-indigo-800 mb-2 flex items-center"><span class="mr-2">⏰</span> 預約排程時間</label>
+                            <input type="datetime-local" id="scheduleTime" step="900" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all">
                         </div>
-                        </div>
+                    </div>
                         
-                        <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
-                        <div class="max-w-7xl mx-auto w-full flex flex-col gap-3 lg:pr-[33%]">
-                            <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all">🏠 捨棄進度</button>
-                            <div class="flex gap-3 w-full">
-                                <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all">🔙 修改</button>
-                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-blue-600 hover:bg-blue-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-colors">🚀 執行發射任務</button>
-                            </div>
-                        </div>
-                        </div>
+                    <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
                         <div class="max-w-7xl mx-auto w-full flex flex-col gap-3 lg:pr-[33%]">
                             <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all">🏠 捨棄進度</button>
                             <div class="flex gap-3 w-full">
                                 <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all">🔙 返回修改</button>
-                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg">🚀 立刻發射！</button>
+                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-green-600 hover:bg-green-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-colors">🚀 立刻發射！</button>
                             </div>
                         </div>
                     </div>
@@ -417,6 +428,7 @@
             <button onclick="window.toggleAuditLogDrawer()" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors">關閉</button>
         </div>
     </div>
+
     <div id="imageLightbox" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity opacity-0" onclick="window.closeLightbox()">
         <button class="absolute top-4 right-4 text-white hover:text-gray-300 focus:outline-none p-2" onclick="window.closeLightbox()">
             <svg class="w-8 h-8 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
