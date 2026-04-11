@@ -2,18 +2,29 @@
 import { STATE } from './config.js';
 import * as API from './api.js';
 
-export function showPointDeduction(element, points) {
-    if (!element || points <= 0) return;
+/**
+ * 🌟 純 UI 扣點動畫與餘額同步模組 (不重複呼叫扣款 API)
+ * @param {HTMLElement} element - 觸發動畫的按鈕
+ * @param {number} points - 舊版寫死的點數 (保留相容性)
+ * @param {string} actionKey - 動作代碼 (例如 'GENERATE_IMAGE')，用來動態查價
+ */
+export async function showPointDeduction(element, points = null, actionKey = null) {
+    if (!element) return;
     
-    STATE.userPoints = Math.max(0, (STATE.userPoints || 0) - points);
-    if (typeof window.updatePointsDisplay === 'function') {
-        window.updatePointsDisplay(STATE.userPoints);
+    // 1. 動態查價：優先從全局定價表抓取最新售價
+    let displayPoints = points;
+    if (actionKey && STATE.globalPricing && STATE.globalPricing[actionKey]) {
+        displayPoints = STATE.globalPricing[actionKey].retailPoints;
     }
+    
+    // 如果定價為 0，不播動畫
+    if (!displayPoints || displayPoints <= 0) return;
 
+    // 2. 播放華麗的扣點飄字動畫 (-XX ⚡)
     const rect = element.getBoundingClientRect();
     const floater = document.createElement('div');
     floater.className = 'fixed font-black text-red-500 z-[100] pointer-events-none text-lg transition-all duration-1000 ease-out';
-    floater.innerHTML = `-${points} ⚡`;
+    floater.innerHTML = `-${displayPoints} ⚡`;
     floater.style.left = `${rect.left + rect.width / 2 - 20}px`;
     floater.style.top = `${rect.top}px`;
     floater.style.textShadow = '0 2px 4px rgba(0,0,0,0.15)';
@@ -25,6 +36,29 @@ export function showPointDeduction(element, points) {
     });
 
     setTimeout(() => floater.remove(), 1000);
+
+    // 3. 🛡️ 關鍵修正：去後端要一次最新的餘額，確保與資料庫同步
+    try {
+        const tenantId = window.getTenantIdFromToken();
+        // 假設您有一個輕量級的查餘額 API (或直接用 verifyLoginAPI 偷抓)
+        // 如果沒有這個 API，也可以暫時維持原本的前端減法：STATE.userPoints -= displayPoints;
+        const res = await API.fetchTenantBalanceAPI(tenantId); 
+        if (res && res.balance !== undefined) {
+            STATE.userPoints = res.balance;
+        } else {
+            STATE.userPoints = Math.max(0, (STATE.userPoints || 0) - displayPoints);
+        }
+        
+        if (typeof window.updatePointsDisplay === 'function') {
+            window.updatePointsDisplay(STATE.userPoints);
+        }
+    } catch (e) {
+        // 如果查不到，至少在前端先把數字減掉，維持 UI 感受
+        STATE.userPoints = Math.max(0, (STATE.userPoints || 0) - displayPoints);
+        if (typeof window.updatePointsDisplay === 'function') {
+            window.updatePointsDisplay(STATE.userPoints);
+        }
+    }
 }
 
 export function toggleAuditLogDrawer() {
