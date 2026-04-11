@@ -40,6 +40,9 @@ window.resumeTaskWithStyle = WorkflowMod.resumeTaskWithStyle;
 // ✅ 新增這兩行綁定 Lightbox
 window.openLightbox = WorkflowMod.openLightbox;
 window.closeLightbox = WorkflowMod.closeLightbox;
+// ✨ [新增] UI 與微調快捷鍵綁定
+window.togglePublishMode = function(mode) { UI.togglePublishMode(mode); };
+window.sendAiCommand = function(cmd) { /* 稍後實作 */ };
 
 // ==========================================
 // 🛡️ 全域工具函數
