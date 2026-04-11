@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 
 // 🌟 版本控制號
-const APP_VERSION = "V0.3版";
+const APP_VERSION = "V0.4版";
 
 // 🚀 任務卷宗
 const MISSION = {
@@ -19,15 +19,17 @@ const MISSION = {
 
 let IS_EDIT_MODE = false;
 
-// 🎭 假資料：風格宇宙
+// 🎭 🌟 V0.4 重點：將黑白/彩色邏輯深度融入風格選項
 const MOCK_STYLES = {
     REALISTIC: [
-        { id: 'INFLUENCER', name: '網紅生活', icon: '📸', desc: '高顏值、自然光影' },
-        { id: 'SUPERMODEL', name: '超模棚拍', icon: '✨', desc: '商業棚燈、高級感' }
+        { id: 'INFLUENCER', name: '網紅生活 (全彩)', icon: '📸', desc: '高顏值、自然光影' },
+        { id: 'PRODUCT', name: '商業質感 (全彩)', icon: '🛍️', desc: '凸顯細節、色彩飽滿' },
+        { id: 'NOIR', name: '經典底片 (黑白)', icon: '🎞️', desc: '高反差黑白、情緒張力' }
     ],
     COMIC: [
-        { id: 'MANGA', name: '日系王道', icon: '🌸', desc: '經典賽璐璐上色' },
-        { id: 'WEBTOON', name: '韓系條漫', icon: '📱', desc: '精緻唯美、高反差' }
+        { id: 'MANGA_BW', name: '日系漫畫 (黑白)', icon: '✒️', desc: '經典網點、俐落墨線' },
+        { id: 'MANGA_COLOR', name: '日系插畫 (全彩)', icon: '🎨', desc: '賽璐璐上色、細緻光影' },
+        { id: 'WEBTOON', name: '韓系條漫 (全彩)', icon: '📱', desc: '精緻唯美、高飽和色彩' }
     ]
 };
 
@@ -40,7 +42,7 @@ export async function initAgentFunnel() {
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，雙重漏斗（腳本+算圖）已掛載完畢。我們開始吧！`);
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，黑白/彩色邏輯已分離並融入風格庫。我們開始吧！`);
     await triggerPlatformSkill();
 }
 
@@ -126,9 +128,9 @@ async function triggerUniverseSkill() {
 async function triggerStyleSkill() {
     updateStepHeader("STYLE SELECTION");
     const styles = MOCK_STYLES[MISSION.universe];
-    let styleHtml = `<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">`;
+    let styleHtml = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`;
     styles.forEach(s => {
-        styleHtml += `<button class="style-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.id ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.id}" data-name="${s.name}"><span class="text-xl">${s.icon}</span><span class="font-bold text-xs text-white">${s.name}</span></button>`;
+        styleHtml += `<button class="style-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.id ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.id}" data-name="${s.name}"><span class="text-xl">${s.icon}</span><span class="font-bold text-xs text-white">${s.name}</span><span class="text-[9px] text-slate-400">${s.desc}</span></button>`;
     });
     styleHtml += `</div>`;
 
@@ -184,7 +186,7 @@ async function triggerVisualSkill() {
 }
 
 /**
- * 🛠️ Skill 6: 任務最終摘要 (第一階段：準備發包腳本)
+ * 🛠️ Skill 6: 任務最終摘要 (準備發包腳本)
  */
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION");
@@ -221,13 +223,11 @@ async function triggerMissionSummary() {
 }
 
 /**
- * 🛠️ Skill 7: 模擬生成腳本與【審閱介面】 (您要求的重點)
+ * 🛠️ Skill 7: 模擬生成腳本
  */
 async function executeDraftSim() {
     updateStepHeader("DRAFTING SCRIPT");
     await addLog("首席文案", "✍️", "收到指令，正在為您編撰專屬貼文腳本與分鏡...");
-    
-    // 模擬 1 秒後產生假腳本資料
     await new Promise(r => setTimeout(r, 1000));
     
     const mockDraft = {
@@ -243,7 +243,7 @@ async function executeDraftSim() {
 }
 
 /**
- * 🛠️ Skill 8: 腳本審閱與微調 (Draft Review Skill)
+ * 🛠️ Skill 8: 腳本審閱
  */
 async function triggerDraftReviewSkill(draft) {
     updateStepHeader("DRAFT REVIEW");
@@ -269,7 +269,6 @@ async function triggerDraftReviewSkill(draft) {
                 <p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📝 貼文內文 (可編輯)</p>
                 <textarea class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none" rows="4">${draft.caption}</textarea>
             </div>
-            
             <div>
                 <p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">🏷️ 社群 Hashtag</p>
                 <div class="flex flex-wrap gap-2">
@@ -277,9 +276,7 @@ async function triggerDraftReviewSkill(draft) {
                     <button class="bg-slate-800 text-slate-400 border border-white/10 px-2 py-1 rounded-md text-[10px] font-bold hover:bg-slate-700">＋ 新增</button>
                 </div>
             </div>
-
             ${panelsHtml}
-
             <button id="btnRender" class="w-full bg-green-600 hover:bg-green-500 py-4 rounded-xl font-black text-sm shadow-lg shadow-green-900/30 transition-all flex justify-center gap-2 mt-4">
                 <span>🎨 腳本確認無誤，扣點算圖</span>
             </button>
@@ -289,11 +286,10 @@ async function triggerDraftReviewSkill(draft) {
     ui.querySelector('#btnRender').onclick = async () => {
         lockUI(ui);
         await addLog("美術總監", "🎨", "腳本已定案！正式呼叫視覺引擎，開始算圖渲染...", true);
-        // 此處將呼叫原本的 API.generateImageAPI
     };
 }
 
-// --- 角色與素材牆保持不變 ---
+// --- 角色與素材牆 ---
 async function triggerCharacterPicker() {
     const charData = STATE.lastSystemData?.characters || [];
     const charDiv = document.createElement('div'); charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar mb-6';
@@ -309,6 +305,16 @@ async function triggerCharacterPicker() {
         });
     }
     document.getElementById('funnelLog').appendChild(charDiv); scrollDown();
+}
+
+async function handleAssetUpload(files) {
+    const previewDiv = document.createElement('div'); previewDiv.className = 'skill-card flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-lg mb-6';
+    for (let file of files) {
+        MISSION.sceneFiles.push(file); const reader = new FileReader();
+        reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; };
+        reader.readAsDataURL(file);
+    }
+    document.getElementById('funnelLog').appendChild(previewDiv); await addLog("影像處理組", "📐", `成功載入 ${files.length} 張素材。`); scrollDown();
 }
 
 // 輔助工具
