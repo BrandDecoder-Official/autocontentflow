@@ -45,71 +45,85 @@ window.sendAiCommand = function(cmd) { /* 稍後實作 */ };
 
 // 🌟 [新增] 真實攝影子模式與主模式切換連動
 window.switchMode = function(isComic) {
-    STATE.isComicModeActive = isComic; // 同步狀態
-    
-    const btnComic = document.getElementById('btnComicMode');
-    const btnStandard = document.getElementById('btnStandardMode');
-    const realSubOptions = document.getElementById('realModeSubOptions');
-    const colorOptions = document.getElementById('colorModeContainer');
-    const panelCountOptions = document.getElementById('panelCountContainer');
-    const styleOptions = document.getElementById('styleOptionsWrapper');
-
-    if (isComic) {
-        btnComic?.classList.add('mode-active');
-        btnStandard?.classList.remove('mode-active');
-        realSubOptions?.classList.add('hidden');
-        colorOptions?.classList.remove('hidden');
-        panelCountOptions?.classList.remove('hidden');
-        styleOptions?.classList.remove('hidden');
-        STATE.currentAction = 'GENERATE_IMAGE'; // 回歸一般計費
-    } else {
-        btnStandard?.classList.add('mode-active');
-        btnComic?.classList.remove('mode-active');
-        realSubOptions?.classList.remove('hidden');
-        colorOptions?.classList.add('hidden');
-        panelCountOptions?.classList.add('hidden');
-        styleOptions?.classList.add('hidden');
+    try {
+        STATE.isComicModeActive = isComic; 
         
-        // 預設切換到網紅模式
-        window.setRealSubMode('INFLUENCER');
+        const btnComic = document.getElementById('btnComicMode');
+        const btnStandard = document.getElementById('btnStandardMode');
+        const realSubOptions = document.getElementById('realModeSubOptions');
+        const colorOptions = document.getElementById('colorModeContainer');
+        const panelCountOptions = document.getElementById('panelCountContainer');
+        const styleOptions = document.getElementById('styleOptionsWrapper');
+
+        if (isComic) {
+            btnComic?.classList.add('mode-active');
+            btnStandard?.classList.remove('mode-active');
+            realSubOptions?.classList.add('hidden');
+            colorOptions?.classList.remove('hidden');
+            panelCountOptions?.classList.remove('hidden');
+            styleOptions?.classList.remove('hidden');
+            STATE.currentAction = 'GENERATE_IMAGE'; 
+            // 💡 若有快取資料則渲染
+            if (window.renderDynamicOptions) window.renderDynamicOptions('ANIME');
+        } else {
+            btnStandard?.classList.add('mode-active');
+            btnComic?.classList.remove('mode-active');
+            realSubOptions?.classList.remove('hidden');
+            colorOptions?.classList.add('hidden');
+            panelCountOptions?.classList.add('hidden');
+            styleOptions?.classList.add('hidden');
+            
+            // 預設切換到網紅模式
+            window.setRealSubMode('INFLUENCER');
+            if (window.renderDynamicOptions) window.renderDynamicOptions('REALISTIC');
+        }
+    } catch (err) {
+        console.error("🚨 [switchMode] 發生錯誤:", err);
+        showToast("切換模式時發生 UI 錯誤", "error");
     }
 };
 
 window.setRealSubMode = function(mode) {
-    STATE.currentRealMode = mode;
-    
-    // 1. 更新計費標記 (對應 DB: 50/50/30)
-    STATE.currentAction = (mode === 'ENHANCE') ? 'PHOTO_ENHANCEMENT' : `GENERATE_REAL_${mode}`;
+    try {
+        STATE.currentRealMode = mode;
+        
+        // 1. 更新計費標記 (對應 DB: 50/50/30)
+        STATE.currentAction = (mode === 'ENHANCE') ? 'PHOTO_ENHANCEMENT' : `GENERATE_REAL_${mode}`;
 
-    // 2. 更新 UI 樣式
-    const subModes = ['Influencer', 'Supermodel', 'Enhance'];
-    subModes.forEach(m => {
-        const btn = document.getElementById(`btnReal${m}`);
-        if (btn) {
-            if (m.toUpperCase() === mode) {
-                btn.classList.add('real-submode-active', 'ring-2', 'ring-indigo-500');
-                btn.classList.remove('text-gray-400');
-            } else {
-                btn.classList.remove('real-submode-active', 'ring-2', 'ring-indigo-500');
-                btn.classList.add('text-gray-400');
+        // 2. 更新 UI 樣式
+        const subModes = ['Influencer', 'Supermodel', 'Enhance'];
+        subModes.forEach(m => {
+            const btn = document.getElementById(`btnReal${m}`);
+            if (btn) {
+                if (m.toUpperCase() === mode) {
+                    btn.classList.add('real-submode-active', 'ring-2', 'ring-indigo-500');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('real-submode-active', 'ring-2', 'ring-indigo-500');
+                    btn.classList.add('text-gray-400');
+                }
             }
+        });
+
+        // 3. 更新描述與上傳按鈕文字
+        const descMap = {
+            'INFLUENCER': '📸 網紅模式：人為主，環境為輔，強調自然生活感。',
+            'SUPERMODEL': '💎 超模展示：商品為主，人為輔，強調極致細節與棚拍感。',
+            'ENHANCE': '✨ 原圖美化：不改變結構，僅針對光影與材質進行 AI 高級精修。'
+        };
+        const descEl = document.getElementById('realModeDesc');
+        const uploadBtn = document.getElementById('btnUploadScene');
+        if (descEl) descEl.innerText = descMap[mode];
+        if (uploadBtn) uploadBtn.innerText = (mode === 'ENHANCE') ? '+ 上傳待美化原圖' : '+ 從相簿選擇背景圖';
+
+        // 4. 通知導播間 (這裡 showLoading 設為 false，避免那個圈圈卡住)
+        if (window.addAgentLog) {
+            window.addAgentLog('導播間', '📽️', `模式已變更為：${mode === 'ENHANCE' ? '✨ 原圖美化' : '📸 真實攝影-' + mode}`, false);
         }
-    });
-
-    // 3. 更新描述與上傳按鈕文字
-    const descMap = {
-        'INFLUENCER': '📸 網紅模式：人為主，環境為輔，強調自然生活感。',
-        'SUPERMODEL': '💎 超模展示：商品為主，人為輔，強調極致細節與棚拍感。',
-        'ENHANCE': '✨ 原圖美化：不改變結構，僅針對光影與材質進行 AI 高級精修。'
-    };
-    const descEl = document.getElementById('realModeDesc');
-    const uploadBtn = document.getElementById('btnUploadScene');
-    if (descEl) descEl.innerText = descMap[mode];
-    if (uploadBtn) uploadBtn.innerText = (mode === 'ENHANCE') ? '+ 上傳待美化原圖' : '+ 從相簿選擇背景圖';
-
-    // 4. 通知導播間 AI (Directing Room)
-    if (window.addAgentLog) {
-        window.addAgentLog('導播間', '📽️', `模式已變更為：${mode === 'ENHANCE' ? '✨ 原圖美化' : '📸 真實攝影-' + mode}`, true);
+    } catch (err) {
+        console.error("🚨 [setRealSubMode] 發生錯誤:", err);
+        // 萬一報錯，確保 Loading 狀態被解除 (假設 addAgentLog 有處理邏輯)
+        if (window.addAgentLog) window.addAgentLog('系統', '⚠️', '切換子模式失敗，請重新嘗試', false);
     }
 };
 
@@ -142,76 +156,90 @@ window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries
 };
 
 // ==========================================
-// 🚀 系統初始化 (Onload)
+// 🚀 系統初始化 (Onload 加入錯誤邊界)
 // ==========================================
 window.onload = async function () {
-    // 1. 初始化 Google 登入
-    google.accounts.id.initialize({
-        client_id: CONFIG.GOOGLE_CLIENT_ID, 
-        callback: async function(response) {
-            const loginMsg = document.getElementById('loginMessage');
-            loginMsg.innerHTML = '🔄 正在驗證...';
-            try {
-                const result = await API.verifyLoginAPI(response.credential);
-                if (!result.success) throw new Error(result.message);
-                if (result.status === 'PENDING') { loginMsg.innerHTML = `⏳ ${result.message}`; return; }
-                
-                if (result.status === 'ACTIVE') {
-                    STATE.globalAuthToken = response.credential; STATE.tenantUid = result.uid; 
-                    STATE.userPoints = result.totalPoints || 0; 
+    try {
+        // 1. 初始化 Google 登入
+        google.accounts.id.initialize({
+            client_id: CONFIG.GOOGLE_CLIENT_ID, 
+            callback: async function(response) {
+                const loginMsg = document.getElementById('loginMessage');
+                loginMsg.innerHTML = '🔄 正在驗證...';
+                try {
+                    const result = await API.verifyLoginAPI(response.credential);
+                    if (!result.success) throw new Error(result.message);
+                    if (result.status === 'PENDING') { loginMsg.innerHTML = `⏳ ${result.message}`; return; }
                     
-                    document.getElementById('loginScreen').classList.add('hidden');
-                    const app = document.getElementById('mainApp'); app.classList.remove('hidden');
-                    setTimeout(() => { app.classList.remove('opacity-0'); }, 100);
-                    
-                    showToast(`✅ 登入成功！`, 'success');
-                    if (typeof window.updatePointsDisplay === 'function') window.updatePointsDisplay(STATE.userPoints);
+                    if (result.status === 'ACTIVE') {
+                        STATE.globalAuthToken = response.credential; STATE.tenantUid = result.uid; 
+                        STATE.userPoints = result.totalPoints || 0; 
+                        
+                        document.getElementById('loginScreen').classList.add('hidden');
+                        const app = document.getElementById('mainApp'); app.classList.remove('hidden');
+                        setTimeout(() => { app.classList.remove('opacity-0'); }, 100);
+                        
+                        showToast(`✅ 登入成功！`, 'success');
+                        if (typeof window.updatePointsDisplay === 'function') window.updatePointsDisplay(STATE.userPoints);
 
-                    await window.initSystemData(); 
-                    window.initAgentCapsule();
-                    window.initInteractions(); 
-                    TagsMod.initTags(); 
-                    
-                    setTimeout(async () => {
-                        await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 工作室已就緒。');
-                    }, 1000);
+                        await window.initSystemData(); 
+                        window.initAgentCapsule();
+                        window.initInteractions(); 
+                        TagsMod.initTags(); 
+                        
+                        setTimeout(async () => {
+                            await window.addAgentLog('專案總監', '👨‍💼', '總編您好！BrandDecoder 工作室已就緒。');
+                        }, 1000);
+                    }
+                } catch (e) { 
+                    loginMsg.innerHTML = `❌ 登入失敗：${e.message}`;
+                    console.error("Login Error:", e);
                 }
-            } catch (e) { loginMsg.innerHTML = `❌ 登入失敗：${e.message}`; }
-        }
-    });
-    google.accounts.id.renderButton(document.getElementById("googleButtonDiv"), { theme: "outline", size: "large", shape: "pill" });
-    
-    // 2. 綁定表單送出事件 (Step 1)
-    const agentForm = document.getElementById('agentForm');
-    if (agentForm) {
-        agentForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const topicInput = document.getElementById('topic'); 
-            const topic = topicInput.value.trim();
-            if (!topic) return showToast('❌ 請輸入主題！', 'error');
-
-            const selectedPlatforms = [];
-            if(document.getElementById('platFB')?.checked) selectedPlatforms.push('FB');
-            if(document.getElementById('platIG')?.checked) selectedPlatforms.push('IG');
-            if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
-            if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
-
-            const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
-            // 如果是漫畫模式才檢查畫風
-            if (STATE.isComicModeActive && !selectedStyleId) {
-                await window.addAgentLog('美術總監', '⚠️', '偵測到參數缺失！請補齊「畫風」。', true);
-                return; 
             }
-
-            STATE.pendingTaskPayload = { 
-                topic, 
-                selectedPlatforms,
-                mode: STATE.isComicModeActive ? 'COMIC' : STATE.currentRealMode,
-                action: STATE.currentAction 
-            };
-            
-            await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！打包卷宗中...', true, document.getElementById('btnStep1Submit'));
-            await WorkflowMod.executeStep1Logic(STATE.pendingTaskPayload);
         });
+        google.accounts.id.renderButton(document.getElementById("googleButtonDiv"), { theme: "outline", size: "large", shape: "pill" });
+        
+        // 2. 綁定表單送出事件
+        const agentForm = document.getElementById('agentForm');
+        if (agentForm) {
+            agentForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try {
+                    const topicInput = document.getElementById('topic'); 
+                    const topic = topicInput.value.trim();
+                    if (!topic) return showToast('❌ 請輸入主題！', 'error');
+
+                    const selectedPlatforms = [];
+                    if(document.getElementById('platFB')?.checked) selectedPlatforms.push('FB');
+                    if(document.getElementById('platIG')?.checked) selectedPlatforms.push('IG');
+                    if(document.getElementById('platThreads')?.checked) selectedPlatforms.push('THREADS');
+                    if(selectedPlatforms.length === 0) return showToast('❌ 請至少勾選一個平台！', 'error');
+
+                    const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
+                    if (STATE.isComicModeActive && !selectedStyleId) {
+                        await window.addAgentLog('美術總監', '⚠️', '偵測到參數缺失！請補齊「畫風」。', false);
+                        return; 
+                    }
+
+                    STATE.pendingTaskPayload = { 
+                        topic, 
+                        selectedPlatforms,
+                        mode: STATE.isComicModeActive ? 'COMIC' : STATE.currentRealMode,
+                        action: STATE.currentAction 
+                    };
+                    
+                    await window.addAgentLog('專案總監', '👨‍💼', '收到貼文任務！打包卷宗中...', true, document.getElementById('btnStep1Submit'));
+                    await WorkflowMod.executeStep1Logic(STATE.pendingTaskPayload);
+                } catch (submitErr) {
+                    console.error("Submit Error:", submitErr);
+                    showToast("發送任務失敗", "error");
+                    // 強制重置按鈕
+                    const btn = document.getElementById('btnStep1Submit');
+                    if(btn) { btn.disabled = false; btn.innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; }
+                }
+            });
+        }
+    } catch (loadErr) {
+        console.error("Critical Load Error:", loadErr);
     }
 };
