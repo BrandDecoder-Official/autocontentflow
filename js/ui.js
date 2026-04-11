@@ -20,7 +20,6 @@ export function renderDynamicOptions(mode, data) {
         } else {
             filteredStyles.forEach((style, index) => {
                 const isChecked = index === 0 ? 'checked' : '';
-                // 🌟 修正：不再塞入 JSON，而是純粹塞入畫風的 id！
                 styleContainer.innerHTML += `
                     <label class="flex items-center cursor-pointer bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition-colors">
                         <input type="radio" name="targetStyle" value="${style.id}" ${isChecked} class="w-4 h-4 text-blue-600 focus:ring-blue-500">
@@ -39,27 +38,24 @@ export function renderDynamicOptions(mode, data) {
         });
     }
 
-    // 🌟 3. 專屬角色庫渲染 (這裡換上全新的大頭照 UI 邏輯！)
+    // 🌟 3. 專屬角色庫渲染
     if (charContainer && data.characters) {
-        charContainer.innerHTML = ''; // 清空載入中
+        charContainer.innerHTML = '';
         if (countLabel) countLabel.innerText = `(${data.characters.length}/10)`;
 
         if (data.characters.length === 0) {
             charContainer.innerHTML = '<span class="text-xs text-gray-400">角色庫尚無資料，請點擊右上方新增。</span>';
         } else {
             data.characters.forEach(char => {
-                // 建立外層卡片
                 const wrapper = document.createElement('div');
                 wrapper.className = 'relative group flex flex-col items-center w-16';
                 
-                // 🌟 角色頭像 (顯示 GCS 圖片，滑鼠懸浮顯示 AI 基因)
                 const img = document.createElement('img');
-                img.src = char.imageUrl || 'https://via.placeholder.com/150'; // 顯示大頭照
+                img.src = char.imageUrl || 'https://via.placeholder.com/150';
                 img.className = 'w-16 h-16 rounded-full border-2 border-white shadow-md cursor-pointer hover:border-blue-500 hover:shadow-lg transition-all object-cover bg-gray-100';
-                img.title = `🧬 AI 提取基因:\n${char.aiExtractedFeatures}`; // 滑鼠移上去能看見基因！
+                img.title = `🧬 AI 提取基因:\n${char.aiExtractedFeatures}`;
                 img.onclick = () => window.addCharacterFromDB(char);
 
-                // 🗑️ 刪除按鈕 (移除 hidden，改為常駐顯示以支援手機版)
                 const delBtn = document.createElement('button');
                 delBtn.className = 'absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-[10px] flex items-center justify-center shadow-lg hover:bg-red-600 opacity-90 hover:opacity-100 transition-all z-10';
                 delBtn.innerHTML = '✕';
@@ -70,7 +66,6 @@ export function renderDynamicOptions(mode, data) {
                     window.deleteChar(char.id); 
                 };
 
-                // 名字標籤
                 const nameLabel = document.createElement('span');
                 nameLabel.className = 'text-[10px] mt-1.5 font-bold text-gray-700 truncate w-full text-center bg-white px-1 rounded';
                 nameLabel.innerText = char.name;
@@ -90,17 +85,17 @@ export function switchMode(toComic) {
     const btnComic = document.getElementById('btnComicMode');
     const charWarning = document.getElementById('realisticCharWarning');
     const sceneWarning = document.getElementById('realisticSceneWarning');
-    const colorModeContainer = document.getElementById('colorModeContainer'); // 🌟 新增：色彩開關區塊
+    const colorModeContainer = document.getElementById('colorModeContainer');
 
     if (toComic) {
         btnComic.classList.add('mode-active'); btnStandard.classList.remove('mode-active');
         if(charWarning) charWarning.classList.add('hidden'); if(sceneWarning) sceneWarning.classList.add('hidden');
-        if(colorModeContainer) colorModeContainer.classList.remove('hidden'); // 🌟 動漫模式顯示色彩開關
+        if(colorModeContainer) colorModeContainer.classList.remove('hidden');
         renderDynamicOptions('ANIME');
     } else {
         btnStandard.classList.add('mode-active'); btnComic.classList.remove('mode-active');
         if(charWarning) charWarning.classList.remove('hidden'); if(sceneWarning) sceneWarning.classList.remove('hidden');
-        if(colorModeContainer) colorModeContainer.classList.add('hidden'); // 🌟 真實模式隱藏色彩開關
+        if(colorModeContainer) colorModeContainer.classList.add('hidden');
         renderDynamicOptions('REALISTIC');
     }
 }
@@ -160,41 +155,70 @@ export function renderThumbnails(type, containerId) {
     });
 }
 
+// ==========================================
+// ✨ 新增：Step 3 發布模式切換 UI 邏輯
+// ==========================================
+export function togglePublishMode(mode) {
+    const slider = document.getElementById('publishModeSlider');
+    const btnImm = document.getElementById('btnModeImmediate');
+    const btnSch = document.getElementById('btnModeSchedule');
+    const scheduleContainer = document.getElementById('scheduleTimeContainer');
+    const btnPublish = document.getElementById('btnPublish');
+
+    if (mode === 'IMMEDIATE') {
+        slider.style.transform = 'translateX(0)';
+        btnImm.classList.replace('text-gray-500', 'text-blue-700');
+        btnSch.classList.replace('text-blue-700', 'text-gray-500');
+        scheduleContainer.classList.add('hidden');
+        
+        btnPublish.innerHTML = '🚀 執行發射任務';
+        btnPublish.className = 'w-2/3 text-white bg-blue-600 hover:bg-blue-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-colors';
+        
+    } else if (mode === 'SCHEDULE') {
+        slider.style.transform = 'translateX(100%)';
+        btnSch.classList.replace('text-gray-500', 'text-blue-700');
+        btnImm.classList.replace('text-blue-700', 'text-gray-500');
+        scheduleContainer.classList.remove('hidden');
+        
+        btnPublish.innerHTML = '⏰ 確認排程 (預扣 1 點)';
+        btnPublish.className = 'w-2/3 text-white bg-indigo-600 hover:bg-indigo-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-colors';
+        
+        // 預填明天的同一個時間，避免用戶還要手動滑很久
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setMinutes(tomorrow.getMinutes() - tomorrow.getTimezoneOffset());
+        document.getElementById('scheduleTime').value = tomorrow.toISOString().slice(0, 16);
+    }
+}
+
 export function resetToStep1() {
     document.getElementById('step3-publish').classList.add('hidden');
     document.getElementById('step2-review').classList.add('hidden');
     document.getElementById('step1-setup').classList.remove('hidden');
     document.getElementById('topic').value = '';
     
-    // 🌟 不再清空角色列表，讓「開啟新任務」時可以保留剛剛設定好的角色陣列
-    // document.getElementById('characterList').innerHTML = '';
-    
     STATE.sceneFiles = []; STATE.objectFiles = [];
     document.getElementById('scenePreview').innerHTML = ''; document.getElementById('objectPreview').innerHTML = '';
     
-    document.getElementById('skipScene').checked = false; document.getElementById('skipObject').checked = false;
+    document.getElementById('skipScene')?.checked && (document.getElementById('skipScene').checked = false); 
+    document.getElementById('skipObject')?.checked && (document.getElementById('skipObject').checked = false);
     toggleSection('sceneContainer', false); toggleSection('objectContainer', false);
     
+    // 復原發射按鈕狀態
     const btnPublish = document.getElementById('btnPublish');
-    btnPublish.disabled = false; btnPublish.innerHTML = '🚀 發射！';
-    if (btnPublish.classList.contains('bg-gray-500')) btnPublish.classList.replace('bg-gray-500', 'bg-green-600');
-    document.getElementById('btnRegenerate').classList.remove('hidden');
-
-    const btnVideo = document.getElementById('btnGenerateVideo');
-    if (btnVideo) {
-        btnVideo.disabled = false; btnVideo.innerHTML = '🎬 消耗點數，生成動態影片';
-        btnVideo.classList.replace('bg-indigo-100', 'bg-white'); btnVideo.classList.replace('text-indigo-400', 'text-indigo-600');
-    }
+    btnPublish.disabled = false; btnPublish.innerHTML = '🚀 執行發射任務';
+    if (btnPublish.classList.contains('bg-gray-500')) btnPublish.classList.replace('bg-gray-500', 'bg-blue-600');
+    
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast('🏠 已開啟新任務！場景已清空，角色設定已保留。', 'info');
 }
+
 // ==========================================
 // 🌟 專屬角色 Modal 控制
 // ==========================================
 export function openCreateCharModal() {
     const modal = document.getElementById('createCharModal');
     modal.classList.remove('hidden');
-    // 給予微小延遲以觸發 CSS 漸層動畫
     setTimeout(() => modal.classList.remove('opacity-0'), 10);
 }
 
@@ -203,11 +227,10 @@ export function closeCreateCharModal() {
     modal.classList.add('opacity-0');
     setTimeout(() => {
         modal.classList.add('hidden');
-        // 關閉時清空表單，確保下次打開是乾淨的
         document.getElementById('newCharName').value = '';
-        document.getElementById('newCharPersona').value = '';
+        if(document.getElementById('newCharPersona')) document.getElementById('newCharPersona').value = '';
         document.getElementById('newCharImage').value = '';
         document.getElementById('newCharPreview').classList.add('hidden');
         document.getElementById('newCharPreview').src = '';
-    }, 300); // 300ms 剛好是動畫退場時間
+    }, 300);
 }
