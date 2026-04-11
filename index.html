@@ -86,6 +86,20 @@
                     </div>
                     <div id="aiCapsulePreview" class="text-xs font-bold text-gray-300 mt-1 truncate animate-fade-in w-full hidden">等待總編下達指令...</div>
                     <div id="aiTeamConsoleLog" class="space-y-4 max-h-64 lg:max-h-[calc(100vh-12rem)] overflow-y-auto pr-2 custom-scrollbar pb-2 scroll-smooth"></div>
+                    <div class="mt-3 pt-3 border-t border-gray-700">
+                        <div id="aiQuickReplies" class="flex overflow-x-auto pb-2 gap-2 custom-scrollbar hidden">
+                            <button onclick="window.sendAiCommand('幫我換一個背景')" class="whitespace-nowrap px-3 py-1.5 bg-gray-800 border border-gray-600 text-gray-300 text-xs font-bold rounded-full hover:bg-indigo-600 hover:text-white transition-colors">🏙️ 換背景</button>
+                            <button onclick="window.sendAiCommand('主角表情開心一點')" class="whitespace-nowrap px-3 py-1.5 bg-gray-800 border border-gray-600 text-gray-300 text-xs font-bold rounded-full hover:bg-indigo-600 hover:text-white transition-colors">😊 變開心</button>
+                            <button onclick="window.sendAiCommand('改為賽博龐克畫風')" class="whitespace-nowrap px-3 py-1.5 bg-gray-800 border border-gray-600 text-gray-300 text-xs font-bold rounded-full hover:bg-indigo-600 hover:text-white transition-colors">🎨 賽博龐克</button>
+                        </div>
+                        
+                        <div class="relative flex items-center mt-1">
+                            <input type="text" id="aiChatInput" placeholder="直接微調，例如：給他戴上墨鏡..." class="w-full bg-gray-800 border border-gray-600 text-white text-sm rounded-lg pl-3 pr-10 py-2.5 focus:ring-indigo-500 focus:border-indigo-500 placeholder-gray-500">
+                            <button onclick="window.sendAiCommand()" class="absolute right-2 text-indigo-400 hover:text-indigo-300 font-bold p-1">
+                                <svg class="w-5 h-5 transform rotate-90" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -311,12 +325,29 @@
                         </h2>
                         <div id="finalImageContainer" class="w-full bg-gray-100 rounded-xl overflow-hidden mb-4 border-2 border-gray-200 min-h-[300px] flex items-center justify-center shadow-inner"></div>
                         <textarea id="finalCaptionDisplay" rows="6" class="w-full p-3 bg-white border border-gray-300 rounded-lg font-medium text-sm cursor-text"></textarea>
-                        <div class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner mt-5">
-                            <label class="block text-sm font-black text-indigo-800 mb-1 flex items-center"><span class="mr-2">🗓️</span> 預約排程發佈 (選填)</label>
-                            <input type="datetime-local" id="scheduleTime" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all cursor-pointer">
+                        
+                        <div class="mt-5 p-1 bg-gray-200 rounded-xl flex relative">
+                            <div id="publishModeSlider" class="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-white rounded-lg shadow transition-all duration-300 ease-in-out"></div>
+                            <button type="button" onclick="window.togglePublishMode('IMMEDIATE')" id="btnModeImmediate" class="relative z-10 w-1/2 py-2.5 text-sm font-bold text-blue-700 transition-colors">🚀 立即發布</button>
+                            <button type="button" onclick="window.togglePublishMode('SCHEDULE')" id="btnModeSchedule" class="relative z-10 w-1/2 py-2.5 text-sm font-bold text-gray-500 transition-colors">📅 預約排程</button>
                         </div>
-                    </div>
-                    <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
+                        
+                        <div id="scheduleTimeContainer" class="text-left bg-indigo-50 p-4 rounded-xl border border-indigo-200 shadow-inner mt-3 hidden animate-slide-up">
+                            <label class="block text-sm font-black text-indigo-800 mb-2 flex items-center"><span class="mr-2">⏰</span> 選擇黃金發射時間</label>
+                            <input type="datetime-local" id="scheduleTime" class="w-full p-3 bg-white border border-indigo-200 text-indigo-900 rounded-lg font-bold text-sm shadow-sm transition-all cursor-pointer">
+                            <p class="text-xs text-indigo-500 mt-2 font-bold">⚠️ 提示：排程任務將於建立時預扣 1 點算力。</p>
+                        </div>
+                        </div>
+                        
+                        <div class="sticky-bottom-bar flex flex-col gap-3 animate-slide-up">
+                        <div class="max-w-7xl mx-auto w-full flex flex-col gap-3 lg:pr-[33%]">
+                            <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all">🏠 捨棄進度</button>
+                            <div class="flex gap-3 w-full">
+                                <button type="button" onclick="window.backToStep2()" class="w-1/3 text-gray-700 bg-gray-200 font-bold rounded-xl text-sm px-2 py-4 hover:bg-gray-300 transition-all">🔙 修改</button>
+                                <button type="button" id="btnPublish" onclick="window.publishToSocial()" class="w-2/3 text-white bg-blue-600 hover:bg-blue-700 font-black rounded-xl text-lg px-4 py-4 shadow-lg transition-colors">🚀 執行發射任務</button>
+                            </div>
+                        </div>
+                        </div>
                         <div class="max-w-7xl mx-auto w-full flex flex-col gap-3 lg:pr-[33%]">
                             <button type="button" onclick="window.resetToStep1()" class="w-full text-gray-400 bg-transparent border border-gray-200 font-bold rounded-xl text-sm px-4 py-2 hover:bg-gray-50 transition-all">🏠 捨棄進度</button>
                             <div class="flex gap-3 w-full">
