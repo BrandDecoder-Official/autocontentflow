@@ -270,67 +270,98 @@ const adminApp = {
         this.updatePricingUI();
     },
 
+    // s_admin/admin.js (修改 updatePricingUI 部分)
+
     updatePricingUI() {
         if (!this.pricingConfig) return;
         
-        // 取得當前的倍率
         const multiplier = parseFloat(document.getElementById('globalMultiplier').value);
         document.getElementById('multiplierValue').innerText = `${multiplier.toFixed(1)}x`;
         
-        // 🌟 取得當前的匯率
         const exchangeSelect = document.getElementById('exchangeRate');
         const currentExchangeRate = exchangeSelect ? parseInt(exchangeSelect.value) : (this.pricingConfig.exchangeRate || 10);
         
         const tbody = document.getElementById('pricingTableBody');
         tbody.innerHTML = '';
-
+    
         for(const [actionKey, data] of Object.entries(this.pricingConfig.actions)) {
-            
-            // 1. 真實成本轉點數成本 (Cost TWD * 當前匯率)
             const baseCostPoints = data.baseCostTWD * currentExchangeRate;
-
-            // 2. 建議售價 = 點數成本 * 利潤倍率
             const suggested = Math.ceil(baseCostPoints * multiplier);
-            const retail = data.retailPoints || 0;
             
-            // 3. 計算實際毛利點數與百分比
-            const profitPoints = retail - baseCostPoints;
-            const margin = retail > 0 ? (profitPoints / retail) * 100 : (profitPoints < 0 ? -100 : 0);
-            
+            let retailInputHtml = '';
+            let profitDisplayHtml = '';
+            let margin = 0;
+            let profitPoints = 0;
+    
+            // 🌟 核心改進：如果偵測到 platformMap，顯示多平台輸入框
+            if (actionKey === 'PUBLISH_POST' && data.platformMap) {
+                retailInputHtml = `
+                    <div class="flex flex-col gap-2 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                        <div class="flex items-center justify-between text-[10px] text-gray-400">
+                            <span>FB</span>
+                            <input type="number" id="map_FB" value="${data.platformMap.FB}" onchange="adminApp.handleMapChange('FB', this.value)" class="w-12 bg-gray-800 border-gray-600 rounded p-1 text-center text-white">
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-gray-400">
+                            <span>IG</span>
+                            <input type="number" id="map_IG" value="${data.platformMap.IG}" onchange="adminApp.handleMapChange('IG', this.value)" class="w-12 bg-gray-800 border-gray-600 rounded p-1 text-center text-white">
+                        </div>
+                        <div class="flex items-center justify-between text-[10px] text-gray-400">
+                            <span>TH</span>
+                            <input type="number" id="map_THREADS" value="${data.platformMap.THREADS}" onchange="adminApp.handleMapChange('THREADS', this.value)" class="w-12 bg-gray-800 border-gray-600 rounded p-1 text-center text-white">
+                        </div>
+                    </div>
+                `;
+                // 動態定價的毛利暫以「三平台全發」作為基準參考
+                const totalRetail = Object.values(data.platformMap).reduce((a, b) => a + b, 0);
+                profitPoints = totalRetail - baseCostPoints;
+                margin = totalRetail > 0 ? (profitPoints / totalRetail) * 100 : 0;
+                profitDisplayHtml = `<div class="text-[9px] text-gray-500 italic mt-1">(以三平台全發計算)</div>`;
+            } else {
+                // 一般單一扣點模式
+                const retail = data.retailPoints || 0;
+                profitPoints = retail - baseCostPoints;
+                margin = retail > 0 ? (profitPoints / retail) * 100 : 0;
+                retailInputHtml = `
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="retail_${actionKey}" value="${retail}" onchange="adminApp.handleRetailChange('${actionKey}')" class="w-20 bg-gray-900 border border-gray-600 rounded p-1 text-white font-mono text-center focus:border-indigo-500 text-sm">
+                        <button onclick="adminApp.applySuggested('${actionKey}', ${suggested})" class="text-[10px] bg-indigo-600/20 text-indigo-400 px-2 py-1.5 rounded hover:bg-indigo-600 hover:text-white transition-colors font-bold border border-indigo-500/30">👉 套用</button>
+                    </div>
+                `;
+            }
+    
             let statusHtml = '';
-            let rowClass = 'transition-colors';
-            
-            // 🚨 毛利防呆視覺判定
+            let rowClass = 'transition-colors border-l-4 border-transparent hover:bg-gray-800/80';
             if (profitPoints < 0) {
                 statusHtml = `<div class="bg-red-900/50 text-red-400 px-2 py-1 rounded text-[10px] font-bold border border-red-700/50 inline-block text-center w-full">🚨 嚴重虧損</div>`;
                 rowClass = 'bg-red-900/20 border-l-4 border-red-500';
             } else if (margin < 50) {
                 statusHtml = `<div class="bg-yellow-900/50 text-yellow-400 px-2 py-1 rounded text-[10px] font-bold border border-yellow-700/50 inline-block text-center w-full">⚠️ 利潤偏低</div>`;
-                rowClass = 'bg-yellow-900/10 border-l-4 border-yellow-500';
             } else {
                 statusHtml = `<div class="bg-green-900/50 text-green-400 px-2 py-1 rounded text-[10px] font-bold border border-green-700/50 inline-block text-center w-full">✅ 健康獲利</div>`;
-                rowClass = 'border-l-4 border-transparent hover:bg-gray-800/80';
             }
-
+    
             tbody.innerHTML += `
                 <tr class="${rowClass}">
                     <td class="px-4 py-3 font-bold text-gray-200">${data.name} <br><span class="text-[9px] text-gray-500 font-mono tracking-wider">${actionKey}</span></td>
                     <td class="px-4 py-3 text-gray-400 font-mono">${data.baseCostTWD.toFixed(2)} <span class="text-[10px]">TWD</span></td>
                     <td class="px-4 py-3 text-indigo-400 font-mono font-bold">${suggested}</td>
-                    <td class="px-4 py-3">
-                        <div class="flex items-center gap-2">
-                            <input type="number" id="retail_${actionKey}" value="${retail}" onchange="adminApp.handleRetailChange('${actionKey}')" class="w-20 bg-gray-900 border border-gray-600 rounded p-1 text-white font-mono text-center focus:border-indigo-500 focus:outline-none text-sm">
-                            <button onclick="adminApp.applySuggested('${actionKey}', ${suggested})" class="text-[10px] bg-indigo-600/20 text-indigo-400 px-2 py-1.5 rounded hover:bg-indigo-600 hover:text-white transition-colors font-bold border border-indigo-500/30 shadow-sm whitespace-nowrap">👉 套用</button>
-                        </div>
-                    </td>
+                    <td class="px-4 py-3">${retailInputHtml}</td>
                     <td class="px-4 py-3">
                         <div class="font-bold font-mono ${profitPoints < 0 ? 'text-red-400' : 'text-green-400'}">${profitPoints > 0 ? '+' : ''}${Math.round(profitPoints)} <span class="text-[10px]">點</span></div>
                         <div class="text-[10px] ${margin < 50 ? 'text-yellow-400' : 'text-gray-500'}">利潤率: ${margin.toFixed(1)}%</div>
+                        ${profitDisplayHtml}
                     </td>
-                    <td class="px-4 py-3 flex justify-center items-center h-full">${statusHtml}</td>
+                    <td class="px-4 py-3 text-center">${statusHtml}</td>
                 </tr>
             `;
         }
+    },
+    
+    // 🌟 新增：處理 platformMap 的數值變動
+    handleMapChange(platform, value) {
+        if (!this.pricingConfig.actions.PUBLISH_POST.platformMap) return;
+        this.pricingConfig.actions.PUBLISH_POST.platformMap[platform] = parseInt(value) || 0;
+        this.updatePricingUI(); // 即時計算毛利變化
     },
 
     handleRetailChange(actionKey) {
