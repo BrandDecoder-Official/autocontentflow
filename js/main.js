@@ -147,9 +147,14 @@ window.executeWithRetry = async function(apiCallFn, role, actionName, maxRetries
             return result;
         } catch (error) {
             const errMsg = error.message || String(error);
+            // 這些錯誤不重試，直接爆開
             if (errMsg.includes('INVALID_ARGUMENT') || errMsg.includes('auth') || attempt === maxRetries) throw error;
+            
             const waitTime = Math.pow(2, attempt) * 1000 + Math.floor(Math.random() * 1000);
-            await window.addAgentLog(role, '🛡️', `偵測到「${actionName}」擁塞，重試中... (${Math.round(waitTime/1000)}秒)`, true);
+            
+            // 🌟 關鍵：這裡改用「非 Spinner」模式，避免圈圈無限疊加
+            await window.addAgentLog(role, '🛡️', `連線異常：${errMsg}。預計 ${Math.round(waitTime/1000)} 秒後進行第 ${attempt + 1} 次嘗試...`, false);
+            
             await new Promise(r => setTimeout(r, waitTime));
         }
     }
