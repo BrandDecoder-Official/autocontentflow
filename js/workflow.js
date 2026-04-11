@@ -17,7 +17,6 @@ export function openLightbox(imgSrc) {
     lightbox.classList.remove('hidden');
     lightbox.classList.add('flex');
     
-    // 強制重繪以觸發動畫
     void lightbox.offsetWidth;
     
     lightbox.classList.remove('opacity-0');
@@ -38,7 +37,7 @@ export function closeLightbox() {
         lightbox.classList.add('hidden');
         lightbox.classList.remove('flex');
         lightboxImg.src = '';
-    }, 300); // 對齊 transition-opacity 的時間
+    }, 300);
 }
 
 export async function setAppMode(mode) {
@@ -61,12 +60,18 @@ export async function setAppMode(mode) {
 }
 
 export function backToStep1() { document.getElementById('step2-review').classList.add('hidden'); document.getElementById('step1-setup').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-export function backToStep2() { document.getElementById('step3-publish').classList.add('hidden'); document.getElementById('step2-review').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+export function backToStep2() { 
+    document.getElementById('step3-publish').classList.add('hidden'); 
+    document.getElementById('step2-review').classList.remove('hidden'); 
+    document.getElementById('aiQuickReplies').classList.add('hidden'); // 隱藏微調選單
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+}
 
 export function resetToStep1() {
     document.getElementById('step3-publish').classList.add('hidden'); document.getElementById('step2-review').classList.add('hidden'); document.getElementById('step1-setup').classList.remove('hidden');
     STATE.currentTaskId = null; STATE.multiImages = []; document.getElementById('agentForm').reset();
     document.getElementById('characterList').innerHTML = ''; document.getElementById('scenePreview').innerHTML = ''; document.getElementById('objectPreview').innerHTML = '';
+    document.getElementById('aiQuickReplies').classList.add('hidden'); // 隱藏微調選單
     
     STATE.sceneFiles = [];
     STATE.objectFiles = [];
@@ -140,7 +145,7 @@ export async function submitNewCharacter() {
 export async function executeStep1Logic(payloadData) {
     const btnSubmit = document.getElementById('btnStep1Submit');
     const publishBtn = document.getElementById('btnPublish');
-    if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 立刻發射！'; }
+    if(publishBtn) { publishBtn.disabled = false; publishBtn.innerHTML = '🚀 執行發射任務'; }
 
     btnSubmit.disabled = true; btnSubmit.classList.replace('bg-blue-600', 'bg-gray-500');
     document.getElementById('btnTextStep1').innerHTML = '⚡ 執行中，請看右側進度...';
@@ -252,14 +257,21 @@ export async function submitForImageGeneration() {
         document.getElementById('step2-review').classList.add('hidden'); document.getElementById('step3-publish').classList.remove('hidden');
         document.getElementById('step3StyleBadge').innerText = `🎨 模式：${STATE.currentStyleName}`;
         
+        // 🌟 打開右側微調面板
+        const quickReplies = document.getElementById('aiQuickReplies');
+        if (quickReplies) quickReplies.classList.remove('hidden');
+        
         const finalContainer = document.getElementById('finalImageContainer'); finalContainer.className = 'w-full my-4'; 
         const mainAiImage = res.images.find(img => img.processType === 'AI_SYNTHESIS');
         
+        // ✨ 新增：文字質檢提醒 (極致 UX)
         if (mainAiImage && mainAiImage.qaStatus === 'ERROR') {
-             await window.addAgentLog('視覺工程師', '👁️', `報告總編，偵測到文字模糊，已為您開啟修復通道！<br><button onclick="window.retrySingleImage(0)" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">✨ 免費 VIP 重抽</button>`, false);
-        } else { await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字與畫風完美融合。', false); }
+             await window.addAgentLog('視覺工程師', '👁️', `報告總編，偵測到圖片文字有些許模糊或亂碼，已為您開啟免費修復通道！<br><button onclick="window.retrySingleImage(0)" class="mt-3 w-full text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-2 px-4 rounded-lg transition-colors shadow-sm text-center">✨ 偵測到亂碼：免費重繪一次</button>`, false);
+        } else { 
+            await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字與畫風完美融合。您可以直接發布，或在下方對話框下指令「微調畫面」。', false); 
+        }
 
-        finalContainer.innerHTML = `<div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative"><img id="finalRenderedImg_0" src="${res.images[0].finalUrl}" onclick="window.openLightbox(this.src)" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-zoom-in hover:shadow-lg transition-all animate-fade-in">${mainAiImage && mainAiImage.qaStatus === 'ERROR' ? `<span class="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-md">文字需修復</span>` : ''}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊放大檢視</p>`;
+        finalContainer.innerHTML = `<div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative"><img id="finalRenderedImg_0" src="${res.images[0].finalUrl}" onclick="window.openLightbox(this.src)" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-zoom-in hover:shadow-lg transition-all animate-fade-in">${mainAiImage && mainAiImage.qaStatus === 'ERROR' ? `<span class="absolute top-4 right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse shadow-md">建議免費重繪</span>` : ''}</div><p class="text-center text-[10px] text-gray-400 mt-2">💡 點擊放大檢視</p>`;
 
         let combinedCaption = document.getElementById('reviewCaption').value.trim();
         if (STATE.currentTags && STATE.currentTags.length > 0) combinedCaption += '\n\n' + STATE.currentTags.map(t => '#' + t.replace(/^#/, '').trim()).join(' ');
@@ -270,10 +282,53 @@ export async function submitForImageGeneration() {
     finally { btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖'; }
 }
 
+// ✨ 新增：導播間專用的微調下令函數
+window.sendAiCommand = async function(presetCommand) {
+    const inputEl = document.getElementById('aiChatInput');
+    const command = presetCommand || inputEl?.value.trim();
+    if (!command) return;
+    
+    if (inputEl) inputEl.value = ''; // 清空輸入框
+    
+    // 把使用者的指令印在對話框
+    await window.addAgentLog('總編指令', '🗣️', command, false);
+    
+    const imgEl = document.getElementById('finalRenderedImg_0');
+    if(imgEl) { imgEl.style.opacity = '0.5'; } // 讓圖片變半透明表示處理中
+    
+    await window.addAgentLog('美術總監', '👨‍🎨', `收到指令「${command}」，正在為您不回頭重繪...`, true);
+
+    try {
+        // 利用原本的 regen 通道，把 command 塞進 editedPanels 或是作為隱藏 prompt 送出
+        // 這裡我們巧妙地把它附加在 dialogue 裡讓後端知道這是「微調指令」
+        const editedPanels = [{ panel_number: 1, dialogue: `[微調指令: ${command}]` }]; 
+        
+        const res = await window.executeWithRetry(async () => { 
+            const r = await fetch('/api/content/regenerate-single', { 
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ taskId: STATE.currentTaskId, tenantId: window.getTenantIdFromToken(), imageIndex: 0, editedPanels, isRevision: true }) 
+            }); 
+            return r.json(); 
+        }, '算圖農場', '即時微調');
+        
+        if (!res.success) throw new Error(res.message);
+        
+        if(imgEl) { 
+            imgEl.src = res.image.finalUrl; 
+            imgEl.style.opacity = '1';
+            const badge = imgEl.parentElement.querySelector('.bg-red-500'); if(badge) badge.remove(); 
+        }
+        await window.addAgentLog('美術總監', '✨', `微調完成！請確認新畫面。`, false);
+    } catch (e) { 
+        if(imgEl) imgEl.style.opacity = '1';
+        await window.addAgentLog('系統警報', '🚨', `微調失敗: ${e.message}`); 
+    }
+};
+
 export async function retrySingleImage(index) {
     const btn = window.event?.target;
     if(btn) { btn.disabled = true; btn.innerHTML = '⚙️ 系統重繪中...'; }
-    await window.addAgentLog('視覺工程師', '⚙️', '收到！正在啟動免扣點通道為您重新繪製，請稍候...', true);
+    await window.addAgentLog('視覺工程師', '⚙️', '收到！正在啟動免費通道為您修復文字，請稍候...', true);
 
     try {
         const editedPanels = [];
@@ -283,26 +338,49 @@ export async function retrySingleImage(index) {
         if (!res.success) throw new Error(res.message);
         const imgEl = document.getElementById(`finalRenderedImg_${index}`);
         if(imgEl) { imgEl.src = res.image.finalUrl; const badge = imgEl.parentElement.querySelector('.bg-red-500'); if(badge) badge.remove(); }
-        if(btn) { btn.innerHTML = '✅ 修復完成'; btn.className = 'mt-3 text-xs bg-green-100 text-green-600 font-bold border border-green-200 py-1.5 px-4 rounded-full shadow-sm'; }
-        if (res.image.qaStatus === 'ERROR') await window.addAgentLog('視覺工程師', '⚠️', `修復完畢，但文字還是不太對。您可以選擇再抽一次！<br><button onclick="window.retrySingleImage(${index})" class="mt-3 text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-1.5 px-4 rounded-full transition-colors shadow-sm">🔄 再抽一次</button>`, false);
-        else await window.addAgentLog('視覺工程師', '✨', '修復完美成功！', false);
-    } catch (e) { await window.addAgentLog('系統警報', '🚨', `修復失敗: ${e.message}`); if(btn) { btn.disabled = false; btn.innerHTML = '🔄 重新嘗試'; } }
+        if(btn) { btn.parentElement.innerHTML = '<span class="text-xs text-green-600 font-bold">✅ 已完成修復</span>'; }
+        
+        if (res.image.qaStatus === 'ERROR') {
+            await window.addAgentLog('視覺工程師', '⚠️', `修復完畢，但 AI 覺得文字還是有風險。您可以選擇手動發布，或再免費抽一次！<br><button onclick="window.retrySingleImage(${index})" class="mt-3 w-full text-xs bg-red-100 hover:bg-red-500 hover:text-white text-red-600 font-bold border border-red-200 py-2 px-4 rounded-lg transition-colors shadow-sm text-center">🔄 再免費抽一次</button>`, false);
+        } else {
+            await window.addAgentLog('視覺工程師', '✨', '修復完美成功！文字已經清晰可見。', false);
+        }
+    } catch (e) { await window.addAgentLog('系統警報', '🚨', `修復失敗: ${e.message}`); if(btn) { btn.disabled = false; btn.innerHTML = '🔄 重新嘗試修復'; } }
 }
 
 export async function publishToSocial(manualRetryPlatforms = null) {
     const btn = document.getElementById('btnPublish');
-    const scheduleTime = document.getElementById('scheduleTime').value;
-    const scheduledAt = scheduleTime ? new Date(scheduleTime).toISOString() : null;
+    
+    // ✨ 新增：判斷排程或立即發布
+    const isScheduleMode = !document.getElementById('scheduleTimeContainer').classList.contains('hidden');
+    let scheduledAt = null;
+
+    if (isScheduleMode) {
+        const timeVal = document.getElementById('scheduleTime').value;
+        if (!timeVal) return showToast('❌ 請選擇排程時間！', 'error');
+        // 轉為 UTC 時間存入資料庫
+        scheduledAt = new Date(timeVal).toISOString();
+    }
     
     btn.disabled = true; window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('社群總監', scheduledAt ? '🗓️' : '🚀', scheduledAt ? `排程任務寫入中...` : '啟動發射程序...', true, btn);
+    await window.addAgentLog('社群總監', scheduledAt ? '🗓️' : '🚀', scheduledAt ? `收到排程指令！預約時間寫入中...` : '啟動立即發射程序...', true, btn);
 
     let currentAttempt = 0, targetPlatforms = manualRetryPlatforms, finalFailedPlatforms = [];
     try {
+        // ✨ 新增：排程模式先扣點
+        if (scheduledAt) {
+            // 注意：這裡假設後端發布 API 如果收到 scheduledAt 會自動處理狀態
+            // 未來如果接上金流，可以在這裡調用扣點 UI
+            if(window.showPointDeduction) window.showPointDeduction(btn, 1); 
+            await window.addAgentLog('財務總監', '💳', `(排程任務預扣 1 點算力)`, false);
+        }
+
         while (currentAttempt <= 1) {
             const res = await window.executeWithRetry(() => API.publishContentAPI({ taskId: STATE.currentTaskId, tenantId: window.getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt, retryPlatforms: targetPlatforms }), '社群總監', '社群發射');
-            if (res.failedPlatforms && res.failedPlatforms.length > 0) {
-                if (currentAttempt < 1 && !scheduledAt) {
+            
+            // 如果是排程模式，通常 API 回傳就會直接成功，不會去敲 FB API 導致 failedPlatforms
+            if (!scheduledAt && res.failedPlatforms && res.failedPlatforms.length > 0) {
+                if (currentAttempt < 1) {
                     await window.addAgentLog('社群總監', '🔄', `偵測到 [${res.failedPlatforms.join(', ')}] 無回應。自動修復中...`, true);
                     currentAttempt++; targetPlatforms = res.failedPlatforms; await new Promise(r => setTimeout(r, 3000)); continue; 
                 } else { finalFailedPlatforms = res.failedPlatforms; break; }
@@ -311,18 +389,24 @@ export async function publishToSocial(manualRetryPlatforms = null) {
 
         if (finalFailedPlatforms.length > 0) {
             await window.addAgentLog('社群總監', '⚠️', `發射失敗：[${finalFailedPlatforms.join(', ')}]。請檢查 Meta 授權。`, false);
-            btn.innerHTML = '🔄 重試失敗平台'; btn.classList.replace('bg-gray-500', 'bg-yellow-500'); btn.disabled = false; btn.onclick = () => window.publishToSocial(finalFailedPlatforms);
+            btn.innerHTML = '🔄 重試失敗平台'; btn.classList.replace('bg-blue-600', 'bg-yellow-500'); btn.disabled = false; btn.onclick = () => window.publishToSocial(finalFailedPlatforms);
             return showToast(`⚠️ 部分發布失敗，請重試！`, 'warning');
         }
 
-        if(window.showPointDeduction) window.showPointDeduction(btn, STATE.globalPricing?.PUBLISH_POST?.retailPoints ?? 5); 
-        await window.addAgentLog('系統管理員', '✅', scheduledAt ? '排程成功！' : '發送成功！', false);
-        btn.innerHTML = scheduledAt ? '✅ 預約成功！' : '✅ 發布成功！'; btn.classList.replace('bg-green-600', 'bg-gray-500');
-        showToast('🎉 任務大成功！', 'success');
+        // 立即發射的扣點 (原本是 5 點，依您的定價為準)
+        if (!scheduledAt && window.showPointDeduction) {
+            window.showPointDeduction(btn, STATE.globalPricing?.PUBLISH_POST?.retailPoints ?? 5); 
+        }
+
+        await window.addAgentLog('系統管理員', '✅', scheduledAt ? '排程已成功寫入大腦！工頭將會準時發布。' : '發送成功！內容已同步至社群。', false);
+        btn.innerHTML = scheduledAt ? '✅ 排程設定完成' : '✅ 任務大成功'; 
+        btn.classList.replace('bg-blue-600', 'bg-green-600');
+        showToast(scheduledAt ? '📅 排程已就緒！' : '🎉 任務大成功！', 'success');
 
         if (!scheduledAt && typeof confetti === 'function') { const d=2000, e=Date.now()+d; (function f() { confetti({particleCount:4,angle:60,spread:55,origin:{x:0}}); confetti({particleCount:4,angle:120,spread:55,origin:{x:1}}); if(Date.now()<e) requestAnimationFrame(f); }()); }
-        setTimeout(() => { btn.disabled=false; btn.classList.replace('bg-gray-500','bg-blue-600'); btn.innerHTML='✨ 再來一篇！'; btn.onclick=window.resetToStep1; }, 2500);
-    } catch (e) { await window.addAgentLog('系統警報', '🚨', `失敗: ${e.message}`); showToast(`❌ 失敗`, 'error'); btn.disabled=false; btn.innerHTML='🚀 重試'; btn.onclick=() => window.publishToSocial(targetPlatforms); }
+        
+        setTimeout(() => { btn.disabled=false; btn.classList.replace('bg-green-600','bg-blue-600'); btn.innerHTML='✨ 再來一篇！'; btn.onclick=window.resetToStep1; }, 3000);
+    } catch (e) { await window.addAgentLog('系統警報', '🚨', `失敗: ${e.message}`); showToast(`❌ 失敗`, 'error'); btn.disabled=false; btn.innerHTML='🚀 重新嘗試發射'; btn.onclick=() => window.publishToSocial(targetPlatforms); }
 }
 
 export async function resumeTaskWithStyle(styleId) {
