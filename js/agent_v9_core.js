@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 
 // 🌟 版本控制號
-const APP_VERSION = "V0.11版";
+const APP_VERSION = "V0.12版";
 
 // 🚀 任務卷宗
 const MISSION = {
@@ -40,7 +40,6 @@ const MOCK_STYLES = {
     ]
 };
 
-// 🌟 V0.11 基因庫 Mock 資料：加入 type 分類
 const MOCK_CHARACTERS = [
     { name: '老K', type: 'REALISTIC', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=K&backgroundColor=b6e3f4' },
     { name: '艾莉', type: 'REALISTIC', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elly&backgroundColor=c0aede' },
@@ -48,12 +47,33 @@ const MOCK_CHARACTERS = [
     { name: '雷歐', type: 'COMIC', imageUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=d1d4f9' }
 ];
 
+// ==========================================
+// 🛡️ 核心防呆：檢查卷宗是否 100% 完整
+// ==========================================
+function isMissionComplete() {
+    if (MISSION.platforms.length === 0) return false;
+    if (!MISSION.topic) return false;
+    if (!MISSION.universe) return false;
+    if (!MISSION.style) return false;
+    
+    // 依據不同宇宙檢查對應的素材是否齊全
+    if (MISSION.universe === 'ENHANCE') {
+        if (MISSION.sceneFiles.length === 0) return false; // 美化模式必須要有原圖
+    } else {
+        if (MISSION.characters.length === 0) return false; // 生成模式必須要有角色
+    }
+    return true;
+}
+
+// ==========================================
+// 🚀 核心：初始化與流程控制
+// ==========================================
 export async function initAgentFunnel() {
     updateStepHeader("SYSTEM READY");
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，UI 內聚優化與基因隔離防呆已上線。`);
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，全局狀態檢驗器已掛載。未補齊所有參數前，絕不允許進入發包摘要！`);
     await triggerPlatformSkill();
 }
 
@@ -77,7 +97,9 @@ async function triggerPlatformSkill() {
         if (selected.length === 0) return alert('⚠️ 系統防呆：請至少選擇一個平台！');
         MISSION.platforms = selected; lockUI(ui);
         await addLog("社群總監", "✅", `已鎖定平台：${selected.join(' / ')}。`);
-        if (IS_EDIT_MODE) { IS_EDIT_MODE = false; await triggerMissionSummary(); } else { await unlockTopicInput(); }
+        
+        // 🌟 智能檢測：如果是在修改模式，且所有資料都齊全，才回總覽
+        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await unlockTopicInput(); }
     };
 }
 
@@ -97,7 +119,8 @@ async function unlockTopicInput() {
         MISSION.topic = val;
         input.value = ""; input.disabled = true; input.classList.replace('input-active', 'input-locked'); btn.disabled = true;
         await addLog("總編指令", "🗣️", val);
-        if (IS_EDIT_MODE) { IS_EDIT_MODE = false; await triggerMissionSummary(); } else { await triggerUniverseSkill(); }
+        
+        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); }
     };
 }
 
@@ -122,17 +145,23 @@ async function triggerUniverseSkill() {
 
     ui.querySelectorAll('.uni-btn').forEach(btn => {
         btn.onclick = async () => {
-            const oldUniverse = MISSION.universe; MISSION.universe = btn.dataset.val; MISSION.style = ''; 
+            const oldUniverse = MISSION.universe; 
+            MISSION.universe = btn.dataset.val; 
             
-            // 🌟 宇宙切換時，強制清空舊的角色，避免混血！
-            MISSION.characters = []; 
-
-            if (MISSION.universe === 'ENHANCE') { MISSION.ratio = '原圖比例'; } 
-            else if (oldUniverse === 'ENHANCE') { MISSION.ratio = '9:16'; }
+            // 🌟 核心修復：只要宇宙被切換了，相關的風格跟素材都必須「強制清空重選」
+            if (oldUniverse !== MISSION.universe) {
+                MISSION.style = ''; 
+                MISSION.characters = []; 
+                MISSION.sceneFiles = []; // 清空圖片避免衝突
+                if (MISSION.universe === 'ENHANCE') { MISSION.ratio = '原圖比例'; } 
+                else { MISSION.ratio = '9:16'; }
+            }
             
             lockUI(ui);
             const uniName = MISSION.universe === 'REALISTIC' ? '真實攝影' : (MISSION.universe === 'COMIC' ? '2D 動漫' : '原圖美化模式');
-            await addLog("美術總監", "✅", `已切換至「${uniName}」。基因庫已切換對應過濾。`);
+            await addLog("美術總監", "✅", `已切換至「${uniName}」。`);
+            
+            // 注意：這裡不判斷 isMissionComplete，因為選完宇宙，風格一定是空的，強制導向風格選擇
             await triggerStyleSkill();
         };
     });
@@ -153,19 +182,21 @@ async function triggerStyleSkill() {
         btn.onclick = async () => {
             MISSION.style = btn.dataset.val; lockUI(ui);
             await addLog("美術總監", "✅", `${prefixStr}已鎖定為「${btn.dataset.name}」。`);
-            if (IS_EDIT_MODE) { IS_EDIT_MODE = false; await triggerMissionSummary(); } else { await triggerVisualSkill(); }
+            
+            // 🌟 智能檢測：這時系統會發現 characters 是空的，isMissionComplete = false
+            // 所以它會乖乖進入 triggerVisualSkill 讓您選角色，不會提早跳回總覽！
+            if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); }
         };
     });
 }
 
-/** 🛠️ Skill 5: 視覺參數 (🌟 V0.11: 絕對 UI 內聚，不再產生氣泡對話) */
+/** 🛠️ Skill 5: 視覺參數 */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
     const isEnhance = MISSION.universe === 'ENHANCE';
     let promptMsg = isEnhance ? "偵測為美化模式。請【務必上傳原圖】，角色與比例已鎖定：" : "最後，請確認畫面參數，並【務必召喚至少一位角色】：";
     await addLog("美術總監", "👨‍🎨", promptMsg, true);
 
-    // 🔒 確保畫面上舊的「鎖定參數」按鈕徹底失效
     document.querySelectorAll('.accept-visual-btn').forEach(btn => {
         btn.disabled = true;
         btn.classList.add('opacity-40', 'cursor-not-allowed', 'border', 'border-red-500/50');
@@ -239,32 +270,25 @@ async function triggerVisualSkill() {
     };
 
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
-        if (isEnhance && MISSION.sceneFiles.length === 0) return alert('⚠️ 系統防呆：請上傳需要美化的原圖！');
-        if (!isEnhance && MISSION.characters.length === 0) return alert('⚠️ 系統防呆：您尚未召喚任何角色！');
-        
-        lockUI(ui); IS_EDIT_MODE = false; await triggerMissionSummary(); 
+        if (!isMissionComplete()) {
+            if (isEnhance) return alert('⚠️ 系統防呆：請上傳需要美化的原圖！');
+            else return alert('⚠️ 系統防呆：您尚未召喚任何角色！');
+        }
+        lockUI(ui); await triggerMissionSummary(); 
     };
 }
 
-// 🌟 V0.11: 智能隔離角色庫，並將狀態更新綁定在卡片內部
 async function triggerCharacterPicker(container) {
-    // 防呆：如果已經打開過，先清掉舊的
     const existingPicker = container.querySelector('.char-picker-panel');
     if (existingPicker) existingPicker.remove();
 
-    // 🌟 基因隔離邏輯：根據當前宇宙過濾角色
     const availableChars = MOCK_CHARACTERS.filter(c => c.type === MISSION.universe);
-
     const pickerPanel = document.createElement('div');
     pickerPanel.className = 'char-picker-panel bg-slate-900/30 rounded-xl border border-white/5 p-3 animate-fade-in';
     
-    // 狀態提示列
     const statusDiv = document.createElement('div');
     statusDiv.className = 'flex justify-between items-center mb-2';
-    statusDiv.innerHTML = `
-        <span class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">目前名單：<span class="text-white" id="selectedCharText">${MISSION.characters.join(', ') || '尚未選擇'}</span></span>
-        <span class="text-[10px] text-slate-500 cursor-pointer hover:text-white" onclick="if(window.openCharacterLib) window.openCharacterLib();">⚙️ 管理基因庫</span>
-    `;
+    statusDiv.innerHTML = `<span class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">目前名單：<span class="text-white" id="selectedCharText">${MISSION.characters.join(', ') || '尚未選擇'}</span></span><span class="text-[10px] text-slate-500 cursor-pointer hover:text-white" onclick="if(window.openCharacterLib) window.openCharacterLib();">⚙️ 管理基因庫</span>`;
     pickerPanel.appendChild(statusDiv);
 
     const charListDiv = document.createElement('div'); 
@@ -277,13 +301,7 @@ async function triggerCharacterPicker(container) {
             const isSelected = MISSION.characters.includes(char.name);
             const card = document.createElement('div'); 
             card.className = `flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group transition-all ${isSelected ? 'opacity-50 ring-2 ring-blue-500 rounded-full' : ''}`;
-            card.innerHTML = `
-                <div class="w-12 h-12 rounded-full border-2 border-slate-700 group-hover:border-blue-400 overflow-hidden shadow-lg bg-slate-800">
-                    <img src="${char.imageUrl}" class="w-full h-full object-cover">
-                </div>
-                <span class="text-[9px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>
-            `;
-            
+            card.innerHTML = `<div class="w-12 h-12 rounded-full border-2 border-slate-700 group-hover:border-blue-400 overflow-hidden shadow-lg bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[9px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
             card.onclick = () => { 
                 if (!MISSION.characters.includes(char.name)) { 
                     MISSION.characters.push(char.name); 
@@ -300,26 +318,22 @@ async function triggerCharacterPicker(container) {
     document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
-// 🌟 V0.11: 素材預覽也改為內部更新，不產生新對話
 async function handleAssetUpload(files, container) {
     const previewDiv = document.createElement('div'); previewDiv.className = 'flex flex-wrap gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in';
-    
-    // 狀態提示
-    const statusDiv = document.createElement('div');
-    statusDiv.className = 'w-full mb-2 text-[10px] text-blue-400 font-bold uppercase tracking-widest';
-    statusDiv.innerText = `📸 已成功載入 ${files.length} 張素材`;
-    previewDiv.appendChild(statusDiv);
+    const statusDiv = document.createElement('div'); statusDiv.className = 'w-full mb-2 text-[10px] text-blue-400 font-bold uppercase tracking-widest'; statusDiv.innerText = `📸 已成功載入 ${files.length} 張素材`; previewDiv.appendChild(statusDiv);
 
     for (let file of files) {
         MISSION.sceneFiles.push(file); const reader = new FileReader(); reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-12 h-12 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; }; reader.readAsDataURL(file);
     }
-    
     container.appendChild(previewDiv);
     document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 /** 🛠️ Skill 6: 任務最終摘要 */
 async function triggerMissionSummary() {
+    // 🌟 進入摘要就代表一切齊全，重置編輯模式標記
+    IS_EDIT_MODE = false;
+
     updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認發布清單，無誤後我們將請「首席文案」開始編撰腳本：", true);
 
@@ -385,69 +399,25 @@ async function triggerDraftReviewSkill(draft) {
     await addLog("專案總監", "👨‍💼", "總編，腳本已出爐！您可以檢視並決定「發布排程」：", true);
 
     let timeOptions = '';
-    for(let h=0; h<24; h++) {
-        const hh = h.toString().padStart(2, '0');
-        ['00', '15', '30', '45'].forEach(mm => { timeOptions += `<option value="${hh}:${mm}">${hh}:${mm}</option>`; });
-    }
+    for(let h=0; h<24; h++) { const hh = h.toString().padStart(2, '0'); ['00', '15', '30', '45'].forEach(mm => { timeOptions += `<option value="${hh}:${mm}">${hh}:${mm}</option>`; }); }
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
-            ${MISSION.universe !== 'ENHANCE' ? `
-            <div class="bg-indigo-900/30 p-3 rounded-xl border border-indigo-500/40">
-                <p class="text-[10px] text-indigo-300 font-black mb-2 uppercase">👗 外觀裝扮建議</p>
-                <textarea class="w-full bg-slate-800/50 border border-white/5 rounded-lg p-2 text-xs text-white resize-none" rows="1">依照「${MISSION.topic}」搭配</textarea>
-            </div>` : ''}
-            <div>
-                <p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📝 貼文內文 (可編輯)</p>
-                <textarea class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-sm text-white resize-none" rows="3">${draft.caption}</textarea>
+            ${MISSION.universe !== 'ENHANCE' ? `<div class="bg-indigo-900/30 p-3 rounded-xl border border-indigo-500/40"><p class="text-[10px] text-indigo-300 font-black mb-2 uppercase">👗 外觀裝扮建議</p><textarea class="w-full bg-slate-800/50 border border-white/5 rounded-lg p-2 text-xs text-white resize-none" rows="1">依照「${MISSION.topic}」搭配</textarea></div>` : ''}
+            <div><p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📝 貼文內文 (可編輯)</p><textarea class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-sm text-white resize-none" rows="3">${draft.caption}</textarea></div>
+            <div class="mt-4 pt-4 border-t border-white/10"><p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📅 發布排程 (Schedule)</p>
+                <div class="flex gap-2 mb-3"><button id="btnSchNow" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg">🚀 立即發布</button><button id="btnSchLater" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all">🕒 預約排程</button></div>
+                <div id="schPanel" class="hidden flex gap-2 animate-fade-in bg-slate-800/50 p-3 rounded-xl border border-white/5"><input type="date" id="schDate" class="w-1/2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500"><select id="schTime" class="w-1/2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500">${timeOptions}</select></div>
             </div>
-            
-            <div class="mt-4 pt-4 border-t border-white/10">
-                <p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📅 發布排程 (Schedule)</p>
-                <div class="flex gap-2 mb-3">
-                    <button id="btnSchNow" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg">🚀 立即發布</button>
-                    <button id="btnSchLater" class="flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all">🕒 預約排程</button>
-                </div>
-                <div id="schPanel" class="hidden flex gap-2 animate-fade-in bg-slate-800/50 p-3 rounded-xl border border-white/5">
-                    <input type="date" id="schDate" class="w-1/2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500">
-                    <select id="schTime" class="w-1/2 bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500 custom-select">
-                        ${timeOptions}
-                    </select>
-                </div>
-            </div>
-
-            <button id="btnRender" class="w-full bg-green-600 hover:bg-green-500 py-5 rounded-xl font-black text-sm shadow-[0_0_20px_rgba(22,163,74,0.4)] mt-2 transition-all">
-                <span>🎨 確認無誤，扣點算圖並發布</span>
-            </button>
+            <button id="btnRender" class="w-full bg-green-600 hover:bg-green-500 py-5 rounded-xl font-black text-sm shadow-[0_0_20px_rgba(22,163,74,0.4)] mt-2 transition-all"><span>🎨 確認無誤，扣點算圖並發布</span></button>
         </div>
     `);
 
-    ui.querySelector('#btnSchNow').onclick = () => {
-        MISSION.scheduleMode = 'NOW';
-        ui.querySelector('#btnSchNow').className = "flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg";
-        ui.querySelector('#btnSchLater').className = "flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all";
-        ui.querySelector('#schPanel').classList.add('hidden');
-        ui.querySelector('#btnRender span').innerText = "🎨 確認無誤，扣點算圖並發布";
-    };
-
-    ui.querySelector('#btnSchLater').onclick = () => {
-        MISSION.scheduleMode = 'LATER';
-        ui.querySelector('#btnSchLater').className = "flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg";
-        ui.querySelector('#btnSchNow').className = "flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all";
-        ui.querySelector('#schPanel').classList.remove('hidden');
-        ui.querySelector('#btnRender span').innerText = "📅 扣點算圖，並加入排程佇列";
-        const today = new Date().toISOString().split('T')[0]; ui.querySelector('#schDate').value = today;
-    };
-
-    ui.querySelector('#btnRender').onclick = async () => {
-        if(MISSION.scheduleMode === 'LATER' && !ui.querySelector('#schDate').value) return alert("⚠️ 請選擇預約排程的日期！");
-        lockUI(ui); 
-        const statusMsg = MISSION.scheduleMode === 'LATER' ? "任務已加入排程佇列！正在啟動背景算圖..." : "腳本定案！正式啟動視覺引擎渲染...";
-        await addLog("美術總監", "🎨", statusMsg, true);
-    };
+    ui.querySelector('#btnSchNow').onclick = () => { MISSION.scheduleMode = 'NOW'; ui.querySelector('#btnSchNow').className = "flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg"; ui.querySelector('#btnSchLater').className = "flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all"; ui.querySelector('#schPanel').classList.add('hidden'); ui.querySelector('#btnRender span').innerText = "🎨 確認無誤，扣點算圖並發布"; };
+    ui.querySelector('#btnSchLater').onclick = () => { MISSION.scheduleMode = 'LATER'; ui.querySelector('#btnSchLater').className = "flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg"; ui.querySelector('#btnSchNow').className = "flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all"; ui.querySelector('#schPanel').classList.remove('hidden'); ui.querySelector('#btnRender span').innerText = "📅 扣點算圖，並加入排程佇列"; ui.querySelector('#schDate').value = new Date().toISOString().split('T')[0]; };
+    ui.querySelector('#btnRender').onclick = async () => { if(MISSION.scheduleMode === 'LATER' && !ui.querySelector('#schDate').value) return alert("⚠️ 請選擇預約排程的日期！"); lockUI(ui); await addLog("美術總監", "🎨", MISSION.scheduleMode === 'LATER' ? "任務已加入排程佇列！" : "腳本定案！正式啟動視覺引擎渲染...", true); };
 }
 
-// 輔助工具
 function updateStepHeader(name) { document.getElementById('missionStep').innerText = name; }
 function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none'); }
 function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
