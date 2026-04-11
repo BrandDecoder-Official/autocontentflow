@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 
 // 🌟 版本控制號
-const APP_VERSION = "V0.8版";
+const APP_VERSION = "V0.10版";
 
 // 🚀 任務卷宗
 const MISSION = {
@@ -15,7 +15,7 @@ const MISSION = {
     characters: [],
     sceneFiles: [],
     objectFiles: [],
-    scheduleMode: 'NOW', // NOW 或 LATER
+    scheduleMode: 'NOW', 
     scheduleDate: '',
     scheduleTime: ''
 };
@@ -49,7 +49,7 @@ export async function initAgentFunnel() {
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，發布排程系統已實裝。我們開始吧！`);
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，UI 內聚與歷史防呆已啟動。我們開始吧！`);
     await triggerPlatformSkill();
 }
 
@@ -149,15 +149,24 @@ async function triggerStyleSkill() {
     });
 }
 
-/** 🛠️ Skill 5: 視覺參數 */
+/** 🛠️ Skill 5: 視覺參數 (🌟 V0.10 核心修復：UI 內聚與全局鎖定) */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
     const isEnhance = MISSION.universe === 'ENHANCE';
     let promptMsg = isEnhance ? "偵測為美化模式。請【務必上傳原圖】，角色與比例已鎖定：" : "最後，請確認畫面參數，並【務必召喚至少一位角色】：";
     await addLog("美術總監", "👨‍🎨", promptMsg, true);
 
+    // 🔒 總編要求的防呆：把畫面上舊的「鎖定參數」按鈕全部失效，防止誤點！
+    document.querySelectorAll('.accept-visual-btn').forEach(btn => {
+        btn.disabled = true;
+        btn.classList.add('opacity-40', 'cursor-not-allowed', 'border', 'border-red-500/50');
+        btn.classList.remove('accept-visual-btn', 'bg-blue-600', 'hover:bg-blue-500');
+        btn.classList.add('bg-slate-800', 'text-slate-500');
+        btn.innerHTML = '🔒 已失效 (請使用下方最新卡片)';
+    });
+
     const ui = createSkillUI(`
-        <div class="space-y-6">
+        <div class="space-y-6 flex flex-col">
             <div class="bg-blue-600/10 p-5 rounded-2xl border border-blue-500/30">
                 <p class="text-[10px] text-blue-400 font-black mb-3 tracking-[0.2em] uppercase text-center">👇 點擊下方區塊可展開修改選項</p>
                 <div class="grid grid-cols-2 gap-3" id="summaryTags">
@@ -196,7 +205,10 @@ async function triggerVisualSkill() {
                 <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-2xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-600/40 transition-colors ${isEnhance ? 'opacity-30 cursor-not-allowed' : ''}"><span class="text-lg">🧬</span> 召喚角色基因</button>
                 <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-2xl text-xs font-black border ${isEnhance ? 'border-yellow-500 bg-yellow-600/20' : 'border-white/10 hover:bg-slate-700'} transition-all"><span class="text-lg">📸</span> 上傳場景圖(原圖)</button>
             </div>
-            <button id="btnAcceptVisual" class="w-full bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(59,130,246,0.4)]">✅ 鎖定參數</button>
+            
+            <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
+
+            <button id="btnAcceptVisual" class="accept-visual-btn w-full bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(59,130,246,0.4)] mt-auto">✅ 鎖定參數</button>
         </div>
     `);
 
@@ -206,7 +218,8 @@ async function triggerVisualSkill() {
         ui.querySelectorAll('.ratio-btn').forEach(btn => {
             btn.onclick = () => { MISSION.ratio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; };
         });
-        ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker();
+        // 將動態容器傳入，確保角色清單長在卡片裡面！
+        ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
     }
     ui.querySelectorAll('.res-btn').forEach(btn => {
         btn.onclick = () => { MISSION.resolution = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = MISSION.resolution; };
@@ -214,17 +227,19 @@ async function triggerVisualSkill() {
     
     ui.querySelector('#btnUploadScene').onclick = () => {
         const input = document.createElement('input'); input.type = 'file'; input.multiple = true;
-        input.onchange = (e) => handleAssetUpload(e.target.files); input.click();
+        // 將動態容器傳入
+        input.onchange = (e) => handleAssetUpload(e.target.files, ui.querySelector('#dynamicAssetsArea')); input.click();
     };
 
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
         if (isEnhance && MISSION.sceneFiles.length === 0) return alert('⚠️ 系統防呆：請上傳需要美化的原圖！');
         if (!isEnhance && MISSION.characters.length === 0) return alert('⚠️ 系統防呆：您尚未召喚任何角色！');
+        
         lockUI(ui); IS_EDIT_MODE = false; await triggerMissionSummary(); 
     };
 }
 
-/** 🛠️ Skill 6: 任務最終摘要 (🌟 V0.8 修復：角色/素材 加入 ✎ 連動) */
+/** 🛠️ Skill 6: 任務最終摘要 */
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認發布清單，無誤後我們將請「首席文案」開始編撰腳本：", true);
@@ -286,18 +301,14 @@ async function executeDraftSim() {
     await triggerDraftReviewSkill(mockDraft);
 }
 
-/** 🛠️ Skill 8: 腳本審閱 (🌟 V0.8: 加入強大的排程模組) */
 async function triggerDraftReviewSkill(draft) {
     updateStepHeader("DRAFT REVIEW");
     await addLog("專案總監", "👨‍💼", "總編，腳本已出爐！您可以檢視並決定「發布排程」：", true);
 
-    // 產生 15 分鐘區間的時間選項
     let timeOptions = '';
     for(let h=0; h<24; h++) {
         const hh = h.toString().padStart(2, '0');
-        ['00', '15', '30', '45'].forEach(mm => {
-            timeOptions += `<option value="${hh}:${mm}">${hh}:${mm}</option>`;
-        });
+        ['00', '15', '30', '45'].forEach(mm => { timeOptions += `<option value="${hh}:${mm}">${hh}:${mm}</option>`; });
     }
 
     const ui = createSkillUI(`
@@ -332,7 +343,6 @@ async function triggerDraftReviewSkill(draft) {
         </div>
     `);
 
-    // 🌟 排程切換邏輯
     ui.querySelector('#btnSchNow').onclick = () => {
         MISSION.scheduleMode = 'NOW';
         ui.querySelector('#btnSchNow').className = "flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold border border-indigo-500 transition-all shadow-lg";
@@ -347,48 +357,60 @@ async function triggerDraftReviewSkill(draft) {
         ui.querySelector('#btnSchNow').className = "flex-1 bg-slate-800 text-slate-400 py-3 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 hover:text-white transition-all";
         ui.querySelector('#schPanel').classList.remove('hidden');
         ui.querySelector('#btnRender span').innerText = "📅 扣點算圖，並加入排程佇列";
-        
-        // 預設填入今天的日期
-        const today = new Date().toISOString().split('T')[0];
-        ui.querySelector('#schDate').value = today;
+        const today = new Date().toISOString().split('T')[0]; ui.querySelector('#schDate').value = today;
     };
 
     ui.querySelector('#btnRender').onclick = async () => {
-        if(MISSION.scheduleMode === 'LATER' && !ui.querySelector('#schDate').value) {
-            return alert("⚠️ 請選擇預約排程的日期！");
-        }
+        if(MISSION.scheduleMode === 'LATER' && !ui.querySelector('#schDate').value) return alert("⚠️ 請選擇預約排程的日期！");
         lockUI(ui); 
         const statusMsg = MISSION.scheduleMode === 'LATER' ? "任務已加入排程佇列！正在啟動背景算圖..." : "腳本定案！正式啟動視覺引擎渲染...";
         await addLog("美術總監", "🎨", statusMsg, true);
     };
 }
 
-// --- 角色與素材牆 (包含側欄連動) ---
-async function triggerCharacterPicker() {
+// 🌟 V0.10: 支援注入指定容器
+async function triggerCharacterPicker(container = null) {
     const charData = STATE.lastSystemData?.characters || [
         { name: '老K', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=K' },
         { name: '米亞', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia' }
     ];
-    const charDiv = document.createElement('div'); charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar mb-6 items-center';
+    const charDiv = document.createElement('div'); charDiv.className = 'flex gap-4 overflow-x-auto py-2 px-1 no-scrollbar items-center bg-slate-900/30 rounded-xl border border-white/5';
     
     const manageBtn = document.createElement('div');
-    manageBtn.className = 'flex-shrink-0 flex flex-col items-center justify-center w-14 h-14 rounded-full border border-dashed border-indigo-400 text-indigo-400 hover:bg-indigo-500/20 cursor-pointer transition-all';
-    manageBtn.innerHTML = '<span class="text-xl">⚙️</span>'; manageBtn.onclick = () => { if(window.openCharacterLib) window.openCharacterLib(); }; charDiv.appendChild(manageBtn);
+    manageBtn.className = 'flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-full border border-dashed border-indigo-400 text-indigo-400 hover:bg-indigo-500/20 cursor-pointer transition-all ml-2';
+    manageBtn.innerHTML = '<span class="text-sm">⚙️</span>'; manageBtn.onclick = () => { if(window.openCharacterLib) window.openCharacterLib(); }; charDiv.appendChild(manageBtn);
 
     charData.forEach(char => {
-        const card = document.createElement('div'); card.className = 'flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group';
-        card.innerHTML = `<div class="w-14 h-14 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[10px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
-        card.onclick = async () => { if (!MISSION.characters.includes(char.name)) { MISSION.characters.push(char.name); await addLog("視覺工程師", "✅", `已召喚「${char.name}」。`); card.classList.add('opacity-40', 'pointer-events-none'); } }; charDiv.appendChild(card);
+        const card = document.createElement('div'); card.className = 'flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group';
+        card.innerHTML = `<div class="w-12 h-12 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[9px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
+        card.onclick = async () => { 
+            if (!MISSION.characters.includes(char.name)) { 
+                MISSION.characters.push(char.name); 
+                await addLog("視覺工程師", "✅", `已召喚「${char.name}」。`); 
+                card.classList.add('opacity-40', 'pointer-events-none'); 
+                // 選完後稍微滾動讓按鈕維持在視野內
+                document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            } 
+        }; charDiv.appendChild(card);
     });
-    document.getElementById('funnelLog').appendChild(charDiv); scrollDown();
+    
+    if (container) container.appendChild(charDiv);
+    else document.getElementById('funnelLog').appendChild(charDiv); 
+    scrollDown();
 }
 
-async function handleAssetUpload(files) {
-    const previewDiv = document.createElement('div'); previewDiv.className = 'skill-card flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-lg mb-6';
+// 🌟 V0.10: 支援注入指定容器
+async function handleAssetUpload(files, container = null) {
+    const previewDiv = document.createElement('div'); previewDiv.className = 'flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-xl border border-white/5';
     for (let file of files) {
-        MISSION.sceneFiles.push(file); const reader = new FileReader(); reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; }; reader.readAsDataURL(file);
+        MISSION.sceneFiles.push(file); const reader = new FileReader(); reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-12 h-12 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; }; reader.readAsDataURL(file);
     }
-    document.getElementById('funnelLog').appendChild(previewDiv); await addLog("影像處理組", "📐", `成功載入 ${files.length} 張素材。`); scrollDown();
+    
+    if (container) container.appendChild(previewDiv);
+    else document.getElementById('funnelLog').appendChild(previewDiv);
+    
+    await addLog("影像處理組", "📐", `成功載入 ${files.length} 張素材。`); 
+    document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 // 輔助工具
