@@ -6,7 +6,7 @@ const adminApp = {
     token: null,
     chartInstance: null,
     tenantsData: [], 
-    pricingConfig: null, // 💡 新增：用來存放動態定價表
+    pricingConfig: null, // 💡 用來存放動態定價表
 
     init() {
         google.accounts.id.initialize({
@@ -23,7 +23,7 @@ const adminApp = {
         this.token = response.credential;
         document.getElementById('loginSection').innerHTML = '<div class="text-white animate-pulse">驗證身分中...</div>';
         await this.fetchDashboardData();
-        await this.fetchPricingData(); // 💡 新增：登入後去抓價目表
+        await this.fetchPricingData();
     },
 
     // ==========================================
@@ -245,9 +245,9 @@ const adminApp = {
             }
         } catch(e) {
             console.warn("後端 API 尚未開通，啟用前端模擬定價資料展示");
-            // 💡 貼心防呆：如果總編還沒寫後端，給一組預設資料讓 UI 不會壞掉
             this.pricingConfig = {
                 globalProfitMultiplier: 4.0,
+                exchangeRate: 10, // 💡 模擬預設匯率 1:10
                 actions: {
                     CREATE_CHARACTER: { name: "建立專屬角色", baseCostTWD: 5.2, retailPoints: 7 },
                     GENERATE_DRAFT: { name: "AI 撰寫貼文腳本", baseCostTWD: 5.5, retailPoints: 8 },
@@ -258,35 +258,42 @@ const adminApp = {
             };
         }
         
-        // 初始化 UI
+        // 💡 讀取並設定 UI (包含新的匯率選項)
         if(this.pricingConfig.globalProfitMultiplier) {
             document.getElementById('globalMultiplier').value = this.pricingConfig.globalProfitMultiplier;
         }
+        if(this.pricingConfig.exchangeRate) {
+            const exchangeSelect = document.getElementById('exchangeRate');
+            if(exchangeSelect) exchangeSelect.value = this.pricingConfig.exchangeRate.toString();
+        }
+
         this.updatePricingUI();
     },
 
     updatePricingUI() {
         if (!this.pricingConfig) return;
         
+        // 取得當前的倍率
         const multiplier = parseFloat(document.getElementById('globalMultiplier').value);
         document.getElementById('multiplierValue').innerText = `${multiplier.toFixed(1)}x`;
+        
+        // 🌟 取得當前的匯率
+        const exchangeSelect = document.getElementById('exchangeRate');
+        const currentExchangeRate = exchangeSelect ? parseInt(exchangeSelect.value) : (this.pricingConfig.exchangeRate || 10);
         
         const tbody = document.getElementById('pricingTableBody');
         tbody.innerHTML = '';
 
-        // 🌟 關鍵修正：告訴戰情室目前的匯率 (1 TWD = 1000 點)
-        const TWD_TO_POINTS = 1000;
-        
         for(const [actionKey, data] of Object.entries(this.pricingConfig.actions)) {
             
-            // 1. 先把 DB 裡的台幣成本，換算成「點數成本」
-            const baseCostPoints = data.baseCostTWD * TWD_TO_POINTS;
+            // 1. 真實成本轉點數成本 (Cost TWD * 當前匯率)
+            const baseCostPoints = data.baseCostTWD * currentExchangeRate;
 
-            // 2. 計算建議售價 (點數成本 * 倍率，無條件進位)
+            // 2. 建議售價 = 點數成本 * 利潤倍率
             const suggested = Math.ceil(baseCostPoints * multiplier);
             const retail = data.retailPoints || 0;
             
-            // 3. 毛利計算 (統一用點數相減：售價點數 - 成本點數)
+            // 3. 計算實際毛利點數與百分比
             const profitPoints = retail - baseCostPoints;
             const margin = retail > 0 ? (profitPoints / retail) * 100 : (profitPoints < 0 ? -100 : 0);
             
@@ -340,7 +347,13 @@ const adminApp = {
 
     async savePricing() {
         try {
+            // 🌟 寫入前，把 UI 上的倍率與匯率同步回 Object
             this.pricingConfig.globalProfitMultiplier = parseFloat(document.getElementById('globalMultiplier').value);
+            
+            const exchangeSelect = document.getElementById('exchangeRate');
+            if(exchangeSelect) {
+                this.pricingConfig.exchangeRate = parseInt(exchangeSelect.value);
+            }
             
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/admin/pricing`, {
                 method: 'POST',
@@ -354,9 +367,9 @@ const adminApp = {
             
             if (!res.ok) throw new Error(data.message || 'API 未連線');
             
-            alert('✅ 定價與毛利設定已成功儲存至資料庫！');
+            alert('✅ 定價、倍率與匯率設定已成功儲存至資料庫！');
         } catch(e) {
-            alert(`❌ 儲存失敗: ${e.message} \n\n(提示給總編：請確認您的 admin.controller.js 是否已經新增了 /api/admin/pricing 這個 API 路由！)`);
+            alert(`❌ 儲存失敗: ${e.message}`);
         }
     },
 
