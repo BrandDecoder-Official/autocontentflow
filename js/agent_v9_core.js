@@ -1,21 +1,108 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
-// 🚀 任務卷宗：這就是您說的 JSON 格式
+// 🚀 任務卷宗
 const MISSION = {
     platforms: [],
     topic: '',
-    styleMode: 'INFLUENCER', // 預設網紅
-    ratio: '9:16',           // 預設直式
-    resolution: '1K',        // 預設解析度
+    styleMode: 'INFLUENCER',
+    ratio: '9:16',
+    resolution: '1K',
     characters: [],
-    sceneFiles: [],          // 實境圖
-    objectFiles: [],         // 道具圖
+    sceneFiles: [],
+    objectFiles: [],
     step: 1
 };
 
+/**
+ * 🛠️ 輔助：更新頂部任務狀態文字
+ */
+function updateStepHeader(name) {
+    const el = document.getElementById('missionStep');
+    if (el) el.innerText = name;
+}
+
+/**
+ * 🛠️ 輔助：鎖定組件防止重複點擊
+ */
+function lockUI(el) {
+    el.classList.add('opacity-40', 'pointer-events-none');
+}
+
+/**
+ * 🛠️ 輔助：自動捲動到底部
+ */
+function scrollDown() {
+    const log = document.getElementById('funnelLog');
+    if (log) log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
+}
+
+/**
+ * 🖋️ 核心：新增 Agent 對話訊息
+ */
+async function addLog(role, icon, msg, skipTyping = false) {
+    const log = document.getElementById('funnelLog');
+    if (!log) return;
+
+    const div = document.createElement('div');
+    div.className = 'flex items-start gap-4 animate-fade-in mb-4';
+    
+    // 預設打字狀態
+    div.innerHTML = `
+        <div class="text-2xl">${icon}</div>
+        <div class="bg-slate-800/80 p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[85%]">
+            <div class="text-[9px] font-black text-slate-500 mb-1 tracking-widest uppercase">${role}</div>
+            <div class="msg-content text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div>
+        </div>
+    `;
+    log.appendChild(div);
+    scrollDown();
+
+    if (!skipTyping) {
+        await new Promise(r => setTimeout(r, 600)); // 模擬思考時間
+        div.querySelector('.msg-content').innerHTML = msg;
+    }
+}
+
+/**
+ * 🧱 核心：建立 Skill UI 容器
+ */
+function createSkillUI(html) {
+    const log = document.getElementById('funnelLog');
+    const div = document.createElement('div');
+    div.className = 'skill-card ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6';
+    div.innerHTML = html;
+    log.appendChild(div);
+    scrollDown();
+    return div;
+}
+
+/**
+ * 🛠️ 輔助：更新配置建議標籤
+ */
+function updateSummaryTags(ui) {
+    const tags = ui.querySelector('#summaryTags');
+    if (tags) {
+        tags.innerHTML = `
+            <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例: ${MISSION.ratio}</span>
+            <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">模式: ${MISSION.styleMode}</span>
+            <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">解析度: ${MISSION.resolution}</span>
+        `;
+    }
+}
+
+// ==========================================
+// 🚀 漏斗流程控制器
+// ==========================================
+
 export async function initAgentFunnel() {
     console.log("🚀 Agent V9 Funnel Start...");
+    updateStepHeader("SYSTEM INITIALIZING");
+    
+    // 初始化點數顯示 (假設 STATE 已載入)
+    const pointsEl = document.getElementById('userPoints');
+    if (pointsEl) pointsEl.innerText = STATE.userPoints || 0;
+
     await addLog("專案總監", "👨‍💼", "總編您好，BrandDecoder V9 代理人已就緒。我們將啟動高效率發佈漏斗。");
     await triggerPlatformSkill();
 }
@@ -47,7 +134,7 @@ async function triggerPlatformSkill() {
         MISSION.platforms = selected;
         lockUI(ui);
         await addLog("社群總監", "✅", `已對接平台：${selected.join(' / ')}。`);
-        unlockTopicInput();
+        await unlockTopicInput();
     };
 }
 
@@ -73,10 +160,12 @@ async function unlockTopicInput() {
         if(!val) return;
         
         MISSION.topic = val;
+        // 重新鎖定輸入框
         input.value = "";
         input.disabled = true;
         input.classList.replace('input-active', 'input-locked');
         btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
 
         await addLog("總編指令", "🗣️", val);
         await triggerVisualSkill(); 
@@ -84,7 +173,7 @@ async function unlockTopicInput() {
 }
 
 /**
- * 🛠️ Skill 3: 視覺決策中心 (手動微調、上傳素材、角色召喚)
+ * 🛠️ Skill 3: 視覺決策中心
  */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
@@ -93,7 +182,7 @@ async function triggerVisualSkill() {
     const ui = createSkillUI(`
         <div class="space-y-4">
             <div id="visualSummary" class="bg-blue-500/10 p-4 rounded-xl border border-blue-500/20">
-                <p class="text-[10px] text-blue-300 font-bold mb-2 tracking-widest">💡 目前配置建議</p>
+                <p class="text-[10px] text-blue-300 font-bold mb-2 tracking-widest uppercase">💡 目前配置建議</p>
                 <div class="flex flex-wrap gap-2" id="summaryTags">
                     <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例: ${MISSION.ratio}</span>
                     <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">模式: ${MISSION.styleMode}</span>
@@ -103,20 +192,12 @@ async function triggerVisualSkill() {
 
             <div id="customPanel" class="hidden space-y-3 bg-slate-800/80 p-4 rounded-xl border border-white/5 animate-fade-in">
                 <div class="flex flex-col gap-2">
-                    <label class="text-[10px] text-slate-500 font-bold">選擇比例</label>
+                    <label class="text-[10px] text-slate-500 font-bold uppercase">選擇比例</label>
                     <div class="flex gap-2">
                         <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="9:16">9:16</button>
                         <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="16:9">16:9</button>
                         <button class="ratio-btn flex-1 py-2 bg-slate-700 rounded-lg text-xs" data-val="1:1">1:1</button>
                     </div>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label class="text-[10px] text-slate-500 font-bold">影像品質</label>
-                    <select id="resSelect" class="bg-slate-700 border-none text-xs rounded-lg p-2">
-                        <option value="1K">1K 標準</option>
-                        <option value="2K">2K 高清</option>
-                        <option value="4K">4K 極致 (消耗較多點數)</option>
-                    </select>
                 </div>
             </div>
 
@@ -126,19 +207,16 @@ async function triggerVisualSkill() {
             </div>
 
             <div class="flex gap-2">
-                <button id="btnAcceptVisual" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-xs shadow-lg shadow-blue-900/40">✅ 採納建議並發包</button>
+                <button id="btnAcceptVisual" class="flex-1 bg-blue-600 py-3 rounded-xl font-bold text-xs">✅ 採納建議並發包</button>
                 <button id="btnCustomVisual" class="px-4 border border-white/10 py-3 rounded-xl font-bold text-xs">⚙️ 手動微調</button>
             </div>
         </div>
     `);
 
-    // 1. 處理微調面板顯示
     ui.querySelector('#btnCustomVisual').onclick = () => {
-        const panel = ui.querySelector('#customPanel');
-        panel.classList.toggle('hidden');
+        ui.querySelector('#customPanel').classList.toggle('hidden');
     };
 
-    // 2. 比例切換
     ui.querySelectorAll('.ratio-btn').forEach(btn => {
         btn.onclick = () => {
             MISSION.ratio = btn.dataset.val;
@@ -148,38 +226,34 @@ async function triggerVisualSkill() {
         };
     });
 
-    // 3. 召喚角色庫 (您要的 Agent 核心感)
     ui.querySelector('#btnSummonChar').onclick = async () => {
-        await addLog("視覺工程師", "🧬", "正在檢索您的專屬基因庫，請點擊下方縮圖進行召喚...");
-        triggerCharacterPicker();
+        await addLog("視覺工程師", "🧬", "正在檢索您的專屬基因庫...");
+        await triggerCharacterPicker();
     };
 
-    // 4. 上傳場景圖
     ui.querySelector('#btnUploadScene').onclick = () => {
         const input = document.createElement('input');
         input.type = 'file';
         input.multiple = true;
-        input.onchange = (e) => handleAssetUpload(e.target.files, 'SCENE');
+        input.onchange = (e) => handleAssetUpload(e.target.files);
         input.click();
     };
 
-    // 5. 最終發包
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
         lockUI(ui);
-        await addLog("專案總監", "👨‍💼", "配置鎖定完畢！正在封裝卷宗並啟動「首席文案」進行腳本編撰...", true);
-        // 此處對接原本的 API.createDraftAPI...
+        await addLog("專案總監", "👨‍💼", "配置鎖定完畢！正在啟動「首席文案」進行腳本編撰...", true);
     };
 }
 
 /**
- * 🧬 Skill: 角色基因選擇牆 (橫向滑動)
+ * 🧬 Skill: 角色基因選擇牆
  */
 async function triggerCharacterPicker() {
     const funnelLog = document.getElementById('funnelLog');
     const charData = STATE.lastSystemData?.characters || [];
 
     const charDiv = document.createElement('div');
-    charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar';
+    charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar mb-6';
     
     if (charData.length === 0) {
         charDiv.innerHTML = `<p class="text-xs text-slate-500 italic">基因庫尚無數據，請至側欄管理。</p>`;
@@ -210,10 +284,10 @@ async function triggerCharacterPicker() {
 /**
  * 📸 處理素材上傳預覽
  */
-async function handleAssetUpload(files, type) {
+async function handleAssetUpload(files) {
     const funnelLog = document.getElementById('funnelLog');
     const previewDiv = document.createElement('div');
-    previewDiv.className = 'skill-card flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-lg';
+    previewDiv.className = 'skill-card flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-lg mb-6';
     
     for (let file of files) {
         MISSION.sceneFiles.push(file);
@@ -222,7 +296,9 @@ async function handleAssetUpload(files, type) {
             previewDiv.innerHTML += `
                 <div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20">
                     <img src="${e.target.result}" class="w-full h-full object-cover">
-                    <div class="absolute bottom-0 right-0 p-0.5 bg-blue-600"><svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg></div>
+                    <div class="absolute bottom-0 right-0 p-0.5 bg-blue-600">
+                        <svg class="w-2 h-2 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>
+                    </div>
                 </div>
             `;
         };
@@ -230,51 +306,6 @@ async function handleAssetUpload(files, type) {
     }
     
     funnelLog.appendChild(previewDiv);
-    await addLog("影像處理組", "📐", `成功載入 ${files.length} 張實體素材，特徵點已提取。`);
+    await addLog("影像處理組", "📐", `成功載入素材，特徵點已提取。`);
     scrollDown();
-}
-
-// --- 輔助功能 ---
-function updateSummaryTags(ui) {
-    const tags = ui.querySelector('#summaryTags');
-    tags.innerHTML = `
-        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">比例: ${MISSION.ratio}</span>
-        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">模式: ${MISSION.styleMode}</span>
-        <span class="bg-slate-700 px-2 py-1 rounded text-[10px]">解析度: ${MISSION.resolution}</span>
-    `;
-}
-
-// (其他 addLog, createSkillUI, lockUI 等維持原樣)
-function createSkillUI(html) {
-    const log = document.getElementById('funnelLog');
-    const div = document.createElement('div');
-    div.className = 'skill-card ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl';
-    div.innerHTML = html;
-    log.appendChild(div);
-    scrollDown();
-    return div;
-}
-
-async function addLog(role, icon, msg, skipTyping = false) {
-    const log = document.getElementById('funnelLog');
-    const div = document.createElement('div');
-    div.className = 'flex items-start gap-4 animate-fade-in';
-    div.innerHTML = `
-        <div class="text-2xl">${icon}</div>
-        <div class="bg-slate-800/80 p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[85%]">
-            <div class="text-[9px] font-black text-slate-500 mb-1 tracking-widest">${role}</div>
-            <p class="text-sm leading-relaxed">${msg}</p>
-        </div>
-    `;
-    log.appendChild(div);
-    scrollDown();
-}
-
-function lockUI(el) {
-    el.classList.add('opacity-40', 'pointer-events-none');
-}
-
-function scrollDown() {
-    const log = document.getElementById('funnelLog');
-    log.scrollTo({ top: log.scrollHeight, behavior: 'smooth' });
 }
