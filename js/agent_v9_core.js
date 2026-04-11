@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 
 // 🌟 版本控制號
-const APP_VERSION = "V0.10版";
+const APP_VERSION = "V0.11版";
 
 // 🚀 任務卷宗
 const MISSION = {
@@ -34,22 +34,26 @@ const MOCK_STYLES = {
         { id: 'WEBTOON', name: '韓系條漫 (全彩)', icon: '📱', desc: '精緻唯美、高飽和色彩' }
     ],
     ENHANCE: [
-        { id: 'NATURAL', name: '自然清晰 (Upscale)', icon: '🍃', desc: '去雜訊、提升畫質與銳利度' },
-        { id: 'STUDIO', name: '棚拍光影 (Relight)', icon: '✨', desc: '增強立體感、補充商業光影' },
-        { id: 'FILM_LOOK', name: '電影調色 (Colorize)', icon: '🎬', desc: '套用好萊塢級別氛圍濾鏡' }
+        { id: 'NATURAL', name: '自然清晰', icon: '🍃', desc: '去雜訊、提升畫質與銳利度' },
+        { id: 'STUDIO', name: '棚拍光影', icon: '✨', desc: '增強立體感、補充商業光影' },
+        { id: 'FILM_LOOK', name: '電影調色', icon: '🎬', desc: '套用好萊塢級別氛圍濾鏡' }
     ]
 };
 
-// ==========================================
-// 🚀 核心：初始化與流程控制
-// ==========================================
+// 🌟 V0.11 基因庫 Mock 資料：加入 type 分類
+const MOCK_CHARACTERS = [
+    { name: '老K', type: 'REALISTIC', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=K&backgroundColor=b6e3f4' },
+    { name: '艾莉', type: 'REALISTIC', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Elly&backgroundColor=c0aede' },
+    { name: '米亞', type: 'COMIC', imageUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=ffdfbf' },
+    { name: '雷歐', type: 'COMIC', imageUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Leo&backgroundColor=d1d4f9' }
+];
 
 export async function initAgentFunnel() {
     updateStepHeader("SYSTEM READY");
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，UI 內聚與歷史防呆已啟動。我們開始吧！`);
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，UI 內聚優化與基因隔離防呆已上線。`);
     await triggerPlatformSkill();
 }
 
@@ -119,11 +123,16 @@ async function triggerUniverseSkill() {
     ui.querySelectorAll('.uni-btn').forEach(btn => {
         btn.onclick = async () => {
             const oldUniverse = MISSION.universe; MISSION.universe = btn.dataset.val; MISSION.style = ''; 
-            if (MISSION.universe === 'ENHANCE') { MISSION.characters = []; MISSION.ratio = '原圖比例'; } 
+            
+            // 🌟 宇宙切換時，強制清空舊的角色，避免混血！
+            MISSION.characters = []; 
+
+            if (MISSION.universe === 'ENHANCE') { MISSION.ratio = '原圖比例'; } 
             else if (oldUniverse === 'ENHANCE') { MISSION.ratio = '9:16'; }
+            
             lockUI(ui);
             const uniName = MISSION.universe === 'REALISTIC' ? '真實攝影' : (MISSION.universe === 'COMIC' ? '2D 動漫' : '原圖美化模式');
-            await addLog("美術總監", "✅", `已切換至「${uniName}」。`);
+            await addLog("美術總監", "✅", `已切換至「${uniName}」。基因庫已切換對應過濾。`);
             await triggerStyleSkill();
         };
     });
@@ -149,14 +158,14 @@ async function triggerStyleSkill() {
     });
 }
 
-/** 🛠️ Skill 5: 視覺參數 (🌟 V0.10 核心修復：UI 內聚與全局鎖定) */
+/** 🛠️ Skill 5: 視覺參數 (🌟 V0.11: 絕對 UI 內聚，不再產生氣泡對話) */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
     const isEnhance = MISSION.universe === 'ENHANCE';
     let promptMsg = isEnhance ? "偵測為美化模式。請【務必上傳原圖】，角色與比例已鎖定：" : "最後，請確認畫面參數，並【務必召喚至少一位角色】：";
     await addLog("美術總監", "👨‍🎨", promptMsg, true);
 
-    // 🔒 總編要求的防呆：把畫面上舊的「鎖定參數」按鈕全部失效，防止誤點！
+    // 🔒 確保畫面上舊的「鎖定參數」按鈕徹底失效
     document.querySelectorAll('.accept-visual-btn').forEach(btn => {
         btn.disabled = true;
         btn.classList.add('opacity-40', 'cursor-not-allowed', 'border', 'border-red-500/50');
@@ -166,7 +175,7 @@ async function triggerVisualSkill() {
     });
 
     const ui = createSkillUI(`
-        <div class="space-y-6 flex flex-col">
+        <div class="space-y-6 flex flex-col relative">
             <div class="bg-blue-600/10 p-5 rounded-2xl border border-blue-500/30">
                 <p class="text-[10px] text-blue-400 font-black mb-3 tracking-[0.2em] uppercase text-center">👇 點擊下方區塊可展開修改選項</p>
                 <div class="grid grid-cols-2 gap-3" id="summaryTags">
@@ -203,7 +212,7 @@ async function triggerVisualSkill() {
 
             <div class="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
                 <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-2xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-600/40 transition-colors ${isEnhance ? 'opacity-30 cursor-not-allowed' : ''}"><span class="text-lg">🧬</span> 召喚角色基因</button>
-                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-2xl text-xs font-black border ${isEnhance ? 'border-yellow-500 bg-yellow-600/20' : 'border-white/10 hover:bg-slate-700'} transition-all"><span class="text-lg">📸</span> 上傳場景圖(原圖)</button>
+                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-2xl text-xs font-black border ${isEnhance ? 'border-yellow-500 bg-yellow-600/20 shadow-[0_0_15px_rgba(234,179,8,0.3)]' : 'border-white/10 hover:bg-slate-700'} transition-all"><span class="text-lg">📸</span> 上傳場景圖(原圖)</button>
             </div>
             
             <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
@@ -218,7 +227,6 @@ async function triggerVisualSkill() {
         ui.querySelectorAll('.ratio-btn').forEach(btn => {
             btn.onclick = () => { MISSION.ratio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; };
         });
-        // 將動態容器傳入，確保角色清單長在卡片裡面！
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
     }
     ui.querySelectorAll('.res-btn').forEach(btn => {
@@ -227,7 +235,6 @@ async function triggerVisualSkill() {
     
     ui.querySelector('#btnUploadScene').onclick = () => {
         const input = document.createElement('input'); input.type = 'file'; input.multiple = true;
-        // 將動態容器傳入
         input.onchange = (e) => handleAssetUpload(e.target.files, ui.querySelector('#dynamicAssetsArea')); input.click();
     };
 
@@ -237,6 +244,78 @@ async function triggerVisualSkill() {
         
         lockUI(ui); IS_EDIT_MODE = false; await triggerMissionSummary(); 
     };
+}
+
+// 🌟 V0.11: 智能隔離角色庫，並將狀態更新綁定在卡片內部
+async function triggerCharacterPicker(container) {
+    // 防呆：如果已經打開過，先清掉舊的
+    const existingPicker = container.querySelector('.char-picker-panel');
+    if (existingPicker) existingPicker.remove();
+
+    // 🌟 基因隔離邏輯：根據當前宇宙過濾角色
+    const availableChars = MOCK_CHARACTERS.filter(c => c.type === MISSION.universe);
+
+    const pickerPanel = document.createElement('div');
+    pickerPanel.className = 'char-picker-panel bg-slate-900/30 rounded-xl border border-white/5 p-3 animate-fade-in';
+    
+    // 狀態提示列
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'flex justify-between items-center mb-2';
+    statusDiv.innerHTML = `
+        <span class="text-[10px] text-blue-400 font-bold uppercase tracking-widest">目前名單：<span class="text-white" id="selectedCharText">${MISSION.characters.join(', ') || '尚未選擇'}</span></span>
+        <span class="text-[10px] text-slate-500 cursor-pointer hover:text-white" onclick="if(window.openCharacterLib) window.openCharacterLib();">⚙️ 管理基因庫</span>
+    `;
+    pickerPanel.appendChild(statusDiv);
+
+    const charListDiv = document.createElement('div'); 
+    charListDiv.className = 'flex gap-4 overflow-x-auto pb-2 no-scrollbar items-center';
+
+    if (availableChars.length === 0) {
+        charListDiv.innerHTML = `<span class="text-xs text-red-400 p-2">⚠️ 您的基因庫中尚未建立「${MISSION.universe === 'REALISTIC' ? '真人' : '動漫'}」屬性的角色。</span>`;
+    } else {
+        availableChars.forEach(char => {
+            const isSelected = MISSION.characters.includes(char.name);
+            const card = document.createElement('div'); 
+            card.className = `flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group transition-all ${isSelected ? 'opacity-50 ring-2 ring-blue-500 rounded-full' : ''}`;
+            card.innerHTML = `
+                <div class="w-12 h-12 rounded-full border-2 border-slate-700 group-hover:border-blue-400 overflow-hidden shadow-lg bg-slate-800">
+                    <img src="${char.imageUrl}" class="w-full h-full object-cover">
+                </div>
+                <span class="text-[9px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>
+            `;
+            
+            card.onclick = () => { 
+                if (!MISSION.characters.includes(char.name)) { 
+                    MISSION.characters.push(char.name); 
+                    card.classList.add('opacity-50', 'ring-2', 'ring-blue-500', 'rounded-full');
+                    pickerPanel.querySelector('#selectedCharText').innerText = MISSION.characters.join(', ');
+                } 
+            }; 
+            charListDiv.appendChild(card);
+        });
+    }
+    
+    pickerPanel.appendChild(charListDiv);
+    container.appendChild(pickerPanel);
+    document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+}
+
+// 🌟 V0.11: 素材預覽也改為內部更新，不產生新對話
+async function handleAssetUpload(files, container) {
+    const previewDiv = document.createElement('div'); previewDiv.className = 'flex flex-wrap gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in';
+    
+    // 狀態提示
+    const statusDiv = document.createElement('div');
+    statusDiv.className = 'w-full mb-2 text-[10px] text-blue-400 font-bold uppercase tracking-widest';
+    statusDiv.innerText = `📸 已成功載入 ${files.length} 張素材`;
+    previewDiv.appendChild(statusDiv);
+
+    for (let file of files) {
+        MISSION.sceneFiles.push(file); const reader = new FileReader(); reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-12 h-12 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; }; reader.readAsDataURL(file);
+    }
+    
+    container.appendChild(previewDiv);
+    document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 /** 🛠️ Skill 6: 任務最終摘要 */
@@ -366,51 +445,6 @@ async function triggerDraftReviewSkill(draft) {
         const statusMsg = MISSION.scheduleMode === 'LATER' ? "任務已加入排程佇列！正在啟動背景算圖..." : "腳本定案！正式啟動視覺引擎渲染...";
         await addLog("美術總監", "🎨", statusMsg, true);
     };
-}
-
-// 🌟 V0.10: 支援注入指定容器
-async function triggerCharacterPicker(container = null) {
-    const charData = STATE.lastSystemData?.characters || [
-        { name: '老K', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=K' },
-        { name: '米亞', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia' }
-    ];
-    const charDiv = document.createElement('div'); charDiv.className = 'flex gap-4 overflow-x-auto py-2 px-1 no-scrollbar items-center bg-slate-900/30 rounded-xl border border-white/5';
-    
-    const manageBtn = document.createElement('div');
-    manageBtn.className = 'flex-shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-full border border-dashed border-indigo-400 text-indigo-400 hover:bg-indigo-500/20 cursor-pointer transition-all ml-2';
-    manageBtn.innerHTML = '<span class="text-sm">⚙️</span>'; manageBtn.onclick = () => { if(window.openCharacterLib) window.openCharacterLib(); }; charDiv.appendChild(manageBtn);
-
-    charData.forEach(char => {
-        const card = document.createElement('div'); card.className = 'flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer group';
-        card.innerHTML = `<div class="w-12 h-12 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[9px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
-        card.onclick = async () => { 
-            if (!MISSION.characters.includes(char.name)) { 
-                MISSION.characters.push(char.name); 
-                await addLog("視覺工程師", "✅", `已召喚「${char.name}」。`); 
-                card.classList.add('opacity-40', 'pointer-events-none'); 
-                // 選完後稍微滾動讓按鈕維持在視野內
-                document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            } 
-        }; charDiv.appendChild(card);
-    });
-    
-    if (container) container.appendChild(charDiv);
-    else document.getElementById('funnelLog').appendChild(charDiv); 
-    scrollDown();
-}
-
-// 🌟 V0.10: 支援注入指定容器
-async function handleAssetUpload(files, container = null) {
-    const previewDiv = document.createElement('div'); previewDiv.className = 'flex flex-wrap gap-2 p-2 bg-slate-900/30 rounded-xl border border-white/5';
-    for (let file of files) {
-        MISSION.sceneFiles.push(file); const reader = new FileReader(); reader.onload = (e) => { previewDiv.innerHTML += `<div class="relative w-12 h-12 rounded-md overflow-hidden border border-white/20"><img src="${e.target.result}" class="w-full h-full object-cover"></div>`; }; reader.readAsDataURL(file);
-    }
-    
-    if (container) container.appendChild(previewDiv);
-    else document.getElementById('funnelLog').appendChild(previewDiv);
-    
-    await addLog("影像處理組", "📐", `成功載入 ${files.length} 張素材。`); 
-    document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
 // 輔助工具
