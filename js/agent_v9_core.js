@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 
 // 🌟 版本控制號
-const APP_VERSION = "V0.4版";
+const APP_VERSION = "V0.5版";
 
 // 🚀 任務卷宗
 const MISSION = {
@@ -19,7 +19,7 @@ const MISSION = {
 
 let IS_EDIT_MODE = false;
 
-// 🎭 🌟 V0.4 重點：將黑白/彩色邏輯深度融入風格選項
+// 🎭 風格宇宙資料
 const MOCK_STYLES = {
     REALISTIC: [
         { id: 'INFLUENCER', name: '網紅生活 (全彩)', icon: '📸', desc: '高顏值、自然光影' },
@@ -42,13 +42,11 @@ export async function initAgentFunnel() {
     const pointsEl = document.getElementById('userPoints');
     if (pointsEl) pointsEl.innerText = (STATE.userPoints || 0).toLocaleString();
 
-    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，黑白/彩色邏輯已分離並融入風格庫。我們開始吧！`);
+    await addLog("專案總監", "👨‍💼", `${APP_VERSION} - 總編您好，終極防呆機制已啟動。未補齊卷宗將無法發包。`);
     await triggerPlatformSkill();
 }
 
-/**
- * 🛠️ Skill 1: 平台鎖定
- */
+/** 🛠️ Skill 1: 平台鎖定 */
 async function triggerPlatformSkill() {
     updateStepHeader("PLATFORM SELECTION");
     await addLog("社群總監", "🚀", "請決定本次任務的投遞平台：", true);
@@ -65,7 +63,9 @@ async function triggerPlatformSkill() {
     ui.querySelectorAll('.plat-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('bg-blue-600'));
     ui.querySelector('#btnConfirmPlat').onclick = async () => {
         const selected = Array.from(ui.querySelectorAll('.plat-btn.bg-blue-600')).map(b => b.dataset.val);
-        if (selected.length === 0) return alert('請至少選擇一個平台');
+        // 🛡️ 防呆 1：必須選平台
+        if (selected.length === 0) return alert('⚠️ 系統防呆：請至少選擇一個平台！');
+        
         MISSION.platforms = selected; lockUI(ui);
         await addLog("社群總監", "✅", `已鎖定平台：${selected.join(' / ')}。`);
         
@@ -73,9 +73,7 @@ async function triggerPlatformSkill() {
     };
 }
 
-/**
- * 🛠️ Skill 2: 主題捕獲
- */
+/** 🛠️ Skill 2: 主題捕獲 */
 async function unlockTopicInput() {
     updateStepHeader("TOPIC CAPTURE");
     const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend');
@@ -86,7 +84,10 @@ async function unlockTopicInput() {
     input.focus(); btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
 
     btn.onclick = async () => {
-        const val = input.value.trim(); if(!val) return;
+        const val = input.value.trim(); 
+        // 🛡️ 防呆 2：不能送出空字串
+        if(!val) return alert('⚠️ 系統防呆：主題不能為空！');
+        
         MISSION.topic = val;
         input.value = ""; input.disabled = true; input.classList.replace('input-active', 'input-locked'); btn.disabled = true;
         await addLog("總編指令", "🗣️", val);
@@ -95,9 +96,7 @@ async function unlockTopicInput() {
     };
 }
 
-/**
- * 🛠️ Skill 3: 宇宙選擇
- */
+/** 🛠️ Skill 3: 宇宙選擇 */
 async function triggerUniverseSkill() {
     updateStepHeader("UNIVERSE SELECTION");
     await addLog("美術總監", "🌌", "請選擇本次內容的視覺宇宙：", true);
@@ -122,9 +121,7 @@ async function triggerUniverseSkill() {
     });
 }
 
-/**
- * 🛠️ Skill 4: 動態風格
- */
+/** 🛠️ Skill 4: 動態風格 */
 async function triggerStyleSkill() {
     updateStepHeader("STYLE SELECTION");
     const styles = MOCK_STYLES[MISSION.universe];
@@ -144,12 +141,10 @@ async function triggerStyleSkill() {
     });
 }
 
-/**
- * 🛠️ Skill 5: 視覺參數
- */
+/** 🛠️ Skill 5: 視覺參數與角色召喚 (防呆核心) */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG");
-    await addLog("美術總監", "👨‍🎨", "您可以點擊標籤微調參數，或直接確認：", true);
+    await addLog("美術總監", "👨‍🎨", "最後，請確認畫面比例，並【務必召喚至少一位角色】：", true);
 
     const ui = createSkillUI(`
         <div class="space-y-6">
@@ -167,8 +162,8 @@ async function triggerVisualSkill() {
                 </div>
             </div>
             <div class="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                <button id="btnSummonChar" class="bg-indigo-600/20 py-4 rounded-2xl text-xs font-black"><span class="text-lg">🧬</span> 召喚角色基因</button>
-                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-2xl text-xs font-black"><span class="text-lg">📸</span> 上傳場景圖</button>
+                <button id="btnSummonChar" class="bg-indigo-600/20 py-4 rounded-2xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-600/40 transition-colors"><span class="text-lg">🧬</span> 召喚角色基因</button>
+                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-2xl text-xs font-black border border-white/10 hover:bg-slate-700 transition-colors"><span class="text-lg">📸</span> 上傳場景圖</button>
             </div>
             <button id="btnAcceptVisual" class="w-full bg-blue-600 hover:bg-blue-500 py-5 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(59,130,246,0.4)]">✅ 鎖定參數</button>
         </div>
@@ -181,17 +176,29 @@ async function triggerVisualSkill() {
             btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; 
         };
     });
+    
     ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker();
-    ui.querySelector('#btnAcceptVisual').onclick = async () => { lockUI(ui); IS_EDIT_MODE = false; await triggerMissionSummary(); };
+    
+    ui.querySelector('#btnAcceptVisual').onclick = async () => {
+        // 🛡️ 防呆 3：強制檢查是否已選角色
+        if (MISSION.characters.length === 0) {
+            alert('⚠️ 系統防呆：您尚未召喚任何角色！請點擊「🧬 召喚角色基因」。');
+            return; // 終止流程，按鈕不會被鎖定
+        }
+        lockUI(ui); IS_EDIT_MODE = false; await triggerMissionSummary(); 
+    };
 }
 
-/**
- * 🛠️ Skill 6: 任務最終摘要 (準備發包腳本)
- */
+/** 🛠️ Skill 6: 任務最終摘要 (修復顯示缺漏) */
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認發布清單，無誤後我們將請「首席文案」開始編撰腳本：", true);
 
+    const universeLabel = MISSION.universe === 'REALISTIC' ? '真實攝影' : '2D動漫';
+    const styleObj = MOCK_STYLES[MISSION.universe].find(s => s.id === MISSION.style);
+    const styleName = styleObj ? styleObj.name : '未選擇';
+
+    // 🌟 修復點：將所有的參數完整渲染出來
     const summaryUI = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-white/10 pb-3">
@@ -205,7 +212,13 @@ async function triggerMissionSummary() {
                     <span class="text-xs text-slate-500">📝 主題</span><span class="text-xs font-bold text-white group-hover:text-blue-400 truncate max-w-[150px]">${MISSION.topic} ✎</span>
                 </div>
                 <div class="flex justify-between cursor-pointer group hover:bg-white/5 p-2 rounded-lg" onclick="window.retryStep('UNIVERSE')">
-                    <span class="text-xs text-slate-500">🌌 視覺</span><span class="text-xs font-bold text-white group-hover:text-blue-400">${MISSION.universe} ✎</span>
+                    <span class="text-xs text-slate-500">🌌 視覺</span><span class="text-xs font-bold text-white group-hover:text-blue-400">${universeLabel} / ${styleName} ✎</span>
+                </div>
+                <div class="flex justify-between cursor-pointer group hover:bg-white/5 p-2 rounded-lg" onclick="window.retryStep('VISUAL')">
+                    <span class="text-xs text-slate-500">📐 參數</span><span class="text-xs font-bold text-white group-hover:text-blue-400">${MISSION.ratio} / ${MISSION.resolution} ✎</span>
+                </div>
+                <div class="flex justify-between items-center p-2">
+                    <span class="text-xs text-slate-500">👥 角色</span><span class="text-xs font-bold text-white">${MISSION.characters.join(', ')}</span>
                 </div>
             </div>
             <button id="btnDraft" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-xl font-black text-sm shadow-lg transition-all flex justify-center gap-2 mt-2">
@@ -216,15 +229,21 @@ async function triggerMissionSummary() {
 
     window.retryStep = (step) => {
         IS_EDIT_MODE = true; lockUI(summaryUI); addLog("系統", "🔄", `進入編輯模式...`);
-        if(step === 'PLATFORM') triggerPlatformSkill(); if(step === 'TOPIC') unlockTopicInput(); if(step === 'UNIVERSE') triggerUniverseSkill();
+        if(step === 'PLATFORM') triggerPlatformSkill(); if(step === 'TOPIC') unlockTopicInput(); 
+        if(step === 'UNIVERSE') triggerUniverseSkill(); if(step === 'VISUAL') triggerVisualSkill();
     };
 
-    summaryUI.querySelector('#btnDraft').onclick = async () => { lockUI(summaryUI); await executeDraftSim(); };
+    summaryUI.querySelector('#btnDraft').onclick = async () => { 
+        // 🛡️ 防呆 4：最終發包前檢查 JSON 完整度
+        if (!MISSION.topic || MISSION.platforms.length === 0 || MISSION.characters.length === 0 || !MISSION.style) {
+            alert("⚠️ 系統防呆：卷宗資料異常或不完整，無法啟動發射程序！");
+            return;
+        }
+        lockUI(summaryUI); await executeDraftSim(); 
+    };
 }
 
-/**
- * 🛠️ Skill 7: 模擬生成腳本
- */
+/** 🛠️ Skill 7: 模擬生成腳本 */
 async function executeDraftSim() {
     updateStepHeader("DRAFTING SCRIPT");
     await addLog("首席文案", "✍️", "收到指令，正在為您編撰專屬貼文腳本與分鏡...");
@@ -242,29 +261,26 @@ async function executeDraftSim() {
     await triggerDraftReviewSkill(mockDraft);
 }
 
-/**
- * 🛠️ Skill 8: 腳本審閱
- */
+/** 🛠️ Skill 8: 腳本審閱 (含服裝造型建議) */
 async function triggerDraftReviewSkill(draft) {
     updateStepHeader("DRAFT REVIEW");
-    await addLog("專案總監", "👨‍💼", "總編，腳本已出爐！請檢視「貼文內容」與「Hashtag」。如有對白，您也可在此修改：", true);
+    await addLog("專案總監", "👨‍💼", "總編，腳本已出爐！您可以檢視貼文與修改裝扮設定：", true);
 
     let panelsHtml = '';
     if (draft.panels) {
         panelsHtml = `<div class="mt-4 pt-4 border-t border-white/10"><p class="text-[10px] text-pink-400 font-black mb-2 uppercase">💬 漫畫對白分鏡</p><div class="space-y-2">`;
-        draft.panels.forEach(p => {
-            panelsHtml += `
-                <div class="flex gap-2 items-start bg-slate-800 p-2 rounded-lg">
-                    <span class="text-xs font-bold text-slate-500 bg-slate-900 px-2 py-1 rounded">框 ${p.id}</span>
-                    <textarea class="flex-grow bg-transparent border-none text-xs text-white resize-none focus:ring-0" rows="1">${p.dialogue}</textarea>
-                </div>
-            `;
-        });
+        draft.panels.forEach(p => { panelsHtml += `<div class="flex gap-2 items-start bg-slate-800 p-2 rounded-lg"><span class="text-xs font-bold text-slate-500 bg-slate-900 px-2 py-1 rounded">框 ${p.id}</span><textarea class="flex-grow bg-transparent border-none text-xs text-white resize-none focus:ring-0" rows="1">${p.dialogue}</textarea></div>`; });
         panelsHtml += `</div></div>`;
     }
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-2xl space-y-4">
+            
+            <div class="bg-indigo-900/30 p-3 rounded-xl border border-indigo-500/40">
+                <p class="text-[10px] text-indigo-300 font-black mb-2 uppercase">👗 依主題推薦之外觀裝扮 (外掛)</p>
+                <textarea class="w-full bg-slate-800/50 border border-white/5 rounded-lg p-2 text-xs text-white focus:border-indigo-500 focus:ring-1 transition-all resize-none" rows="2" placeholder="例如：穿著黑色西裝、戴著墨鏡...">依照「${MISSION.topic}」為角色搭配適合的潮流服飾</textarea>
+            </div>
+
             <div>
                 <p class="text-[10px] text-indigo-400 font-black mb-2 uppercase">📝 貼文內文 (可編輯)</p>
                 <textarea class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none" rows="4">${draft.caption}</textarea>
@@ -285,25 +301,26 @@ async function triggerDraftReviewSkill(draft) {
 
     ui.querySelector('#btnRender').onclick = async () => {
         lockUI(ui);
-        await addLog("美術總監", "🎨", "腳本已定案！正式呼叫視覺引擎，開始算圖渲染...", true);
+        await addLog("美術總監", "🎨", "腳本與裝扮設定已定案！正式啟動視覺引擎渲染...", true);
     };
 }
 
-// --- 角色與素材牆 ---
+// --- 角色與素材牆 (提供 MOCK 資料避免空白) ---
 async function triggerCharacterPicker() {
-    const charData = STATE.lastSystemData?.characters || [];
+    // 放入假資料讓您可以直接選
+    const charData = STATE.lastSystemData?.characters || [
+        { name: '老K', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=K' },
+        { name: '米亞', imageUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Mia' }
+    ];
     const charDiv = document.createElement('div'); charDiv.className = 'skill-card flex gap-4 overflow-x-auto py-4 px-2 no-scrollbar mb-6';
-    if (charData.length === 0) { charDiv.innerHTML = `<p class="text-xs text-slate-500 italic">基因庫尚無數據。</p>`; } 
-    else {
-        charData.forEach(char => {
-            const card = document.createElement('div'); card.className = 'flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group';
-            card.innerHTML = `<div class="w-14 h-14 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[10px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
-            card.onclick = async () => {
-                if (!MISSION.characters.includes(char.name)) { MISSION.characters.push(char.name); await addLog("視覺工程師", "✅", `已召喚「${char.name}」。`); card.classList.add('opacity-40', 'pointer-events-none'); }
-            };
-            charDiv.appendChild(card);
-        });
-    }
+    charData.forEach(char => {
+        const card = document.createElement('div'); card.className = 'flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer group';
+        card.innerHTML = `<div class="w-14 h-14 rounded-full border-2 border-slate-700 group-hover:border-blue-500 transition-all overflow-hidden shadow-lg bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[10px] font-bold text-slate-400 group-hover:text-blue-400">${char.name}</span>`;
+        card.onclick = async () => {
+            if (!MISSION.characters.includes(char.name)) { MISSION.characters.push(char.name); await addLog("視覺工程師", "✅", `已召喚「${char.name}」。`); card.classList.add('opacity-40', 'pointer-events-none'); }
+        };
+        charDiv.appendChild(card);
+    });
     document.getElementById('funnelLog').appendChild(charDiv); scrollDown();
 }
 
