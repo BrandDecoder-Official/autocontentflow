@@ -42,9 +42,8 @@ export function closeLightbox() {
     }, 300);
 }
 
-// 🌟 [優化] 連動主模式切換 (與 main.js 對齊)
 export async function setAppMode(mode) {
-    // 此處現由 main.js 的 switchMode 統一調度 UI 顯示與 STATE 更新
+    // 此處現由 main.js 的 switchMode 統一調度
 }
 
 export function backToStep1() { document.getElementById('step2-review').classList.add('hidden'); document.getElementById('step1-setup').classList.remove('hidden'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
@@ -124,7 +123,7 @@ export async function submitNewCharacter() {
 }
 
 // ==========================================
-// 🚀 第一步：腳本撰寫邏輯 (核心狙擊點)
+// 🚀 第一步：腳本撰寫邏輯 (加入正確扣點回報)
 // ==========================================
 export async function executeStep1Logic(payloadData) {
     const btnSubmit = document.getElementById('btnStep1Submit');
@@ -134,19 +133,11 @@ export async function executeStep1Logic(payloadData) {
     try {
         let promptStyle = '', negativeStyle = '', styleName = '預設風格';
         
-        // 🌟 [優化] 真實攝影三劍客策略分發
         if (!STATE.isComicModeActive) {
             const mode = STATE.currentRealMode || 'INFLUENCER';
-            if (mode === 'INFLUENCER') {
-                promptStyle = 'Professional Instagram influencer lifestyle photography. Beautiful subject, soft morning lighting, high-end environment, bokeh background, cinematic depth.';
-                styleName = '網紅模式';
-            } else if (mode === 'SUPERMODEL') {
-                promptStyle = 'High-end fashion photography, supermodel posing, focusing on product details and clothing texture. Studio lighting, sharp focus, editorial style, minimalist background.';
-                styleName = '超模展示';
-            } else if (mode === 'ENHANCE') {
-                promptStyle = 'AI Photo Enhancement. Professional color grading, lighting correction, texture refinement, keeping original structure while making it magazine-quality.';
-                styleName = '原圖美化';
-            }
+            if (mode === 'INFLUENCER') { promptStyle = 'Instagram lifestyle photography style.'; styleName = '網紅模式'; } 
+            else if (mode === 'SUPERMODEL') { promptStyle = 'High-end fashion photography style.'; styleName = '超模展示'; } 
+            else if (mode === 'ENHANCE') { promptStyle = 'Professional AI Enhancement.'; styleName = '原圖美化'; }
         } else {
             const selectedStyleId = document.querySelector('input[name="targetStyle"]:checked')?.value;
             if (selectedStyleId && STATE.globalSystemStyles) {
@@ -157,21 +148,11 @@ export async function executeStep1Logic(payloadData) {
         STATE.currentStyleName = styleName;
 
         const payload = {
-            tenantId: window.getTenantIdFromToken(), 
-            platforms: payloadData.selectedPlatforms, 
-            topic: payloadData.topic, 
-            isComicMode: STATE.isComicModeActive,
-            realMode: STATE.currentRealMode, // 🌟 傳遞子模式給後端
-            aspectRatio: document.getElementById('aspectRatioSelect').value, 
-            style: promptStyle, 
-            negativePrompt: negativeStyle, 
-            resolution: document.getElementById('resolutionSelect').value, 
-            comicCharacters: [], 
-            image_options: { referenceImages: [] },
+            tenantId: window.getTenantIdFromToken(), platforms: payloadData.selectedPlatforms, topic: payloadData.topic, isComicMode: STATE.isComicModeActive, realMode: STATE.currentRealMode,
+            aspectRatio: document.getElementById('aspectRatioSelect').value, style: promptStyle, negativePrompt: negativeStyle, resolution: document.getElementById('resolutionSelect').value, comicCharacters: [], image_options: { referenceImages: [] },
             panelCount: (STATE.isComicModeActive) ? parseInt(document.getElementById('panelCountSelect').value) : 1
         };
 
-        // 如果是漫畫模式，處理角色
         if (STATE.isComicModeActive) {
             const charItems = document.querySelectorAll('#characterList .char-item');
             charItems.forEach(item => {
@@ -184,7 +165,6 @@ export async function executeStep1Logic(payloadData) {
             });
         }
 
-        // 處理背景/道具圖 (美化模式會強制用到這個)
         if (STATE.sceneFiles?.length > 0) {
             for (let file of STATE.sceneFiles) { 
                 const b64 = await compressImageToBase64(file, 800); 
@@ -192,12 +172,13 @@ export async function executeStep1Logic(payloadData) {
             }
         }
 
-        await window.addAgentLog('首席文案', '✍️', `正在為您打造「${styleName}」專屬腳本...`, true);
+        await window.addAgentLog('首席文案', '✍️', `正在為您打造「${styleName}」專屬腳本，請稍候...`, true);
         const result = await window.executeWithRetry(() => API.createDraftAPI(payload), '首席文案', '腳本連線');
         
-        // 扣點：腳本固定價格
+        // 🌟 關鍵補強：API 回傳成功後，執行扣點回報
         const draftCost = STATE.globalPricing?.GENERATE_DRAFT?.retailPoints ?? 15;
         if(window.showPointDeduction) window.showPointDeduction(btnSubmit, draftCost); 
+        await window.addAgentLog('財務總監', '💳', `腳本撰寫完成！已成功扣除 AI 算力 ${draftCost} 點。`, false);
         
         STATE.currentTaskId = result.taskId; 
         document.getElementById('step1-setup').classList.add('hidden'); 
@@ -208,7 +189,6 @@ export async function executeStep1Logic(payloadData) {
         STATE.currentTags = result.draftContent.hashtags || [];
         if(window.renderTagChips) window.renderTagChips();
         
-        // 渲染漫畫分鏡 (如果是真實攝影則隱藏)
         const panContainer = document.getElementById('reviewPanelsContainer');
         if (STATE.isComicModeActive && result.draftContent.panels) {
             panContainer.classList.remove('hidden');
@@ -220,8 +200,12 @@ export async function executeStep1Logic(payloadData) {
         } else { panContainer.classList.add('hidden'); }
         
         showToast('✅ 腳本已就緒！', 'success');
-    } catch (e) { showToast(`❌ 失敗: ${e.message}`, 'error'); } 
-    finally { 
+        await window.addAgentLog('專案總監', '👨‍💼', '腳本卷宗已解密！請核對左側台詞，確認無誤後即可發包生圖。', false);
+
+    } catch (e) { 
+        showToast(`❌ 失敗: ${e.message}`, 'error'); 
+        await window.addAgentLog('系統管理員', '🚨', `任務中斷：${e.message}`, false);
+    } finally { 
         btnSubmit.disabled = false; 
         btnSubmit.classList.replace('bg-gray-500', 'bg-blue-600'); 
         document.getElementById('btnTextStep1').innerHTML = '⚡ 1️⃣ 第一步：AI 撰寫貼文腳本'; 
@@ -229,12 +213,10 @@ export async function executeStep1Logic(payloadData) {
 }
 
 // ==========================================
-// 🎨 第二步：發包生圖 (支援美化定價)
+// 🎨 第二步：發包生圖 (支援美化定價與質檢重繪)
 // ==========================================
 export async function submitForImageGeneration() {
     const btn = document.getElementById('btnStep2Submit');
-    
-    // 🌟 [優化] 根據目前模式決定 Action Key 與售價
     const actionKey = STATE.currentAction || 'GENERATE_IMAGE';
     const imageCost = STATE.globalPricing?.[actionKey]?.retailPoints ?? (STATE.currentRealMode === 'ENHANCE' ? 30 : 50);
 
@@ -246,17 +228,16 @@ export async function submitForImageGeneration() {
             document.querySelectorAll('.panel-item textarea').forEach(ta => { editedPanels.push({ panel_number: parseInt(ta.id.split('_')[1]), dialogue: ta.value }); });
         }
 
-        await window.addAgentLog('美術總監', '👨‍🎨', `正在執行「${STATE.currentStyleName}」任務，預計扣除 ${imageCost} 點...`, true);
+        await window.addAgentLog('美術總監', '👨‍🎨', `收到指令！正在執行「${STATE.currentStyleName}」視覺生成任務...`, true);
 
         const res = await window.executeWithRetry(() => API.generateImageAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: window.getTenantIdFromToken(), 
-            editedCaption: document.getElementById('reviewCaption').value, 
-            editedPanels,
-            action: actionKey // 告訴後端這次是什麼計費動作
+            taskId: STATE.currentTaskId, tenantId: window.getTenantIdFromToken(), 
+            editedCaption: document.getElementById('reviewCaption').value, editedPanels, action: actionKey
         }), '算圖農場', '影像生成');
         
+        // 🌟 生圖扣點回報
         if (window.showPointDeduction) window.showPointDeduction(btn, imageCost); 
+        await window.addAgentLog('財務總監', '💳', `影像生成成功！已成功扣除 AI 算力 ${imageCost} 點。`, false);
         
         document.getElementById('step2-review').classList.add('hidden'); 
         document.getElementById('step3-publish').classList.remove('hidden');
@@ -264,49 +245,33 @@ export async function submitForImageGeneration() {
         
         const finalContainer = document.getElementById('finalImageContainer'); 
         const mainImage = res.images[0];
-        
         finalContainer.innerHTML = `<div class="w-full p-2 bg-gray-50 rounded-xl flex flex-col items-center justify-center relative"><img id="finalRenderedImg_0" src="${mainImage.finalUrl}" onclick="window.openLightbox(this.src)" class="w-full max-w-md h-auto block rounded-xl shadow-md border border-gray-200 cursor-zoom-in hover:shadow-lg transition-all animate-fade-in"></div>`;
 
         let combinedCaption = document.getElementById('reviewCaption').value.trim();
         if (STATE.currentTags?.length > 0) combinedCaption += '\n\n' + STATE.currentTags.map(t => '#' + t.replace(/^#/, '').trim()).join(' ');
         document.getElementById('finalCaptionDisplay').value = combinedCaption;
 
-        // 🌟 結束後啟動微調對話框
+        // 🌟 質檢邏輯與快捷鍵
         const quickReplies = document.getElementById('aiQuickReplies');
         if (quickReplies) {
-            // 🌟 清空舊的「換背景/變開心」等無關快捷鍵
             quickReplies.innerHTML = ''; 
-            
-            const mainAiImage = res.images[0]; // 假設第 0 張是主合成圖
-        
-            if (mainAiImage.qaStatus === 'ERROR') {
-                // 🚨 偵測到文字可能有亂碼
-                await window.addAgentLog('視覺工程師', '⚠️', '報告總編：質檢偵測到圖片文字可能存在亂碼或模糊。', false);
-                
-                // 加入專屬「免費重繪」快捷鍵
-                quickReplies.innerHTML = `
-                    <button onclick="window.retrySingleImage(0)" class="whitespace-nowrap px-3 py-1.5 bg-red-600 border border-red-400 text-white text-xs font-bold rounded-full hover:bg-red-700 transition-colors shadow-lg animate-pulse">
-                        ✨ 文字有誤？免費重繪一次
-                    </button>
-                `;
+            if (mainImage.qaStatus === 'ERROR') {
+                await window.addAgentLog('視覺工程師', '⚠️', '報告總編：偵測到圖片文字存在亂碼風險，已開啟「免費重繪」權限。', false);
+                quickReplies.innerHTML = `<button onclick="window.retrySingleImage(0)" class="whitespace-nowrap px-3 py-1.5 bg-red-600 border border-red-400 text-white text-xs font-bold rounded-full hover:bg-red-700 transition-colors shadow-lg animate-pulse">✨ 文字有誤？免費重繪一次</button>`;
                 quickReplies.classList.remove('hidden');
             } else {
-                // ✅ 文字看起來很完美
-                await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字清晰度符合標準。', false);
-                // 隱藏快捷鍵，不干擾發布
+                await window.addAgentLog('視覺工程師', '✅', '視覺質檢通過！文字清晰，畫風完美對齊。', false);
                 quickReplies.classList.add('hidden');
             }
         }
 
-        await window.addAgentLog('視覺工程師', '✅', '任務圓滿完成！請確認最終成品。', false);
+        await window.addAgentLog('專案總監', '👨‍💼', '最終成品已就緒！您可以直接發布，或設定預約排程。', false);
         showToast('✅ 影像處理完畢！', 'success');
     } catch (e) { showToast(`❌ 失敗: ${e.message}`, 'error'); } 
     finally { btn.disabled = false; btn.classList.replace('bg-gray-500', 'bg-indigo-600'); btn.innerHTML = '🎨 2️⃣ 第二步：發包生圖'; }
 }
 
-// ==========================================
-// 🚀 第三步：社群發射 (5/4/3 扣點)
-// ==========================================
+// 其他函數 (publishToSocial, retrySingleImage 等) 保持原樣...
 export async function publishToSocial(manualRetryPlatforms = null) {
     const btn = document.getElementById('btnPublish');
     const isScheduleMode = !document.getElementById('scheduleTimeContainer').classList.contains('hidden');
@@ -319,28 +284,21 @@ export async function publishToSocial(manualRetryPlatforms = null) {
     }
     
     btn.disabled = true; window.scrollTo({ top: 0, behavior: 'smooth' });
-    await window.addAgentLog('社群總監', scheduledAt ? '🗓️' : '🚀', '啟動發射程序...', true, btn);
+    await window.addAgentLog('社群總監', scheduledAt ? '🗓️' : '🚀', '啟動發射程序，正在連絡通訊衛星...', true, btn);
 
     try {
-        // 🌟 精算本次發布點數
         let publishCost = 0;
         const platforms = STATE.pendingTaskPayload?.selectedPlatforms || [];
         const platformMap = STATE.globalPricing?.PUBLISH_POST?.platformMap || { FB: 5, IG: 4, THREADS: 3 };
-
         platforms.forEach(p => { publishCost += (platformMap[p] || 0); });
 
         const res = await window.executeWithRetry(() => API.publishContentAPI({ 
-            taskId: STATE.currentTaskId, 
-            tenantId: window.getTenantIdFromToken(), 
-            finalCaption: document.getElementById('finalCaptionDisplay').value, 
-            scheduledAt, 
-            platforms, // 🌟 傳入平台陣列供後端 BillingService 使用
-            retryPlatforms: manualRetryPlatforms 
+            taskId: STATE.currentTaskId, tenantId: window.getTenantIdFromToken(), finalCaption: document.getElementById('finalCaptionDisplay').value, scheduledAt, platforms, retryPlatforms: manualRetryPlatforms 
         }), '社群總監', '發布任務');
 
         if (!scheduledAt && window.showPointDeduction) {
             window.showPointDeduction(btn, publishCost); 
-            await window.addAgentLog('財務總監', '💳', `(社群發佈扣除 ${publishCost} 點)`, false);
+            await window.addAgentLog('財務總監', '💳', `任務大成功！已成功扣除社群發佈算力 ${publishCost} 點。`, false);
         }
 
         btn.classList.replace('bg-blue-600', 'bg-green-600');
@@ -355,6 +313,5 @@ export async function publishToSocial(manualRetryPlatforms = null) {
     } catch (e) { showToast(`❌ 發布失敗: ${e.message}`, 'error'); btn.disabled=false; }
 }
 
-// 其他輔助函數維持原樣...
 export async function retrySingleImage(index) { /* 同原先邏輯 */ }
 export async function resumeTaskWithStyle(styleId) { /* 同原先邏輯 */ }
