@@ -1,7 +1,7 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
-const APP_VERSION = "V0.22 滿載通訊版";
+const APP_VERSION = "V0.23 全卡片對話流";
 
 const MISSION = {
     persona: '', platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K',
@@ -91,8 +91,8 @@ function renderLobby() {
         </div>
     `;
     document.getElementById('btnManualStart').onclick = async () => { 
-        log.innerHTML = ''; MISSION.universe = ''; MISSION.persona = ''; MISSION.platforms = [];
-        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。準備進入編撰流程。`); 
+        log.innerHTML = ''; MISSION.universe = ''; MISSION.persona = ''; MISSION.platforms = []; MISSION.topic = '';
+        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。100% 滿版卡片流引擎上線。`); 
         await triggerPersonaSkill();
     };
 }
@@ -102,15 +102,19 @@ async function triggerPersonaSkill() {
     let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
     MOCK_PERSONAS.forEach(p => { html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400">${p.desc}</span></button>`; }); html += `</div>`;
     const ui = createSkillUI(html); 
-    ui.querySelectorAll('.persona-btn').forEach(btn => { btn.onclick = async () => { MISSION.persona = btn.dataset.val; releaseUI(ui); await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerPlatformSkill(); } }; });
+    ui.querySelectorAll('.persona-btn').forEach(btn => { 
+        btn.onclick = async () => { MISSION.persona = btn.dataset.val; releaseUI(ui); await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else if(IS_EDIT_MODE) { await triggerPlatformSkill(); } else { await triggerPlatformSkill(); } }; 
+    });
 }
 
 async function triggerPlatformSkill() {
     updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定投遞平台：", true);
     const plats = [{ id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white' }, { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white' }, { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white' }];
     let btnsHtml = '';
+    // 帶入已有狀態
+    let tempPlats = [...MISSION.platforms];
     plats.forEach(p => {
-        const isSelected = MISSION.platforms.includes(p.id);
+        const isSelected = tempPlats.includes(p.id);
         const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400";
         btnsHtml += `<button class="plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}" data-name="${p.name}">${isSelected ? p.name + ' ✓' : p.name}</button>`;
     });
@@ -118,17 +122,51 @@ async function triggerPlatformSkill() {
     ui.querySelectorAll('.plat-btn').forEach(btn => {
         btn.onclick = () => {
             const val = btn.dataset.val; const activeClasses = btn.dataset.active.split(' ');
-            if (MISSION.platforms.includes(val)) { MISSION.platforms = MISSION.platforms.filter(p => p !== val); btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.innerText = btn.dataset.name; } 
-            else { MISSION.platforms.push(val); btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses); btn.innerText = `${btn.dataset.name} ✓`; }
+            if (tempPlats.includes(val)) { tempPlats = tempPlats.filter(p => p !== val); btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.innerText = btn.dataset.name; } 
+            else { tempPlats.push(val); btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses); btn.innerText = `${btn.dataset.name} ✓`; }
         };
     });
-    ui.querySelector('#btnConfirmPlat').onclick = async () => { if (MISSION.platforms.length === 0) return showError('請至少選擇一個平台！'); releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await unlockTopicInput(); } };
+    ui.querySelector('#btnConfirmPlat').onclick = async () => { 
+        if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
+        MISSION.platforms = tempPlats;
+        releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
+        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerTopicSkill(); } 
+    };
 }
 
-async function unlockTopicInput() {
-    updateStepHeader("TOPIC CAPTURE"); const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend'); await addLog("專案總監", "👨‍💼", "請提供您的貼文主題。");
-    input.disabled = false; input.classList.replace('input-locked', 'input-active'); input.placeholder = "輸入主題..."; if (MISSION.topic) input.value = MISSION.topic; input.focus(); btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
-    btn.onclick = async () => { const val = input.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; input.value = ""; input.disabled = true; input.classList.replace('input-active', 'input-locked'); btn.disabled = true; await addLog("總編指令", "🗣️", val); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
+// 🌟 V0.23: 內嵌式卡片輸入框，取代底部 Footer
+async function triggerTopicSkill() {
+    updateStepHeader("TOPIC CAPTURE"); 
+    await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
+    
+    // 建立一張包含 Textarea 的卡片
+    const ui = createSkillUI(`
+        <div class="flex flex-col gap-3">
+            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500 min-h-[100px] resize-y" placeholder="例如：介紹新上市的夏日防曬乳，語氣要活潑...">${MISSION.topic}</textarea>
+            <div class="flex justify-end">
+                <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題</button>
+            </div>
+        </div>
+    `);
+
+    const inputEl = ui.querySelector('#inlineTopicInput');
+    // 自動聚焦，方便使用者直接打字 (手機上可能會直接叫出鍵盤)
+    setTimeout(() => { inputEl.focus(); }, 100);
+
+    ui.querySelector('#btnConfirmTopic').onclick = async () => { 
+        const val = inputEl.value.trim(); 
+        if(!val) return showError('主題不能為空！'); 
+        MISSION.topic = val; 
+        
+        // 鎖死卡片，把輸入框變成不能修改的狀態
+        inputEl.disabled = true;
+        inputEl.classList.add('opacity-50', 'bg-slate-800', 'border-white/10');
+        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); // 隱藏按鈕
+        releaseUI(ui); 
+        
+        await addLog("總編指令", "🗣️", `鎖定主題：${val}`); 
+        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
+    };
 }
 
 async function triggerUniverseSkill() {
@@ -147,12 +185,16 @@ async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認參數。可自由召喚角色或上傳場景：", true);
     
+    // 預設帶入當前數值
+    let currentRatio = MISSION.ratio;
+    let currentRes = MISSION.resolution;
+
     const ui = createSkillUI(`
         <div class="space-y-4 lg:space-y-6 flex flex-col relative">
             <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30">
                 <div class="grid grid-cols-2 gap-3">
-                    <button ${isEnhance ? 'disabled' : `onclick="window.quickEdit('RATIO')"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${MISSION.ratio}</span></button>
-                    <button onclick="window.quickEdit('RES')" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${MISSION.resolution}</span></button>
+                    <button ${isEnhance ? 'disabled' : `onclick="window.quickEdit('RATIO')"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
+                    <button onclick="window.quickEdit('RES')" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button>
                 </div>
             </div>
             <div id="customPanel" class="hidden space-y-4 bg-slate-900/80 p-5 rounded-2xl border border-white/10 animate-fade-in">
@@ -164,18 +206,33 @@ async function triggerVisualSkill() {
                 <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 active:scale-95"><span class="text-lg">📸</span> 參考場景圖</button>
             </div>
             <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
-            <button id="btnAcceptVisual" class="accept-visual-btn w-full bg-blue-600 py-4 lg:py-5 rounded-xl font-black text-sm shadow-lg mt-auto active:scale-[0.98]">✅ 鎖定參數</button>
+            <button id="btnAcceptVisual" class="w-full bg-blue-600 py-4 lg:py-5 rounded-xl font-black text-sm shadow-lg mt-auto active:scale-[0.98]">✅ 鎖定參數</button>
         </div>
     `);
 
     window.quickEdit = (type) => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    
     if (!isEnhance) {
-        ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === MISSION.ratio) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.ratio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; }; });
+        ui.querySelectorAll('.ratio-btn').forEach(btn => { 
+            if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); 
+            btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; 
+        });
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'), ui);
     }
-    ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === MISSION.resolution) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.resolution = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = MISSION.resolution; }; });
+    
+    ui.querySelectorAll('.res-btn').forEach(btn => { 
+        if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); 
+        btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; 
+    });
+    
     ui.querySelector('#btnUploadScene').onclick = () => { let input = document.getElementById('hidden-file-input'); if (!input) { input = document.createElement('input'); input.type = 'file'; input.id = 'hidden-file-input'; input.style.display = 'none'; document.body.appendChild(input); } input.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea'), ui); input.value = ''; }; input.click(); };
-    ui.querySelector('#btnAcceptVisual').onclick = async () => { if (!isMissionComplete()) return showError('參數尚未完整設定！'); releaseUI(ui); await triggerMissionSummary(); };
+    
+    ui.querySelector('#btnAcceptVisual').onclick = async () => { 
+        MISSION.ratio = currentRatio; MISSION.resolution = currentRes; // 寫回主任務檔
+        if (!isMissionComplete()) return showError('參數尚未完整設定！'); 
+        releaseUI(ui); 
+        await triggerMissionSummary(); 
+    };
 }
 
 async function triggerCharacterPicker(container, parentUI) {
@@ -211,7 +268,7 @@ async function handleAssetUpload(file, container, parentUI) {
 
 async function triggerMissionSummary() {
     IS_EDIT_MODE = false; updateStepHeader("FINAL CONFIRMATION");
-    await addLog("專案總監", "👨‍💼", "請確認清單。點擊 ✎ 可隨時反悔修正：", true);
+    await addLog("專案總監", "👨‍💼", "請確認清單。點擊 ✎ 可隨時發起反悔修正，時光不會倒流，但您可以隨時微調：", true);
 
     const uniMap = { 'REALISTIC': '真實攝影', 'COMIC': '2D動漫', 'ENHANCE': '無損美化' };
     const st = MOCK_STYLES[MISSION.universe].find(s => s.id === MISSION.style);
@@ -243,9 +300,20 @@ async function triggerMissionSummary() {
         </div>
     `);
 
-    window.retryStep = (step) => { 
-        IS_EDIT_MODE = true; releaseUI(ui); addLog("系統", "🔄", `進入反悔修正模式...`); 
-        if(step === 'PERSONA') triggerPersonaSkill(); if(step === 'PLATFORM') triggerPlatformSkill(); if(step === 'TOPIC') unlockTopicInput(); if(step === 'UNIVERSE') triggerUniverseSkill(); if(step === 'VISUAL') triggerVisualSkill(); 
+    // 🌟 V0.23 反悔機制：不再滑回上方舊卡片，而是讓舊卡片鎖死，直接在下方觸發「新的修改卡片」！
+    window.retryStep = async (step) => { 
+        IS_EDIT_MODE = true; 
+        releaseUI(ui); // 鎖死當前的摘要卡片按鈕
+        ui.querySelectorAll('button').forEach(b => b.disabled = true);
+        ui.classList.add('opacity-50'); // 讓舊的摘要卡片變暗，明確表示對話「已往下推進」
+        
+        await addLog("系統", "🔄", `收到修改指令，啟動新的配置卡片...`); 
+        
+        if(step === 'PERSONA') await triggerPersonaSkill(); 
+        if(step === 'PLATFORM') await triggerPlatformSkill(); 
+        if(step === 'TOPIC') await triggerTopicSkill(); 
+        if(step === 'UNIVERSE') await triggerUniverseSkill(); 
+        if(step === 'VISUAL') await triggerVisualSkill(); 
     };
     ui.querySelector('#btnOpenSch').onclick = () => openScheduleModal(ui);
 }
@@ -294,11 +362,23 @@ function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: doc
 function createSkillUI(html) { 
     const log = document.getElementById('funnelLog'); 
     const oldActive = document.getElementById('activeControlCard');
-    if (oldActive) oldActive.removeAttribute('id');
+    if (oldActive) {
+        oldActive.removeAttribute('id');
+        // V0.23: 舊卡片徹底封印，物理上防止使用者回去點舊按鈕
+        oldActive.querySelectorAll('button').forEach(b => b.disabled = true);
+        const inputs = oldActive.querySelectorAll('input, textarea');
+        if(inputs) inputs.forEach(i => i.disabled = true);
+    }
     const div = document.createElement('div'); div.className = 'skill-card ml-8 lg:ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6'; div.id = 'activeControlCard'; div.innerHTML = html; 
     log.appendChild(div); scrollDown(); return div; 
 }
-function releaseUI(ui) { lockUI(ui); ui.removeAttribute('id'); }
+function releaseUI(ui) { 
+    lockUI(ui); 
+    ui.removeAttribute('id'); 
+    ui.querySelectorAll('button').forEach(b => b.disabled = true);
+    const inputs = ui.querySelectorAll('input, textarea');
+    if(inputs) inputs.forEach(i => i.disabled = true);
+}
 async function addLog(role, icon, msg, skipTyping = false) { 
     const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'flex items-start gap-3 lg:gap-4 animate-fade-in mb-4'; div.innerHTML = `<div class="text-2xl">${icon}</div><div class="bg-slate-800/80 p-3 lg:p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[90%] lg:max-w-[85%] shadow-md"><div class="text-[9px] font-black text-slate-500 mb-1 uppercase">${role}</div><div class="msg-content text-xs lg:text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div></div>`; 
     const activeCard = document.getElementById('activeControlCard');
