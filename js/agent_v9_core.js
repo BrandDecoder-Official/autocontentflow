@@ -213,10 +213,10 @@ async function handleAssetUpload(file, container) {
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化並載入圖資。`); 
 }
 
-// 🌟 Mission Brief
+// 🌟 Mission Brief (支援原生排程選擇)
 async function triggerMissionSummary() {
     IS_EDIT_MODE.value = false; updateStepHeader("FINAL CONFIRMATION");
-    await addLog("專案總監", "👨‍💼", "請確認清單。點擊 ✎ 可隨時發起反悔修正：", true);
+    await addLog("專案總監", "👨‍💼", "請確認清單與發佈時間。點擊 ✎ 可發起修正：", true);
 
     const basePts = 15; const totalPts = basePts + MISSION.characters.length;
     
@@ -245,8 +245,13 @@ async function triggerMissionSummary() {
                 <div id="retryUni" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🌌 宇宙</span><span class="text-white font-bold">${MISSION.universe} / ${MISSION.style} ✎</span></div>
                 <div id="retryChar" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>👥 登場角色</span><div class="flex items-center gap-2">${charsHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
                 <div id="retryVis" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📐 畫面與參考圖</span><div class="flex items-center gap-2">${visHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
+                
+                <div class="flex justify-between items-center pt-3 border-t border-white/10">
+                    <span class="text-indigo-400 font-bold">📅 發佈時間</span>
+                    <input type="datetime-local" id="scheduleInput" class="bg-slate-800 border border-white/10 text-white text-[11px] p-1.5 rounded-lg focus:border-blue-500 focus:outline-none" title="留空代表立即發佈">
+                </div>
             </div>
-            <button id="btnRender" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">⚡ 扣除 ${totalPts} 點發送指令</button>
+            <button id="btnRender" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">⚡ 扣除 ${totalPts} 點產出腳本</button>
         </div>
     `);
 
@@ -254,6 +259,10 @@ async function triggerMissionSummary() {
     bindRetry('#retryPersona', triggerPersonaSkill); bindRetry('#retryPlat', triggerPlatformSkill); bindRetry('#retryTopic', triggerTopicSkill); bindRetry('#retryUni', triggerUniverseSkill); bindRetry('#retryChar', triggerCharacterSkill); bindRetry('#retryVis', triggerVisualSkill);
 
     ui.querySelector('#btnRender').onclick = async () => {
+        // 記錄排程時間
+        const schValue = ui.querySelector('#scheduleInput').value;
+        MISSION.scheduledAt = schValue ? new Date(schValue).toISOString() : null;
+
         releaseUI(ui); await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在為您產出腳本，請稍候...</span></div>`, true);
 
         const referenceImages = [];
@@ -263,7 +272,7 @@ async function triggerMissionSummary() {
         });
         MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
-        const rawPayload = {
+        const cleanPayload = JSON.parse(JSON.stringify({
             tenantId: STATE.uid, topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC',
             style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona,
             ratio: MISSION.ratio, resolution: MISSION.resolution,
@@ -272,9 +281,7 @@ async function triggerMissionSummary() {
                 return { name: name, persona: c ? (c.persona || "") : "" };
             }),
             image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages }
-        };
-
-        const cleanPayload = JSON.parse(JSON.stringify(rawPayload));
+        }));
 
         try {
             const result = await API.createDraftAPI(cleanPayload);
@@ -287,6 +294,7 @@ async function triggerMissionSummary() {
     };
 }
 
+// 🌟 校稿總編室 (接通生圖 API)
 async function renderDraftEditorCard(taskId, draftContent, isComic) {
     let panelsHtml = '';
     if (isComic && draftContent.panels) {
@@ -302,7 +310,7 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
                 <div class="space-y-1"><label class="text-[9px] text-slate-500 font-bold">社群內文 (Caption)</label><textarea id="editCaption" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[100px] focus:border-blue-500 focus:outline-none">${draftContent.post_caption}</textarea></div>
                 <div class="space-y-2">${panelsHtml}</div>
             </div>
-            <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本，發包生圖</button>
+            <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本，發包生圖</button>
         </div>
     `);
 
@@ -310,9 +318,77 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
         const editedCaption = ui.querySelector('#editCaption').value;
         const editedPanels = [];
         ui.querySelectorAll('.panel-dialogue').forEach(input => { const idx = input.dataset.idx; editedPanels.push({ panel_number: draftContent.panels[idx].panel_number, dialogue: input.value }); });
-        releaseUI(ui); await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在進行 AI 影像合成...</span></div>`, true);
-        console.log("🚀 發包生圖 Payload:", { taskId, tenantId: STATE.uid, editedCaption, editedPanels });
-        setTimeout(() => { addLog("系統", "🚧", "視覺合成模組介接中，敬請期待下一個版本！"); }, 3000);
+        
+        releaseUI(ui); 
+        await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在進行 AI 影像合成 (約需 20~30 秒)...</span></div>`, true);
+        
+        try {
+            // 🚀 呼叫 API 2: 發包生圖
+            const result = await API.generateImageFromDraftAPI({
+                taskId: taskId, tenantId: STATE.uid, editedCaption: editedCaption, editedPanels: editedPanels
+            });
+
+            if (result.success && result.images && result.images.length > 0) {
+                await addLog("視覺工程師", "✅", "影像合成完畢！", true);
+                // 進入最後的發佈預覽關卡
+                await renderFinalPublishCard(taskId, result.images, editedCaption);
+            } else { throw new Error(result.message || "生圖回傳異常"); }
+        } catch (e) { showError(`生圖失敗：${e.message}`); }
+    };
+}
+
+// 🌟 V0.31 全新關卡：大作成品與社群發佈/排程
+async function renderFinalPublishCard(taskId, images, finalCaption) {
+    updateStepHeader("FINAL DEPLOYMENT");
+    await addLog("社群總監", "🚀", "大作已完成！請做最後確認，準備部署至社群：", true);
+
+    // 顯示第一張圖做代表
+    const displayImgUrl = images[0].finalUrl; 
+    
+    // 判斷按鈕文字 (立即發佈 vs 寫入排程)
+    let btnText = "🚀 立即發佈至社群";
+    let btnColor = "from-green-600 to-emerald-600";
+    if(MISSION.scheduledAt) {
+        const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        btnText = `⏰ 寫入排程 (${dateStr})`;
+        btnColor = "from-orange-500 to-red-500";
+    }
+
+    const ui = createSkillUI(`
+        <div class="space-y-4">
+            <div class="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                <div class="relative w-full aspect-square bg-black">
+                    <img src="${displayImgUrl}" class="w-full h-full object-contain">
+                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">共 ${images.length} 張圖</div>
+                </div>
+                <div class="p-4 border-t border-white/5 bg-slate-800/50">
+                    <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">${finalCaption}</p>
+                </div>
+            </div>
+            <button id="btnDeploy" class="w-full bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">${btnText}</button>
+        </div>
+    `);
+
+    ui.querySelector('#btnDeploy').onclick = async () => {
+        releaseUI(ui);
+        await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span>正在與社群伺服器連線...</span></div>`, true);
+        
+        try {
+            // 🚀 呼叫 API 3: 發佈或排程
+            const payload = {
+                taskId: taskId, tenantId: STATE.uid, finalCaption: finalCaption,
+                scheduledAt: MISSION.scheduledAt // 如果是 null，後端會立即發佈
+            };
+            const result = await API.publishTaskAPI(payload);
+
+            if (result.success) {
+                await addLog("系統", "🎉", `<span class="text-green-400 font-bold">${result.message}</span> 任務圓滿達成！`, true);
+                
+                // 任務完成，提供回到大廳的按鈕
+                const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all">🔄 發起新任務</button>`);
+                endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); initAgentFunnel(); };
+            } else { throw new Error(result.message || "發佈異常"); }
+        } catch(e) { showError(`操作失敗：${e.message}`); }
     };
 }
 
