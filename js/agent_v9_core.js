@@ -1,7 +1,9 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
+// 🌟 V0.25 引入您的 API 模組 (確保路徑正確)
+import * as API from './api.js'; 
 
-const APP_VERSION = "V0.23 全卡片對話流";
+const APP_VERSION = "V0.25 實彈對接版";
 
 const MISSION = {
     persona: '', platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K',
@@ -92,7 +94,7 @@ function renderLobby() {
     `;
     document.getElementById('btnManualStart').onclick = async () => { 
         log.innerHTML = ''; MISSION.universe = ''; MISSION.persona = ''; MISSION.platforms = []; MISSION.topic = '';
-        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。100% 滿版卡片流引擎上線。`); 
+        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。準備發包 API。`); 
         await triggerPersonaSkill();
     };
 }
@@ -110,9 +112,7 @@ async function triggerPersonaSkill() {
 async function triggerPlatformSkill() {
     updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定投遞平台：", true);
     const plats = [{ id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white' }, { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white' }, { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white' }];
-    let btnsHtml = '';
-    // 帶入已有狀態
-    let tempPlats = [...MISSION.platforms];
+    let btnsHtml = ''; let tempPlats = [...MISSION.platforms];
     plats.forEach(p => {
         const isSelected = tempPlats.includes(p.id);
         const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400";
@@ -128,42 +128,23 @@ async function triggerPlatformSkill() {
     });
     ui.querySelector('#btnConfirmPlat').onclick = async () => { 
         if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
-        MISSION.platforms = tempPlats;
-        releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
+        MISSION.platforms = tempPlats; releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
         if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerTopicSkill(); } 
     };
 }
 
-// 🌟 V0.23: 內嵌式卡片輸入框，取代底部 Footer
 async function triggerTopicSkill() {
-    updateStepHeader("TOPIC CAPTURE"); 
-    await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
-    
-    // 建立一張包含 Textarea 的卡片
+    updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3">
             <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-500 min-h-[100px] resize-y" placeholder="例如：介紹新上市的夏日防曬乳，語氣要活潑...">${MISSION.topic}</textarea>
-            <div class="flex justify-end">
-                <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題</button>
-            </div>
+            <div class="flex justify-end"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題</button></div>
         </div>
     `);
-
-    const inputEl = ui.querySelector('#inlineTopicInput');
-    // 自動聚焦，方便使用者直接打字 (手機上可能會直接叫出鍵盤)
-    setTimeout(() => { inputEl.focus(); }, 100);
-
+    const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
     ui.querySelector('#btnConfirmTopic').onclick = async () => { 
-        const val = inputEl.value.trim(); 
-        if(!val) return showError('主題不能為空！'); 
-        MISSION.topic = val; 
-        
-        // 鎖死卡片，把輸入框變成不能修改的狀態
-        inputEl.disabled = true;
-        inputEl.classList.add('opacity-50', 'bg-slate-800', 'border-white/10');
-        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); // 隱藏按鈕
-        releaseUI(ui); 
-        
+        const val = inputEl.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; 
+        inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800', 'border-white/10'); ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); 
         await addLog("總編指令", "🗣️", `鎖定主題：${val}`); 
         if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
     };
@@ -185,10 +166,7 @@ async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認參數。可自由召喚角色或上傳場景：", true);
     
-    // 預設帶入當前數值
-    let currentRatio = MISSION.ratio;
-    let currentRes = MISSION.resolution;
-
+    let currentRatio = MISSION.ratio; let currentRes = MISSION.resolution;
     const ui = createSkillUI(`
         <div class="space-y-4 lg:space-y-6 flex flex-col relative">
             <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30">
@@ -211,27 +189,16 @@ async function triggerVisualSkill() {
     `);
 
     window.quickEdit = (type) => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
-    
     if (!isEnhance) {
-        ui.querySelectorAll('.ratio-btn').forEach(btn => { 
-            if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); 
-            btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; 
-        });
+        ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; });
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'), ui);
     }
-    
-    ui.querySelectorAll('.res-btn').forEach(btn => { 
-        if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); 
-        btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; 
-    });
-    
+    ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
     ui.querySelector('#btnUploadScene').onclick = () => { let input = document.getElementById('hidden-file-input'); if (!input) { input = document.createElement('input'); input.type = 'file'; input.id = 'hidden-file-input'; input.style.display = 'none'; document.body.appendChild(input); } input.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea'), ui); input.value = ''; }; input.click(); };
     
     ui.querySelector('#btnAcceptVisual').onclick = async () => { 
-        MISSION.ratio = currentRatio; MISSION.resolution = currentRes; // 寫回主任務檔
-        if (!isMissionComplete()) return showError('參數尚未完整設定！'); 
-        releaseUI(ui); 
-        await triggerMissionSummary(); 
+        MISSION.ratio = currentRatio; MISSION.resolution = currentRes; 
+        if (!isMissionComplete()) return showError('參數尚未完整設定！'); releaseUI(ui); await triggerMissionSummary(); 
     };
 }
 
@@ -252,8 +219,7 @@ async function triggerCharacterPicker(container, parentUI) {
 
     panel.querySelector('#btnConfirmBatch').onclick = async () => { 
         MISSION.characters = tempSelected; const names = MISSION.characters.join('、'); 
-        await addLog("視覺工程師", "🧬", MISSION.characters.length > 0 ? `批次召喚確認：<b>${names}</b>。` : "已清空召喚名單，改為純場景模式。"); 
-        panel.remove(); 
+        await addLog("視覺工程師", "🧬", MISSION.characters.length > 0 ? `批次召喚確認：<b>${names}</b>。` : "已清空召喚名單，改為純場景模式。"); panel.remove(); 
     };
     container.appendChild(panel);
 }
@@ -300,28 +266,78 @@ async function triggerMissionSummary() {
         </div>
     `);
 
-    // 🌟 V0.23 反悔機制：不再滑回上方舊卡片，而是讓舊卡片鎖死，直接在下方觸發「新的修改卡片」！
     window.retryStep = async (step) => { 
-        IS_EDIT_MODE = true; 
-        releaseUI(ui); // 鎖死當前的摘要卡片按鈕
-        ui.querySelectorAll('button').forEach(b => b.disabled = true);
-        ui.classList.add('opacity-50'); // 讓舊的摘要卡片變暗，明確表示對話「已往下推進」
-        
-        await addLog("系統", "🔄", `收到修改指令，啟動新的配置卡片...`); 
-        
-        if(step === 'PERSONA') await triggerPersonaSkill(); 
-        if(step === 'PLATFORM') await triggerPlatformSkill(); 
-        if(step === 'TOPIC') await triggerTopicSkill(); 
-        if(step === 'UNIVERSE') await triggerUniverseSkill(); 
-        if(step === 'VISUAL') await triggerVisualSkill(); 
+        IS_EDIT_MODE = true; releaseUI(ui); await addLog("系統", "🔄", `收到修改指令，啟動新的配置卡片...`); 
+        if(step === 'PERSONA') await triggerPersonaSkill(); if(step === 'PLATFORM') await triggerPlatformSkill(); if(step === 'TOPIC') await triggerTopicSkill(); if(step === 'UNIVERSE') await triggerUniverseSkill(); if(step === 'VISUAL') await triggerVisualSkill(); 
     };
     ui.querySelector('#btnOpenSch').onclick = () => openScheduleModal(ui);
+    
+    // 🌟 V0.25: 核心發射邏輯
+    ui.querySelector('#btnRender').onclick = async () => {
+        // 1. 鎖死 UI，防止連點
+        releaseUI(ui); 
+        
+        // 2. 顯示 Loading 氣泡
+        await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在與雲端 AI 引擎同步運算中，請稍候...</span></div>`, true);
+        
+        // 3. 封裝 Payload (對接後端要求)
+        const payload = {
+            tenantId: STATE.uid,
+            topic: MISSION.topic,
+            isComicMode: MISSION.universe === 'COMIC',
+            style: MISSION.style, // 後端會自己去對應 prompt
+            platforms: MISSION.platforms,
+            persona: MISSION.persona,
+            // 將陣列 ['老K'] 轉換為 [{name: '老K'}]
+            characters: MISSION.characters.map(name => ({ name: name })),
+            image_options: {
+                // 如果有圖，塞入 Base64
+                referenceImages: MISSION.sceneFiles.map(sf => ({
+                    mimeType: 'image/jpeg', // 簡化處理，後端會判斷
+                    data: sf.dataUrl // 後端 uploadBase64ToStorage 會自動清標頭
+                }))
+            },
+            // 如果有排程，附上時間
+            scheduledAt: MISSION.scheduleMode === 'LATER' ? `${MISSION.scheduleDate}T${MISSION.scheduleTime}` : null
+        };
+
+        try {
+            // 4. 呼叫 API
+            console.log("📤 Sending Payload:", payload);
+            const result = await API.createDraftAPI(payload);
+
+            if (result.success) {
+                // 5. 成功回報
+                await addLog("首席文案", "✅", `
+                    <div class="space-y-2">
+                        <p class="font-bold text-green-400">草稿建立成功！(TaskID: ${result.taskId})</p>
+                        <div class="bg-slate-900 p-3 rounded-lg border border-white/5 text-[10px] text-slate-300 max-h-32 overflow-y-auto">
+                            <pre>${JSON.stringify(result.draftContent, null, 2)}</pre>
+                        </div>
+                        <button class="w-full bg-green-600 text-white py-2 rounded-lg font-bold shadow-lg active:scale-95 transition-all mt-2">繼續生成影像</button>
+                    </div>
+                `, true);
+                
+                // TODO: 扣點 UI 更新與進入 Step 2
+                
+            } else {
+                throw new Error(result.message || '未知錯誤');
+            }
+
+        } catch (error) {
+            // 6. 失敗處理
+            console.error("API 錯誤:", error);
+            showError(`發送失敗：${error.message}`);
+            // 給使用者一個重新嘗試的按鈕卡片
+            const retryUI = createSkillUI(`<div class="flex justify-between items-center"><span class="text-xs text-slate-400">連線中斷，請重試</span><button id="btnRetryRender" class="bg-blue-600 px-4 py-2 rounded-lg text-xs font-bold text-white">🔄 重新發送</button></div>`);
+            retryUI.querySelector('#btnRetryRender').onclick = () => { releaseUI(retryUI); ui.querySelector('#btnRender').click(); };
+        }
+    };
 }
 
 function openScheduleModal(summaryUI) {
     const modal = document.getElementById('scheduleModal'); const panel = document.getElementById('schedulePanel');
     const defaultDate = MISSION.scheduleDate || "today"; const defaultTime = MISSION.scheduleTime || "12:00 PM";
-
     panel.innerHTML = `
         <div class="flex justify-between items-center mb-4"><h3 class="text-sm font-black text-white tracking-widest uppercase">時間指揮艙</h3><button onclick="closeScheduleModal()" class="text-slate-400 hover:text-white p-1 bg-slate-700 rounded-full">✕</button></div>
         <div class="space-y-4">
@@ -330,58 +346,18 @@ function openScheduleModal(summaryUI) {
             <div class="flex gap-2 pt-2"><button id="btnSchNow" class="flex-1 bg-slate-700 text-white py-3 rounded-xl text-xs font-bold active:scale-95 transition-transform">取消排程 (NOW)</button><button id="btnConfirmSch" class="flex-1 bg-indigo-600 text-white py-3 rounded-xl text-xs font-bold shadow-lg active:scale-95 transition-transform">✅ 確認寫入</button></div>
         </div>
     `;
-    
     modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
     const fp = flatpickr("#flatpickr-input", { minDate: "today", theme: "dark", dateFormat: "Y-m-d", defaultDate: defaultDate });
-    const tui = new window.tui.TimepickerUI(panel.querySelector('#timepicker-container'), { theme: 'dark', clockType: '12h', mobile: window.innerWidth < 1024, incrementMinutes: 15 });
-    tui.create();
-
-    const observer = new MutationObserver(() => {
-        const hideList = ['05', '10', '20', '25', '35', '40', '50', '55'];
-        panel.querySelectorAll('.timepicker-ui-clock-face__number, span, div').forEach(node => { if (hideList.includes(node.innerText.trim())) { node.style.opacity = '0'; node.style.pointerEvents = 'none'; } });
-    });
+    const tui = new window.tui.TimepickerUI(panel.querySelector('#timepicker-container'), { theme: 'dark', clockType: '12h', mobile: window.innerWidth < 1024, incrementMinutes: 15 }); tui.create();
+    const observer = new MutationObserver(() => { panel.querySelectorAll('.timepicker-ui-clock-face__number, span, div').forEach(node => { if (['05', '10', '20', '25', '35', '40', '50', '55'].includes(node.innerText.trim())) { node.style.opacity = '0'; node.style.pointerEvents = 'none'; } }); });
     observer.observe(panel.querySelector('#timepicker-container'), { childList: true, subtree: true });
-
-    panel.querySelector('#btnConfirmSch').onclick = () => {
-        const d = document.getElementById('flatpickr-input').value; const t = document.querySelector('.timepicker-ui-input').value;
-        if (!d || !t) return showError("請完整選擇時間");
-        MISSION.scheduleMode = 'LATER'; MISSION.scheduleDate = d; MISSION.scheduleTime = t;
-        summaryUI.querySelector('#schDisplay').innerText = `預約: ${d} ${t}`; summaryUI.querySelector('#schDisplay').classList.replace('text-slate-400', 'text-green-400');
-        window.closeScheduleModal();
-    };
-    panel.querySelector('#btnSchNow').onclick = () => {
-        MISSION.scheduleMode = 'NOW'; MISSION.scheduleDate = ''; MISSION.scheduleTime = '';
-        summaryUI.querySelector('#schDisplay').innerText = `立即發布 (NOW)`; summaryUI.querySelector('#schDisplay').classList.replace('text-green-400', 'text-slate-400');
-        window.closeScheduleModal();
-    };
+    panel.querySelector('#btnConfirmSch').onclick = () => { const d = document.getElementById('flatpickr-input').value; const t = document.querySelector('.timepicker-ui-input').value; if (!d || !t) return showError("請完整選擇時間"); MISSION.scheduleMode = 'LATER'; MISSION.scheduleDate = d; MISSION.scheduleTime = t; summaryUI.querySelector('#schDisplay').innerText = `預約: ${d} ${t}`; summaryUI.querySelector('#schDisplay').classList.replace('text-slate-400', 'text-green-400'); window.closeScheduleModal(); };
+    panel.querySelector('#btnSchNow').onclick = () => { MISSION.scheduleMode = 'NOW'; MISSION.scheduleDate = ''; MISSION.scheduleTime = ''; summaryUI.querySelector('#schDisplay').innerText = `立即發布 (NOW)`; summaryUI.querySelector('#schDisplay').classList.replace('text-green-400', 'text-slate-400'); window.closeScheduleModal(); };
 }
 
 function updateStepHeader(name) { document.getElementById('missionStep').innerText = name; }
 function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none'); }
 function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
-function createSkillUI(html) { 
-    const log = document.getElementById('funnelLog'); 
-    const oldActive = document.getElementById('activeControlCard');
-    if (oldActive) {
-        oldActive.removeAttribute('id');
-        // V0.23: 舊卡片徹底封印，物理上防止使用者回去點舊按鈕
-        oldActive.querySelectorAll('button').forEach(b => b.disabled = true);
-        const inputs = oldActive.querySelectorAll('input, textarea');
-        if(inputs) inputs.forEach(i => i.disabled = true);
-    }
-    const div = document.createElement('div'); div.className = 'skill-card ml-8 lg:ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6'; div.id = 'activeControlCard'; div.innerHTML = html; 
-    log.appendChild(div); scrollDown(); return div; 
-}
-function releaseUI(ui) { 
-    lockUI(ui); 
-    ui.removeAttribute('id'); 
-    ui.querySelectorAll('button').forEach(b => b.disabled = true);
-    const inputs = ui.querySelectorAll('input, textarea');
-    if(inputs) inputs.forEach(i => i.disabled = true);
-}
-async function addLog(role, icon, msg, skipTyping = false) { 
-    const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'flex items-start gap-3 lg:gap-4 animate-fade-in mb-4'; div.innerHTML = `<div class="text-2xl">${icon}</div><div class="bg-slate-800/80 p-3 lg:p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[90%] lg:max-w-[85%] shadow-md"><div class="text-[9px] font-black text-slate-500 mb-1 uppercase">${role}</div><div class="msg-content text-xs lg:text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div></div>`; 
-    const activeCard = document.getElementById('activeControlCard');
-    if (activeCard) { log.insertBefore(div, activeCard); } else { log.appendChild(div); }
-    scrollDown(); if (!skipTyping) { await new Promise(r => setTimeout(r, 600)); div.querySelector('.msg-content').innerHTML = msg; } 
-}
+function createSkillUI(html) { const log = document.getElementById('funnelLog'); const oldActive = document.getElementById('activeControlCard'); if (oldActive) { oldActive.removeAttribute('id'); oldActive.querySelectorAll('button').forEach(b => b.disabled = true); const inputs = oldActive.querySelectorAll('input, textarea'); if(inputs) inputs.forEach(i => i.disabled = true); } const div = document.createElement('div'); div.className = 'skill-card ml-8 lg:ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6'; div.id = 'activeControlCard'; div.innerHTML = html; log.appendChild(div); scrollDown(); return div; }
+function releaseUI(ui) { lockUI(ui); ui.removeAttribute('id'); ui.querySelectorAll('button').forEach(b => b.disabled = true); const inputs = ui.querySelectorAll('input, textarea'); if(inputs) inputs.forEach(i => i.disabled = true); }
+async function addLog(role, icon, msg, skipTyping = false) { const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'flex items-start gap-3 lg:gap-4 animate-fade-in mb-4'; div.innerHTML = `<div class="text-2xl">${icon}</div><div class="bg-slate-800/80 p-3 lg:p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[90%] lg:max-w-[85%] shadow-md"><div class="text-[9px] font-black text-slate-500 mb-1 uppercase">${role}</div><div class="msg-content text-xs lg:text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div></div>`; const activeCard = document.getElementById('activeControlCard'); if (activeCard) { log.insertBefore(div, activeCard); } else { log.appendChild(div); } scrollDown(); if (!skipTyping) { await new Promise(r => setTimeout(r, 600)); div.querySelector('.msg-content').innerHTML = msg; } }
