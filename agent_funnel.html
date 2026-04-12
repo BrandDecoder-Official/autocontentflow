@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BrandDecoder V9 | V0.19 破繭完全體</title>
+    <title>BrandDecoder V9 | V0.20 雙十圓滿版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
     
@@ -22,7 +22,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* 手機滿版優化 */
         @media (max-width: 1024px) {
             .mobile-bottom-sheet { align-items: flex-end !important; }
             .mobile-bottom-sheet > div { border-radius: 24px 24px 0 0 !important; max-height: 90vh; transform: translateY(100%); transition: transform 0.3s ease-out; }
@@ -43,21 +42,21 @@
                     <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-lg flex-shrink-0 shadow-lg">BD</div>
                     <div class="lg:opacity-0 lg:group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap">
                         <p class="text-xs font-black text-white">BrandDecoder 官方</p>
-                        <p class="text-[10px] text-blue-400">網紅生活 / 幽默酸民</p>
+                        <p class="text-[10px] text-blue-400">目前運作工作區</p>
                     </div>
                     <div class="ml-auto lg:opacity-0 lg:group-hover:opacity-100 text-slate-500">▼</div>
                 </div>
             </div>
             <nav class="px-3 py-4 space-y-2">
                 <button onclick="window.openSystemSettings()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
-                    <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">系統與金流設定</span>
+                    <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">系統與營運中樞</span>
                 </button>
             </nav>
         </div>
 
         <div class="p-4 border-t border-white/5 bg-slate-900/80">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-slate-700 border border-white/10 overflow-hidden">
+                <div class="w-10 h-10 rounded-full bg-slate-700 border border-white/10 overflow-hidden flex-shrink-0">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" class="w-full h-full object-cover">
                 </div>
                 <div class="lg:opacity-0 lg:group-hover:opacity-100 transition-opacity overflow-hidden">
@@ -105,15 +104,42 @@
             <div class="flex justify-between items-center p-5 lg:p-6 border-b border-white/10 bg-slate-900/50">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl lg:text-3xl">⚙️</span>
-                    <div><h2 class="text-base lg:text-lg font-black text-slate-200 uppercase">System Hub</h2><p class="text-[10px] text-slate-400">金流與紀錄管理中心</p></div>
+                    <div><h2 class="text-base lg:text-lg font-black text-slate-200 uppercase">System Hub</h2><p class="text-[10px] text-slate-400">營運、金流與紀錄管理中心</p></div>
                 </div>
                 <button onclick="closeSystemSettings()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500 transition-colors">✕</button>
             </div>
             <div class="p-5 lg:p-6 overflow-y-auto flex-grow space-y-6">
                 
+                <div class="bg-slate-900/50 rounded-2xl p-5 border border-indigo-500/30 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-bold px-2 py-1 rounded-bl-lg">目前運作區</div>
+                    <p class="text-xs text-indigo-400 font-black mb-4 tracking-widest uppercase">🎭 品牌與人設管理</p>
+                    <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-indigo-500/50 mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">BD</div>
+                            <div>
+                                <p class="text-sm font-bold text-white">BrandDecoder 官方</p>
+                                <p class="text-[10px] text-slate-400">目前擁有 3 組自訂人設模型</p>
+                            </div>
+                        </div>
+                        <button class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors">管理</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5">
+                            <p class="text-[10px] text-slate-500 mb-1">🔗 Meta 授權節點</p>
+                            <p class="text-[11px] font-bold text-white flex items-center gap-1"><span class="text-blue-500">f</span> 2 個粉絲專頁</p>
+                            <p class="text-[11px] font-bold text-white flex items-center gap-1"><span class="text-pink-500">IG</span> 1 個商業帳號</p>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5 flex flex-col justify-center">
+                            <p class="text-[10px] text-slate-500 mb-1">🧬 基因庫狀態</p>
+                            <p class="text-sm font-black text-white">5 <span class="text-xs text-slate-400 font-normal">/ 20 位角色</span></p>
+                            <div class="w-full bg-slate-700 h-1.5 rounded-full mt-2"><div class="bg-indigo-500 h-1.5 rounded-full w-1/4"></div></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-slate-900/50 rounded-2xl p-5 border border-yellow-500/30">
                     <div class="flex justify-between items-center mb-4">
-                        <p class="text-xs text-yellow-400 font-black tracking-widest uppercase">💳 算力儲值</p>
+                        <p class="text-xs text-yellow-400 font-black tracking-widest uppercase">💳 算力錢包與方案</p>
                         <span class="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded">Pro 方案運作中</span>
                     </div>
                     <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-white/10 mb-4">
@@ -133,7 +159,7 @@
                 </div>
 
                 <div class="bg-slate-900/50 rounded-2xl p-5 border border-white/5">
-                    <p class="text-xs text-slate-400 font-black mb-4 tracking-widest uppercase">📜 點數使用紀錄</p>
+                    <p class="text-xs text-slate-400 font-black mb-4 tracking-widest uppercase">📜 算力消耗軌跡</p>
                     <div class="space-y-2 max-h-40 overflow-y-auto no-scrollbar" id="pointHistoryList">
                         <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px]">
                             <div><p class="text-white font-bold">手動任務生成</p><p class="text-slate-500">2024-04-12 14:20</p></div>
