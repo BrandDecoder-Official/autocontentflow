@@ -1,7 +1,7 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
-const APP_VERSION = "V0.17 體驗昇華版";
+const APP_VERSION = "V0.18 體驗極致版";
 
 const MISSION = {
     platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K',
@@ -47,7 +47,7 @@ async function showError(msg) {
     const log = document.getElementById('funnelLog'); const div = document.createElement('div');
     div.className = 'flex justify-center w-full my-2 animate-bounce';
     div.innerHTML = `<div class="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded-full text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center gap-2"><span class="text-lg">🚨</span> <span>系統攔截：${msg}</span></div>`;
-    log.appendChild(div); floatActionBtnToBottom(); scrollDown();
+    log.appendChild(div); scrollDown();
 }
 
 function readFileAsDataURL(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }
@@ -161,7 +161,21 @@ async function triggerVisualSkill() {
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
     }
     ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === MISSION.resolution) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.resolution = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = MISSION.resolution; }; });
-    ui.querySelector('#btnUploadScene').onclick = () => { const input = document.createElement('input'); input.type = 'file'; input.multiple = false; input.onchange = async (e) => { await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; input.click(); };
+    
+    // 🌟 V0.18 修復上傳圖片關閉對話框時的跳轉失憶問題
+    ui.querySelector('#btnUploadScene').onclick = () => { 
+        let input = document.getElementById('hidden-file-input');
+        if (!input) {
+            input = document.createElement('input'); input.type = 'file'; input.id = 'hidden-file-input'; input.style.display = 'none';
+            document.body.appendChild(input);
+        }
+        input.onchange = async (e) => { 
+            if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea'), ui); 
+            input.value = ''; 
+        }; 
+        input.click(); 
+    };
+
     ui.querySelector('#btnAcceptVisual').onclick = async () => { if (!isMissionComplete()) { if (isEnhance) return showError('美化模式必須上傳 1 張原圖！'); else return showError('參數尚未完整設定！'); } lockUI(ui); await triggerMissionSummary(); };
 }
 
@@ -186,13 +200,22 @@ async function triggerCharacterPicker(container) {
     panel.appendChild(list); container.appendChild(panel);
 }
 
-async function handleAssetUpload(file, container) {
+// 🌟 V0.18 修復往上彈跳 Bug：精準定位，不亂用全域 Selector
+async function handleAssetUpload(file, container, parentUI) {
     if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove();
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in';
     const dataUrl = await readFileAsDataURL(file); MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }];
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 鎖定場景素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`;
-    container.appendChild(panel); await addLog("影像處理組", "📐", `載入場景圖：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`);
-    document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    container.appendChild(panel); 
+    
+    // addLog 本身就會做 scrollDown 到最底下，移除多餘的 scrollIntoView
+    await addLog("影像處理組", "📐", `載入場景圖：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`);
+    
+    // 如果真要捲動，只捲動當下這張卡片的按鈕
+    if(parentUI) {
+        const btn = parentUI.querySelector('.accept-visual-btn');
+        if(btn) btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 }
 
 async function triggerMissionSummary() {
@@ -234,13 +257,9 @@ async function triggerMissionSummary() {
     ui.querySelector('#btnRender').onclick = async () => { lockUI(ui); await addLog("首席文案", "✍️", "資料封裝完成。啟動社群文案編撰與視覺引擎...", true); };
 }
 
-// 🌟 V0.17: 排程狀態記憶 (State Retention) + 圓盤過濾
 function openScheduleModal(summaryUI) {
     const modal = document.getElementById('scheduleModal'); const panel = document.getElementById('schedulePanel');
-    
-    // 🌟 讀取先前儲存的狀態 (若無則預設為今日與中午 12:00)
-    const defaultDate = MISSION.scheduleDate || "today";
-    const defaultTime = MISSION.scheduleTime || "12:00 PM";
+    const defaultDate = MISSION.scheduleDate || "today"; const defaultTime = MISSION.scheduleTime || "12:00 PM";
 
     panel.innerHTML = `
         <div class="flex justify-between items-center mb-4">
@@ -267,20 +286,25 @@ function openScheduleModal(summaryUI) {
     
     modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
     
-    // 🌟 初始化 Flatpickr 並帶入先前狀態
     const fp = flatpickr("#flatpickr-input", { minDate: "today", theme: "dark", dateFormat: "Y-m-d", defaultDate: defaultDate });
-    
-    // 🌟 初始化 Timepicker-UI 並帶入先前狀態
     const timepickerEl = document.querySelector('.timepicker-ui');
     const tui = new window.tui.TimepickerUI(timepickerEl, { theme: 'dark', clockType: '12h', mobile: window.innerWidth < 1024, incrementMinutes: 15 });
     tui.create();
 
-    // 🌟 V0.17 核心：強制定軌圓盤視覺 (隱藏非 00, 15, 30, 45 的刻度)
-    setTimeout(() => {
-        const minuteNodes = document.querySelectorAll('.timepicker-ui-minutes-time');
-        const allowed = ['00', '15', '30', '45'];
-        minuteNodes.forEach(node => { if (!allowed.includes(node.innerText)) { node.classList.add('hide-minute-tick'); } });
-    }, 150); // 延遲等待 DOM 生成
+    // 🌟 V0.18 核心：MutationObserver 動態隱藏不必要的分鐘刻度
+    const observer = new MutationObserver(() => {
+        const hideList = ['05', '10', '20', '25', '35', '40', '50', '55'];
+        // 選取圓盤內可能生成的所有數字節點
+        const clockNodes = panel.querySelectorAll('.timepicker-ui-clock-face__number, span, div');
+        clockNodes.forEach(node => {
+            if (hideList.includes(node.innerText.trim())) {
+                node.style.opacity = '0'; // 物理隱藏
+                node.style.pointerEvents = 'none'; // 避免誤觸
+            }
+        });
+    });
+    // 監聽整個時間容器的 DOM 變化 (包含圓盤滑入的瞬間)
+    observer.observe(panel.querySelector('#timepicker-container'), { childList: true, subtree: true, attributes: true });
 
     panel.querySelector('#btnConfirmSch').onclick = () => {
         const d = document.getElementById('flatpickr-input').value; const t = document.querySelector('.timepicker-ui-input').value;
@@ -296,9 +320,8 @@ function openScheduleModal(summaryUI) {
     };
 }
 
-function floatActionBtnToBottom() { const activeBtn = document.getElementById('activeAcceptBtnCard'); if (activeBtn) document.getElementById('funnelLog').appendChild(activeBtn); }
+function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
 function updateStepHeader(name) { document.getElementById('missionStep').innerText = name; }
 function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none'); }
-function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
 function createSkillUI(html) { const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'skill-card ml-8 lg:ml-12 bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6'; div.innerHTML = html; log.appendChild(div); scrollDown(); return div; }
-async function addLog(role, icon, msg, skipTyping = false) { const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'flex items-start gap-3 lg:gap-4 animate-fade-in mb-4'; div.innerHTML = `<div class="text-2xl">${icon}</div><div class="bg-slate-800/80 p-3 lg:p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[90%] lg:max-w-[85%] shadow-md"><div class="text-[9px] font-black text-slate-500 mb-1 uppercase">${role}</div><div class="msg-content text-xs lg:text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div></div>`; log.appendChild(div); floatActionBtnToBottom(); scrollDown(); if (!skipTyping) { await new Promise(r => setTimeout(r, 600)); div.querySelector('.msg-content').innerHTML = msg; } }
+async function addLog(role, icon, msg, skipTyping = false) { const log = document.getElementById('funnelLog'); const div = document.createElement('div'); div.className = 'flex items-start gap-3 lg:gap-4 animate-fade-in mb-4'; div.innerHTML = `<div class="text-2xl">${icon}</div><div class="bg-slate-800/80 p-3 lg:p-4 rounded-2xl rounded-tl-none border border-white/5 max-w-[90%] lg:max-w-[85%] shadow-md"><div class="text-[9px] font-black text-slate-500 mb-1 uppercase">${role}</div><div class="msg-content text-xs lg:text-sm leading-relaxed">${skipTyping ? msg : '<span class="animate-pulse">...</span>'}</div></div>`; log.appendChild(div); scrollDown(); if (!skipTyping) { await new Promise(r => setTimeout(r, 600)); div.querySelector('.msg-content').innerHTML = msg; } }
