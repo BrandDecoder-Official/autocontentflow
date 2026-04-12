@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BrandDecoder V9 | V0.18 UI 修正版</title>
+    <title>BrandDecoder V9 | V0.19 破繭完全體</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
     
@@ -21,31 +21,22 @@
         .input-active { background-color: #0f172a !important; border-color: #3b82f6 !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #funnelLog::-webkit-scrollbar { width: 4px; }
-        #funnelLog::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        .skill-card { animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
         
+        /* 手機滿版優化 */
         @media (max-width: 1024px) {
             .mobile-bottom-sheet { align-items: flex-end !important; }
-            .mobile-bottom-sheet > div { border-radius: 24px 24px 0 0 !important; max-height: 90vh; border-bottom: none; transform: translateY(100%); transition: transform 0.3s ease-out; }
+            .mobile-bottom-sheet > div { border-radius: 24px 24px 0 0 !important; max-height: 90vh; transform: translateY(100%); transition: transform 0.3s ease-out; }
             .mobile-bottom-sheet.show > div { transform: translateY(0); }
-            #funnelLog { padding-left: 0.5rem; padding-right: 0.5rem; }
-            .skill-card { margin-left: 2rem !important; margin-right: 0 !important; }
+            .skill-card { margin-left: 1.5rem !important; margin-right: 0 !important; }
         }
 
         .hide-minute-tick { opacity: 0 !important; pointer-events: none !important; }
+        .char-card-selected { ring: 3px solid #3b82f6; background: rgba(59, 130, 246, 0.2); }
     </style>
 </head>
 <body class="text-slate-200 overflow-hidden relative">
 
-    <button onclick="toggleSidebar()" class="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-slate-800 rounded-lg border border-white/20 shadow-xl">
-        <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
-    </button>
-    <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden transition-opacity"></div>
-    
     <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 lg:w-20 lg:hover:w-72 glass-panel z-50 transition-all duration-300 -translate-x-full lg:translate-x-0 group overflow-hidden flex flex-col shadow-2xl justify-between">
-        
         <div>
             <div class="p-4 border-b border-white/5 bg-slate-900/50">
                 <div class="flex items-center gap-3 w-full cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
@@ -59,17 +50,14 @@
             </div>
             <nav class="px-3 py-4 space-y-2">
                 <button onclick="window.openSystemSettings()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
-                    <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">品牌與系統設定</span>
-                </button>
-                <button onclick="alert('專屬角色基因庫介面建置中...')" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
-                    <span class="text-2xl group-hover/btn:scale-110 transition-transform">🧬</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">專屬角色基因庫</span>
+                    <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">系統與金流設定</span>
                 </button>
             </nav>
         </div>
 
         <div class="p-4 border-t border-white/5 bg-slate-900/80">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 border border-white/10 overflow-hidden">
+                <div class="w-10 h-10 rounded-full bg-slate-700 border border-white/10 overflow-hidden">
                     <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" class="w-full h-full object-cover">
                 </div>
                 <div class="lg:opacity-0 lg:group-hover:opacity-100 transition-opacity overflow-hidden">
@@ -77,7 +65,7 @@
                     <p class="text-[9px] text-slate-400 truncate mt-0.5">admin.user@gmail.com</p>
                 </div>
             </div>
-            <button class="mt-3 w-full flex items-center gap-4 p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><span class="text-lg">🚪</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold text-xs">登出系統</span></button>
+            <button class="mt-3 w-full flex items-center gap-4 p-2 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><span class="text-lg">🚪</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold text-xs">登出</span></button>
         </div>
     </aside>
 
@@ -91,20 +79,24 @@
                 ⚡ <span id="userPoints" class="text-yellow-400 text-xs">---</span> PTS
             </div>
         </header>
+
         <section id="funnelLog" class="flex-grow overflow-y-auto p-2 lg:p-8 agent-chat-area relative"></section>
+
         <footer class="p-3 lg:p-6 border-t border-white/5 bg-slate-900/80 backdrop-blur-xl z-10">
             <div class="max-w-4xl mx-auto flex items-end gap-2 lg:gap-3">
                 <div class="flex-grow relative">
-                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 lg:py-4 lg:px-5 focus:outline-none resize-none transition-all input-locked text-sm" placeholder="請先在大廳選擇任務模式..." rows="1" disabled></textarea>
+                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 lg:py-4 lg:px-5 focus:outline-none resize-none transition-all input-locked text-sm shadow-inner" placeholder="請先在大廳選擇任務模式..." rows="1" disabled></textarea>
                 </div>
-                <button id="btnSend" class="p-3 lg:p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed transition-all" disabled><svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg></button>
+                <button id="btnSend" class="p-3 lg:p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed transition-all shadow-lg" disabled>
+                    <svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                </button>
             </div>
         </footer>
     </main>
 
     <div id="scheduleModal" class="mobile-bottom-sheet fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
         <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeScheduleModal()"></div>
-        <div class="relative w-full max-w-md bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl p-6 max-h-screen overflow-y-auto" id="schedulePanel"></div>
+        <div class="relative w-full max-w-md bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl p-6" id="schedulePanel"></div>
     </div>
 
     <div id="systemSettingsModal" class="mobile-bottom-sheet fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
@@ -113,34 +105,47 @@
             <div class="flex justify-between items-center p-5 lg:p-6 border-b border-white/10 bg-slate-900/50">
                 <div class="flex items-center gap-3">
                     <span class="text-2xl lg:text-3xl">⚙️</span>
-                    <div><h2 class="text-base lg:text-lg font-black text-slate-200 uppercase">System Config</h2><p class="text-[10px] text-slate-400">品牌配置與系統中樞</p></div>
+                    <div><h2 class="text-base lg:text-lg font-black text-slate-200 uppercase">System Hub</h2><p class="text-[10px] text-slate-400">金流與紀錄管理中心</p></div>
                 </div>
                 <button onclick="closeSystemSettings()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500 transition-colors">✕</button>
             </div>
             <div class="p-5 lg:p-6 overflow-y-auto flex-grow space-y-6">
-                <div class="bg-slate-900/50 rounded-2xl p-5 border border-indigo-500/30 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-bold px-2 py-1 rounded-bl-lg">目前運作區</div>
-                    <p class="text-xs text-indigo-400 font-black mb-4 tracking-widest uppercase">🎭 品牌與人設配置</p>
-                    <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-indigo-500/50 mb-3">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">BD</div>
-                            <div><p class="text-sm font-bold text-white">BrandDecoder 官方</p><p class="text-[10px] text-slate-400">預設語氣：專業權威 / 幽默酸民</p></div>
-                        </div>
-                        <button class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors">編輯</button>
+                
+                <div class="bg-slate-900/50 rounded-2xl p-5 border border-yellow-500/30">
+                    <div class="flex justify-between items-center mb-4">
+                        <p class="text-xs text-yellow-400 font-black tracking-widest uppercase">💳 算力儲值</p>
+                        <span class="text-[10px] bg-yellow-500/20 text-yellow-500 px-2 py-0.5 rounded">Pro 方案運作中</span>
                     </div>
-                     <div class="grid grid-cols-2 gap-3 mb-3">
-                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5">
-                            <p class="text-[10px] text-slate-500 mb-1">🔗 Meta 平台授權</p>
-                            <p class="text-xs font-bold text-white flex items-center gap-1"><span class="text-blue-500">f</span> 已綁定 2 個粉專</p>
-                            <p class="text-xs font-bold text-white flex items-center gap-1"><span class="text-pink-500">IG</span> 已綁定 1 個帳號</p>
+                    <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-white/10 mb-4">
+                        <span class="text-sm text-slate-400">目前可用餘額</span>
+                        <span class="text-2xl font-black text-white">1,250 <span class="text-xs text-slate-500">PTS</span></span>
+                    </div>
+                    <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+                        <button class="bg-slate-800 hover:bg-slate-700 border border-blue-500/30 p-3 rounded-xl flex flex-col items-center gap-1">
+                            <span class="text-xs font-bold text-white">500 PTS</span>
+                            <span class="text-[10px] text-slate-500">NT$ 150</span>
+                        </button>
+                        <button class="bg-slate-800 hover:bg-slate-700 border border-blue-500/30 p-3 rounded-xl flex flex-col items-center gap-1">
+                            <span class="text-xs font-bold text-white">1200 PTS</span>
+                            <span class="text-[10px] text-slate-500">NT$ 290</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/50 rounded-2xl p-5 border border-white/5">
+                    <p class="text-xs text-slate-400 font-black mb-4 tracking-widest uppercase">📜 點數使用紀錄</p>
+                    <div class="space-y-2 max-h-40 overflow-y-auto no-scrollbar" id="pointHistoryList">
+                        <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px]">
+                            <div><p class="text-white font-bold">手動任務生成</p><p class="text-slate-500">2024-04-12 14:20</p></div>
+                            <span class="text-red-400 font-bold">- 18 PTS</span>
                         </div>
-                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5 flex flex-col justify-center">
-                            <p class="text-[10px] text-slate-500 mb-1">🧬 基因庫容量 (SaaS)</p>
-                            <p class="text-sm font-black text-white">5 <span class="text-xs text-slate-400 font-normal">/ 20 位角色</span></p>
-                            <div class="w-full bg-slate-700 h-1.5 rounded-full mt-2"><div class="bg-indigo-500 h-1.5 rounded-full w-1/4"></div></div>
+                        <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px]">
+                            <div><p class="text-white font-bold">系統登入獎勵</p><p class="text-slate-500">2024-04-12 09:00</p></div>
+                            <span class="text-green-400 font-bold">+ 50 PTS</span>
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
     </div>
