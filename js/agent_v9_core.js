@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 import * as API from './api.js'; 
 
-const APP_VERSION = "V0.27 完美修復版";
+const APP_VERSION = "V0.28 完美修復版";
 const MISSION = { persona: '', platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduleMode: 'NOW', scheduleDate: '', scheduleTime: '' };
 let IS_EDIT_MODE = false;
 
