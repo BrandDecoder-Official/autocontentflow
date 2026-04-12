@@ -2,10 +2,11 @@
 import { STATE } from './config.js';
 import * as API from './api.js'; 
 
-const APP_VERSION = "V0.28 完美修復版";
+const APP_VERSION = "V0.28 整合修復版";
 const MISSION = { persona: '', platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduleMode: 'NOW', scheduleDate: '', scheduleTime: '' };
 let IS_EDIT_MODE = false;
 
+// 全域資料暫存庫
 export const SYSTEM_DB = {
     styles: [], characters: [],
     personas: [
@@ -46,7 +47,7 @@ async function showError(msg) {
 function readFileAsDataURL(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }
 
 // ==========================================
-// 漏斗流程 (完整無刪減)
+// 漏斗流程
 // ==========================================
 export async function initAgentFunnel() { updateStepHeader("COMMAND LOBBY"); renderLobby(); }
 
@@ -107,7 +108,6 @@ async function triggerTopicSkill() {
 
 async function triggerUniverseSkill() {
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
-    // 修復 2: 找回原圖美化 (ENHANCE) 按鈕
     const ui = createSkillUI(`
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
@@ -140,13 +140,12 @@ async function triggerVisualSkill() {
     
     let currentRatio = MISSION.ratio; let currentRes = MISSION.resolution;
     
-    // 修復 3: 找回完整的面板展開 (quickEdit) 與隱藏選項面板 (customPanel)
     const ui = createSkillUI(`
         <div class="space-y-4 lg:space-y-6 flex flex-col relative">
             <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30">
                 <div class="grid grid-cols-2 gap-3">
-                    <button ${isEnhance ? 'disabled' : `onclick="window.quickEdit('RATIO')"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
-                    <button onclick="window.quickEdit('RES')" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button>
+                    <button ${isEnhance ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
+                    <button id="btnEditRes" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button>
                 </div>
             </div>
             <div id="customPanel" class="hidden space-y-4 bg-slate-900/80 p-5 rounded-2xl border border-white/10 animate-fade-in">
@@ -154,7 +153,7 @@ async function triggerVisualSkill() {
                 <div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">✨ 解析度</label><div class="grid grid-cols-3 gap-2"><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1K">1K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2K">2K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4K">4K</button></div></div>
             </div>
             <div class="grid grid-cols-2 gap-2 lg:gap-3">
-                <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-xl text-xs font-black border border-indigo-500/50 active:scale-95 ${isEnhance ? 'opacity-30' : ''}"><span class="text-lg">🧬</span> 召喚專屬角色</button>
+                <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-xl text-xs font-black border border-indigo-500/50 active:scale-95 ${isEnhance ? 'opacity-30' : ''}"><span class="text-lg">🧬</span> ${MISSION.characters.length > 0 ? `已選 ${MISSION.characters.length} 名角色` : '召喚專屬角色'}</button>
                 <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 active:scale-95"><span class="text-lg">📸</span> 場景/道具參考圖</button>
             </div>
             <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
@@ -162,16 +161,16 @@ async function triggerVisualSkill() {
         </div>
     `);
 
-    // 掛載展開面板邏輯
-    window.quickEdit = (type) => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    const openPanel = () => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    if(ui.querySelector('#btnEditRatio')) ui.querySelector('#btnEditRatio').onclick = openPanel;
+    if(ui.querySelector('#btnEditRes')) ui.querySelector('#btnEditRes').onclick = openPanel;
 
     if (!isEnhance) {
         ui.querySelectorAll('.ratio-btn').forEach(btn => {
             if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600');
             btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; };
         });
-        // 修復 4: 確保召喚角色正常運作
-        ui.querySelector('#btnSummonChar').onclick = () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
+        ui.querySelector('#btnSummonChar').onclick = () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'), ui);
     }
 
     ui.querySelectorAll('.res-btn').forEach(btn => {
@@ -183,10 +182,9 @@ async function triggerVisualSkill() {
     ui.querySelector('#btnAcceptVisual').onclick = async () => { MISSION.ratio = currentRatio; MISSION.resolution = currentRes; if (!isMissionComplete()) return showError('請完成設定！'); releaseUI(ui); await triggerMissionSummary(); };
 }
 
-// 🌟 V0.27: 智慧過濾角色 (透過 type 欄位)
-async function triggerCharacterPicker(container) {
+// 🌟 V0.28: 智慧過濾與 UI 更新
+async function triggerCharacterPicker(container, parentUI) {
     const existing = container.querySelector('.char-picker-panel'); if (existing) existing.remove();
-    // 關鍵：只顯示符合目前宇宙 (REALISTIC 或 COMIC) 的角色
     const available = SYSTEM_DB.characters.filter(c => c.type === MISSION.universe);
     
     if(available.length === 0) return showError(`您的基因庫目前沒有 ${MISSION.universe === 'COMIC' ? '動漫' : '真人'} 角色！請至系統設定新增。`);
@@ -206,62 +204,88 @@ async function triggerCharacterPicker(container) {
         grid.appendChild(card);
     });
 
-    panel.querySelector('#btnConfirmBatch').onclick = async () => { MISSION.characters = tempSelected; const names = MISSION.characters.join('、'); await addLog("視覺工程師", "🧬", MISSION.characters.length > 0 ? `召喚確認：<b>${names}</b>。` : "已清空召喚名單。"); panel.remove(); };
+    panel.querySelector('#btnConfirmBatch').onclick = async () => { 
+        MISSION.characters = tempSelected; 
+        const names = MISSION.characters.join('、'); 
+        await addLog("視覺工程師", "🧬", MISSION.characters.length > 0 ? `召喚確認：<b>${names}</b>。` : "已清空召喚名單。"); 
+        
+        // 更新按鈕狀態
+        const btnSummon = parentUI.querySelector('#btnSummonChar');
+        if(btnSummon) {
+            btnSummon.innerHTML = MISSION.characters.length > 0 ? `<span class="text-lg">🧬</span> 已選 ${MISSION.characters.length} 名角色` : `<span class="text-lg">🧬</span> 召喚專屬角色`;
+            if(MISSION.characters.length > 0) btnSummon.classList.add('border-indigo-400', 'bg-indigo-600/40');
+            else btnSummon.classList.remove('border-indigo-400', 'bg-indigo-600/40');
+        }
+        panel.remove(); 
+    };
     container.appendChild(panel);
 }
 
 async function handleAssetUpload(file, container) { if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove(); const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in'; const dataUrl = await readFileAsDataURL(file); MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }]; panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `載入圖資：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`); }
 
+// 🌟 V0.28: 修復可點擊的 Mission Brief
 async function triggerMissionSummary() {
     IS_EDIT_MODE = false; updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認清單。即將發送至雲端進行劇本創作：", true);
 
     const basePts = 15; const totalPts = basePts + MISSION.characters.length;
-    let assetsHtml = '<div class="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[150px] justify-end">';
-    MISSION.characters.forEach(c => { const o = SYSTEM_DB.characters.find(mc => mc.name === c); if(o) assetsHtml += `<img src="${o.imageUrl}" class="w-6 h-6 rounded-full border border-slate-500 flex-shrink-0">`; });
+    
+    // 渲染頭像，確保有選中的角色能被看到
+    let assetsHtml = '<div class="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[200px] justify-end">';
+    if(MISSION.characters.length > 0) {
+        MISSION.characters.forEach(c => { 
+            const o = SYSTEM_DB.characters.find(mc => mc.name === c); 
+            if(o && o.imageUrl) assetsHtml += `<img src="${o.imageUrl}" class="w-6 h-6 rounded-full border border-blue-500 flex-shrink-0" title="${c}">`; 
+            else assetsHtml += `<span class="text-[10px] bg-blue-900/50 text-blue-200 px-2 py-0.5 rounded border border-blue-500/50">${c}</span>`;
+        });
+    }
     if (MISSION.sceneFiles.length > 0) assetsHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`;
+    if (MISSION.characters.length === 0 && MISSION.sceneFiles.length === 0) assetsHtml = '<span class="text-[10px] text-slate-500">無附加素材</span>';
     assetsHtml += '</div>';
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-3xl p-5 shadow-2xl space-y-4">
             <div class="flex justify-between items-center border-b border-white/10 pb-3"><span class="text-xs font-black text-blue-400">MISSION BRIEF</span><span class="text-[10px] text-slate-500">${APP_VERSION}</span></div>
             <div class="space-y-3 text-[11px]">
-                <div class="flex justify-between"><span>🎭 人設</span><span class="text-white">${MISSION.persona}</span></div>
-                <div class="flex justify-between"><span>🚀 平台</span><span class="text-white">${MISSION.platforms.join(', ')}</span></div>
-                <div class="flex justify-between"><span>📝 主題</span><span class="text-white truncate max-w-[150px]">${MISSION.topic}</span></div>
-                <div class="flex justify-between"><span>🌌 宇宙</span><span class="text-white">${MISSION.universe} / ${MISSION.style}</span></div>
-                <div class="flex justify-between"><span>👥 角色素材</span><div>${assetsHtml}</div></div>
+                <div id="retryPersona" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🎭 人設</span><span class="text-white font-bold">${MISSION.persona} ✎</span></div>
+                <div id="retryPlat" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🚀 平台</span><span class="text-white font-bold">${MISSION.platforms.join(', ')} ✎</span></div>
+                <div id="retryTopic" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📝 主題</span><span class="text-white font-bold truncate max-w-[150px]">${MISSION.topic} ✎</span></div>
+                <div id="retryUni" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🌌 宇宙</span><span class="text-white font-bold">${MISSION.universe} / ${MISSION.style} ✎</span></div>
+                <div id="retryVis" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>👥 角色素材</span><div class="flex items-center gap-2">${assetsHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
             </div>
             <button id="btnRender" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">⚡ 扣除 ${totalPts} 點發送指令</button>
         </div>
     `);
 
+    // 🌟 安全綁定點擊事件，徹底解決不能修改的問題
+    const bindRetry = (id, stepFunc) => {
+        const el = ui.querySelector(id);
+        if(el) el.onclick = async () => { IS_EDIT_MODE = true; releaseUI(ui); await addLog("系統", "🔄", `啟動修改卡片...`); await stepFunc(); };
+    };
+    bindRetry('#retryPersona', triggerPersonaSkill);
+    bindRetry('#retryPlat', triggerPlatformSkill);
+    bindRetry('#retryTopic', triggerTopicSkill);
+    bindRetry('#retryUni', triggerUniverseSkill);
+    bindRetry('#retryVis', triggerVisualSkill);
+
     ui.querySelector('#btnRender').onclick = async () => {
         releaseUI(ui);
         await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在為您產出腳本，請稍候...</span></div>`, true);
 
-        // 🌟 V0.27: 完美封裝 Payload (包含特徵圖與角色設定)
+        // 完美 Payload
         const referenceImages = [];
-        
         MISSION.characters.forEach(name => {
             const charData = SYSTEM_DB.characters.find(c => c.name === name);
             if(charData) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl });
         });
-
-        MISSION.sceneFiles.forEach(sf => {
-            referenceImages.push({ type: 'scene', data: sf.dataUrl });
-        });
+        MISSION.sceneFiles.forEach(sf => { referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
         const payload = {
-            tenantId: STATE.uid,
-            topic: MISSION.topic,
-            isComicMode: MISSION.universe === 'COMIC',
-            style: MISSION.style,
-            platforms: MISSION.platforms,
-            persona: MISSION.persona,
+            tenantId: STATE.uid, topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC',
+            style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona,
             characters: MISSION.characters.map(name => {
                 const c = SYSTEM_DB.characters.find(x => x.name === name);
-                return { name: name, persona: c ? c.persona : "" };
+                return { name: name, persona: c ? (c.persona || "") : "" };
             }),
             image_options: { referenceImages: referenceImages }
         };
@@ -269,18 +293,15 @@ async function triggerMissionSummary() {
         try {
             const result = await API.createDraftAPI(payload);
             if (result.success) {
-                STATE.userPoints -= totalPts;
-                document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                STATE.userPoints -= totalPts; document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
                 await addLog("首席文案", "✅", "劇本建立成功！已進入校稿階段。", true);
-                
-                // 🌟 觸發校稿總編室
                 await renderDraftEditorCard(result.taskId, result.draftContent, result.isComicMode);
             } else throw new Error(result.message);
         } catch (e) { showError(`發送失敗：${e.message}`); }
     };
 }
 
-// 🌟 V0.27: 校稿總編室 UI
+// 🌟 V0.28: 校稿總編室 UI
 async function renderDraftEditorCard(taskId, draftContent, isComic) {
     let panelsHtml = '';
     if (isComic && draftContent.panels) {
@@ -321,11 +342,55 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
         await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在進行 AI 影像合成，這將花費較長時間，請稍候...</span></div>`, true);
         
         console.log("🚀 發包生圖 Payload:", { taskId, tenantId: STATE.uid, editedCaption, editedPanels });
-        setTimeout(() => { addLog("系統", "🚧", "視覺合成模組介接中，敬請期待 V0.28！"); }, 3000);
+        setTimeout(() => { addLog("系統", "🚧", "視覺合成模組介接中，敬請期待 V0.29！"); }, 3000);
     };
 }
 
-// 🧬 角色管理邏輯 (新增分類支援)
+
+// ==========================================
+// 🧬 V0.28 角色基因庫管理系統 (強勢回歸)
+// ==========================================
+let tempCharBase64 = null;
+
+window.openCharManager = function() {
+    const modal = document.getElementById('charManageModal');
+    modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
+    renderCharGrid();
+};
+window.closeCharManager = function() {
+    const modal = document.getElementById('charManageModal');
+    modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    window.cancelNewChar();
+};
+
+function renderCharGrid() {
+    const grid = document.getElementById('charGridContainer');
+    grid.innerHTML = '';
+    if(SYSTEM_DB.characters.length === 0) {
+        grid.innerHTML = `<div class="col-span-full text-center text-sm text-slate-500 py-10">尚無角色，請立即註冊第一位視覺分身！</div>`;
+        return;
+    }
+    SYSTEM_DB.characters.forEach(char => {
+        grid.innerHTML += `
+            <div class="bg-slate-800 rounded-xl border border-white/10 p-3 flex flex-col items-center gap-2 relative group">
+                <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-600"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div>
+                <div class="text-center w-full"><p class="text-xs font-bold text-white truncate">${char.name}</p><p class="text-[9px] text-slate-400 truncate w-full" title="${char.aiExtractedFeatures}">${char.aiExtractedFeatures || '特徵分析中...'}</p></div>
+                <button onclick="window.deleteChar('${char.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            </div>
+        `;
+    });
+}
+
+window.openNewCharForm = function() { document.getElementById('newCharForm').classList.remove('hidden'); document.getElementById('btnAddNewCharContainer').classList.add('hidden'); };
+window.cancelNewChar = function() { document.getElementById('newCharForm').classList.add('hidden'); document.getElementById('btnAddNewCharContainer').classList.remove('hidden'); document.getElementById('charPreviewEmpty').classList.remove('hidden'); document.getElementById('charPreviewImg').classList.add('hidden'); document.getElementById('newCharName').value = ''; document.getElementById('newCharPersona').value = ''; tempCharBase64 = null; };
+
+window.handleCharPhotoSelect = async function(e) {
+    const file = e.target.files[0]; if(!file) return;
+    tempCharBase64 = await readFileAsDataURL(file);
+    document.getElementById('charPreviewEmpty').classList.add('hidden');
+    const img = document.getElementById('charPreviewImg'); img.src = tempCharBase64; img.classList.remove('hidden');
+};
+
 window.submitNewChar = async function() {
     const name = document.getElementById('newCharName').value.trim();
     const type = document.getElementById('newCharType').value;
@@ -333,12 +398,23 @@ window.submitNewChar = async function() {
     if(!name || !tempCharBase64) return alert('請提供照片與角色名稱！');
     const btn = document.getElementById('btnSubmitNewChar'); btn.innerHTML = '<div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></div> 基因萃取中...'; btn.disabled = true;
     try {
-        const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64 });
-        if(res.success) { await bootSystemData(); window.cancelNewChar(); renderCharGrid(); } else throw new Error(res.message);
+        const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' });
+        if(res.success) { alert('🎉 角色註冊成功！'); await bootSystemData(); window.cancelNewChar(); renderCharGrid(); } else throw new Error(res.message);
     } catch(e) { alert(`❌ 失敗: ${e.message}`); } finally { btn.innerHTML = '上傳並萃取基因'; btn.disabled = false; }
 };
 
-// 📜 歷史軌跡修正 (防呆版)
+window.deleteChar = async function(charId) {
+    if(!confirm('確定要永久刪除此角色嗎？')) return;
+    try {
+        const res = await API.deleteCharacterAPI({ charId, tenantId: STATE.uid });
+        if(res.success) { await bootSystemData(); renderCharGrid(); } else throw new Error(res.message);
+    } catch(e) { alert(`❌ 刪除失敗: ${e.message}`); }
+};
+
+
+// ==========================================
+// 📜 歷史軌跡與工具函數
+// ==========================================
 window.refreshAuditLogs = async function() {
     const container = document.getElementById('auditLogsContainer');
     container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 讀取中...</div>';
@@ -352,13 +428,12 @@ window.refreshAuditLogs = async function() {
                 const ptClass = isDeduct ? 'text-red-400' : 'text-green-400';
                 const sign = isDeduct ? '-' : '+';
                 const pts = log.pointsDeducted || Math.abs(log.pointsChanged || 0);
-                container.innerHTML += `<div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2"><div><p class="text-white font-bold">${action}</p><p class="text-slate-500">${new Date(log.createdAt).toLocaleString()}</p></div><span class="${ptClass} font-bold">${sign} ${pts} PTS</span></div>`;
+                container.innerHTML += `<div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2"><div><p class="text-white font-bold">${action}</p><p class="text-slate-500">${new Date(log.createdAt).toLocaleString('zh-TW')}</p></div><span class="${ptClass} font-bold">${sign} ${pts} PTS</span></div>`;
             });
         } else { container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">目前尚無紀錄。</div>'; }
     } catch(e) { container.innerHTML = `<div class="text-center text-xs text-red-400 py-4">讀取失敗 (髒資料已跳過)</div>`; }
 };
 
-// 其他工具函數
 function updateStepHeader(name) { document.getElementById('missionStep').innerText = name; }
 function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none'); }
 function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
