@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BrandDecoder V9 | Ultimate Command Center</title>
+    <title>BrandDecoder V9 | V0.15 破繭版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
     
@@ -41,11 +41,9 @@
     <button onclick="toggleSidebar()" class="lg:hidden fixed top-4 left-4 z-[60] p-2 bg-slate-800 rounded-lg border border-white/20 shadow-xl">
         <svg class="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
     </button>
-
     <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden transition-opacity"></div>
     
     <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 lg:w-20 lg:hover:w-72 glass-panel z-50 transition-all duration-300 -translate-x-full lg:translate-x-0 group overflow-hidden flex flex-col shadow-2xl">
-        
         <div class="p-4 border-b border-white/5 bg-slate-900/50">
             <div class="flex items-center gap-3 w-full cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
                 <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-lg flex-shrink-0 shadow-lg">BD</div>
@@ -56,56 +54,98 @@
                 <div class="ml-auto lg:opacity-0 lg:group-hover:opacity-100 text-slate-500">▼</div>
             </div>
         </div>
-        
         <nav class="flex-grow px-3 py-6 space-y-2">
-            <button onclick="window.openCharacterLib()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
-                <span class="text-2xl group-hover/btn:scale-110 transition-transform">🧬</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">專屬角色基因庫</span>
-            </button>
             <button onclick="window.openSystemSettings()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
                 <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">品牌與系統設定</span>
             </button>
         </nav>
-        <div class="p-4 border-t border-white/5"><button class="w-full flex items-center gap-4 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><span class="text-xl">🚪</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold">登出</span></button></div>
     </aside>
 
     <main class="lg:ml-20 h-screen flex flex-col relative transition-all duration-300">
         <header class="h-16 flex items-center justify-between px-4 lg:px-6 border-b border-white/5 bg-slate-900/40 backdrop-blur-md z-10">
             <div class="flex items-center gap-2 lg:gap-3 ml-10 lg:ml-0">
                 <div class="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e] animate-pulse"></div>
-                <h1 id="missionStep" class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">LOBBY / COMMAND CENTER</h1>
+                <h1 id="missionStep" class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">SYSTEM BOOTING...</h1>
             </div>
-            <div class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors shadow-inner flex items-center gap-1" onclick="window.openSystemSettings()">
+            <div class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors flex items-center gap-1" onclick="window.openSystemSettings()">
                 ⚡ <span id="userPoints" class="text-yellow-400 text-xs">---</span> PTS
             </div>
         </header>
-
         <section id="funnelLog" class="flex-grow overflow-y-auto p-2 lg:p-8 agent-chat-area relative"></section>
-
         <footer class="p-3 lg:p-6 border-t border-white/5 bg-slate-900/80 backdrop-blur-xl z-10">
             <div class="max-w-4xl mx-auto flex items-end gap-2 lg:gap-3">
                 <div class="flex-grow relative">
-                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 lg:py-4 lg:px-5 focus:outline-none resize-none transition-all input-locked text-sm shadow-inner" placeholder="請先在大廳選擇任務模式..." rows="1" disabled></textarea>
+                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 lg:py-4 lg:px-5 focus:outline-none resize-none transition-all input-locked text-sm" placeholder="請先在大廳選擇任務模式..." rows="1" disabled></textarea>
                 </div>
-                <button id="btnSend" class="p-3 lg:p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed transition-all shadow-lg shadow-blue-900/20 flex-shrink-0" disabled>
-                    <svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg>
-                </button>
+                <button id="btnSend" class="p-3 lg:p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed transition-all" disabled><svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg></button>
             </div>
         </footer>
     </main>
 
     <div id="scheduleModal" class="mobile-bottom-sheet fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
         <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeScheduleModal()"></div>
-        <div class="relative w-full max-w-md bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl p-6 w-full max-h-screen overflow-y-auto" id="schedulePanel"></div>
+        <div class="relative w-full max-w-md bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl p-6 max-h-screen overflow-y-auto" id="schedulePanel"></div>
+    </div>
+
+    <div id="systemSettingsModal" class="mobile-bottom-sheet fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onclick="closeSystemSettings()"></div>
+        <div class="relative w-full max-w-2xl bg-slate-800 border border-slate-600 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" id="settingsPanel">
+            <div class="flex justify-between items-center p-5 lg:p-6 border-b border-white/10 bg-slate-900/50">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl lg:text-3xl">⚙️</span>
+                    <div><h2 class="text-base lg:text-lg font-black text-slate-200 uppercase">System Config</h2><p class="text-[10px] text-slate-400">品牌配置與系統中樞</p></div>
+                </div>
+                <button onclick="closeSystemSettings()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500 transition-colors">✕</button>
+            </div>
+            <div class="p-5 lg:p-6 overflow-y-auto flex-grow space-y-6">
+                
+                <div class="bg-slate-900/50 rounded-2xl p-5 border border-indigo-500/30 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-bold px-2 py-1 rounded-bl-lg">目前運作區</div>
+                    <p class="text-xs text-indigo-400 font-black mb-4 tracking-widest uppercase">🎭 品牌與人設配置</p>
+                    
+                    <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-indigo-500/50 mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">BD</div>
+                            <div>
+                                <p class="text-sm font-bold text-white">BrandDecoder 官方</p>
+                                <p class="text-[10px] text-slate-400">預設語氣：專業權威 / 幽默酸民</p>
+                            </div>
+                        </div>
+                        <button class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg transition-colors">編輯</button>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5">
+                            <p class="text-[10px] text-slate-500 mb-1">🔗 Meta 平台授權</p>
+                            <p class="text-xs font-bold text-white flex items-center gap-1"><span class="text-blue-500">f</span> 已綁定 2 個粉專</p>
+                            <p class="text-xs font-bold text-white flex items-center gap-1"><span class="text-pink-500">IG</span> 已綁定 1 個帳號</p>
+                        </div>
+                        <div class="bg-slate-800 p-3 rounded-xl border border-white/5 flex flex-col justify-center">
+                            <p class="text-[10px] text-slate-500 mb-1">🧬 基因庫容量 (SaaS)</p>
+                            <p class="text-sm font-black text-white">5 <span class="text-xs text-slate-400 font-normal">/ 20 位角色</span></p>
+                            <div class="w-full bg-slate-700 h-1.5 rounded-full mt-2"><div class="bg-indigo-500 h-1.5 rounded-full w-1/4"></div></div>
+                        </div>
+                    </div>
+                    <button class="w-full border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-white py-2 rounded-xl text-xs font-bold transition-all">＋ 新增子品牌工作區</button>
+                </div>
+
+                <div class="bg-slate-900/50 rounded-2xl p-5 border border-white/5">
+                    <p class="text-xs text-yellow-400 font-black mb-4 tracking-widest uppercase">💳 算力點數錢包</p>
+                    <div class="flex justify-between items-center bg-slate-800 p-4 rounded-xl border border-white/10 mb-4"><span class="text-sm text-slate-400">目前可用算力餘額</span><span class="text-2xl font-black text-white">1,250 <span class="text-xs text-slate-500">PTS</span></span></div>
+                    <div class="grid grid-cols-3 gap-3">
+                        <button class="bg-slate-800 hover:bg-slate-700 border border-blue-500/50 py-3 rounded-xl flex flex-col items-center gap-1"><span class="text-lg font-bold text-white">1000 PTS</span><span class="text-[10px] text-slate-400">NT$ 290</span></button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script type="module">
         import { initAgentFunnel } from './js/agent_v9_core.js';
         window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); };
-        window.closeScheduleModal = function() {
-            const modal = document.getElementById('scheduleModal');
-            modal.classList.remove('show'); modal.classList.add('opacity-0');
-            setTimeout(() => { modal.classList.add('hidden'); }, 300);
-        };
+        window.closeScheduleModal = function() { const modal = document.getElementById('scheduleModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
+        window.openSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); };
+        window.closeSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
         window.onload = () => initAgentFunnel();
     </script>
 </body>
