@@ -1,7 +1,7 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
-const APP_VERSION = "V0.16 核心收斂版";
+const APP_VERSION = "V0.17 體驗昇華版";
 
 const MISSION = {
     platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K',
@@ -10,7 +10,6 @@ const MISSION = {
 
 let IS_EDIT_MODE = false;
 
-// 🌟 V0.16: 實裝真實攝影的 6 大商業風格！
 const MOCK_STYLES = {
     REALISTIC: [
         { id: 'INFLUENCER', name: '網紅生活', icon: '📸', desc: '高顏值、自然光影' },
@@ -86,92 +85,55 @@ function renderLobby() {
     document.getElementById('btnManualStart').onclick = async () => { log.innerHTML = ''; MISSION.universe = ''; await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。星狀迴圈架構已部署。`); await triggerPlatformSkill(); };
 }
 
-/** 🛠️ Skill 1: 平台鎖定 (🌟 V0.16: 手機端無殘影、明確選取狀態) */
 async function triggerPlatformSkill() {
     updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定本次任務的投遞平台：", true);
-    
     const plats = [
         { id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/30' },
         { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white shadow-lg shadow-pink-900/30' },
         { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white shadow-lg' }
     ];
-
     let btnsHtml = '';
     plats.forEach(p => {
         const isSelected = MISSION.platforms.includes(p.id);
         const baseClass = "plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border active:scale-95";
-        // 核心修正：移除 hover，避免手機殘影。未選取統一深灰。
         const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400";
         const textStr = isSelected ? `${p.name} <span class="ml-1 text-white">✓</span>` : p.name;
         btnsHtml += `<button class="${baseClass} ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}" data-name="${p.name}">${textStr}</button>`;
     });
 
     const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 sm:flex sm:gap-3">${btnsHtml}<button id="btnConfirmPlat" class="bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg ml-auto active:scale-95 transition-all">確認鎖定</button></div>`);
-    
     ui.querySelectorAll('.plat-btn').forEach(btn => {
         btn.onclick = () => {
             const val = btn.dataset.val; const rawName = btn.dataset.name; const activeClasses = btn.dataset.active.split(' ');
-            if (MISSION.platforms.includes(val)) {
-                // 取消選取
-                MISSION.platforms = MISSION.platforms.filter(p => p !== val);
-                btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400');
-                btn.innerHTML = rawName;
-            } else {
-                // 加入選取
-                MISSION.platforms.push(val);
-                btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses);
-                btn.innerHTML = `${rawName} <span class="ml-1 text-white">✓</span>`;
-            }
+            if (MISSION.platforms.includes(val)) { MISSION.platforms = MISSION.platforms.filter(p => p !== val); btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.innerHTML = rawName; } 
+            else { MISSION.platforms.push(val); btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses); btn.innerHTML = `${rawName} <span class="ml-1 text-white">✓</span>`; }
         };
     });
-
-    ui.querySelector('#btnConfirmPlat').onclick = async () => {
-        if (MISSION.platforms.length === 0) return showError('請至少選擇一個平台！');
-        lockUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`);
-        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await unlockTopicInput(); }
-    };
+    ui.querySelector('#btnConfirmPlat').onclick = async () => { if (MISSION.platforms.length === 0) return showError('請至少選擇一個平台！'); lockUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await unlockTopicInput(); } };
 }
 
 async function unlockTopicInput() {
-    updateStepHeader("TOPIC CAPTURE"); const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend');
-    await addLog("專案總監", "👨‍💼", "請在下方輸入框提供您的「貼文主題」。");
+    updateStepHeader("TOPIC CAPTURE"); const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend'); await addLog("專案總監", "👨‍💼", "請在下方輸入框提供您的「貼文主題」。");
     input.disabled = false; input.classList.replace('input-locked', 'input-active'); input.placeholder = "輸入主題..."; if (MISSION.topic) input.value = MISSION.topic; input.focus(); btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
-    btn.onclick = async () => {
-        const val = input.value.trim(); if(!val) return showError('主題不能為空！');
-        MISSION.topic = val; input.value = ""; input.disabled = true; input.classList.replace('input-active', 'input-locked'); btn.disabled = true;
-        await addLog("總編指令", "🗣️", val);
-        if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); }
-    };
+    btn.onclick = async () => { const val = input.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; input.value = ""; input.disabled = true; input.classList.replace('input-active', 'input-locked'); btn.disabled = true; await addLog("總編指令", "🗣️", val); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
 }
 
 async function triggerUniverseSkill() {
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
     const ui = createSkillUI(`<div class="grid grid-cols-1 sm:grid-cols-3 gap-3"><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-yellow-500 hover:bg-yellow-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'ENHANCE' ? 'border-yellow-500 bg-yellow-600/20' : 'bg-slate-800'}" data-val="ENHANCE"><span class="text-3xl">✨</span><span class="font-black text-xs text-white">無損美化原圖</span></button></div>`);
-    ui.querySelectorAll('.uni-btn').forEach(btn => {
-        btn.onclick = async () => {
-            const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val; 
-            if (oldUni !== MISSION.universe) { MISSION.style = ''; MISSION.characters = []; MISSION.sceneFiles = []; MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; }
-            lockUI(ui); await addLog("美術總監", "✅", `切換至宇宙：${MISSION.universe}。`);
-            await triggerStyleSkill();
-        };
-    });
+    ui.querySelectorAll('.uni-btn').forEach(btn => { btn.onclick = async () => { const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val; if (oldUni !== MISSION.universe) { MISSION.style = ''; MISSION.characters = []; MISSION.sceneFiles = []; MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; } lockUI(ui); await addLog("美術總監", "✅", `切換至宇宙：${MISSION.universe}。`); await triggerStyleSkill(); }; });
 }
 
 async function triggerStyleSkill() {
     updateStepHeader("STYLE SELECTION"); const styles = MOCK_STYLES[MISSION.universe];
     let html = `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">`; styles.forEach(s => { html += `<button class="style-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.id ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.id}" data-name="${s.name}"><span class="text-xl">${s.icon}</span><span class="font-bold text-xs text-white">${s.name}</span><span class="text-[9px] text-slate-400">${s.desc}</span></button>`; }); html += `</div>`;
-    const ui = createSkillUI(html);
-    ui.querySelectorAll('.style-btn').forEach(btn => {
-        btn.onclick = async () => { MISSION.style = btn.dataset.val; lockUI(ui); await addLog("美術總監", "✅", `風格鎖定：${btn.dataset.name}。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
-    });
+    const ui = createSkillUI(html); ui.querySelectorAll('.style-btn').forEach(btn => { btn.onclick = async () => { MISSION.style = btn.dataset.val; lockUI(ui); await addLog("美術總監", "✅", `風格鎖定：${btn.dataset.name}。`); if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; });
 }
 
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳 1 張原圖。" : "請確認畫面參數。您可自由召喚角色（非必填，適合商品/純風景），或上傳參考場景：", true);
-
     document.querySelectorAll('.accept-visual-btn').forEach(btn => { btn.disabled = true; btn.classList.add('opacity-40'); btn.innerHTML = '🔒 已失效'; });
-
     const ui = createSkillUI(`
         <div class="space-y-4 lg:space-y-6 flex flex-col relative">
             <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30">
@@ -194,25 +156,13 @@ async function triggerVisualSkill() {
     `);
 
     window.quickEdit = (type) => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth' }); };
-    
     if (!isEnhance) {
         ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === MISSION.ratio) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.ratio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; }; });
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
     }
     ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === MISSION.resolution) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.resolution = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = MISSION.resolution; }; });
-    
-    ui.querySelector('#btnUploadScene').onclick = () => {
-        const input = document.createElement('input'); input.type = 'file'; input.multiple = false;
-        input.onchange = async (e) => { await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; input.click();
-    };
-
-    ui.querySelector('#btnAcceptVisual').onclick = async () => {
-        if (!isMissionComplete()) { 
-            if (isEnhance) return showError('美化模式必須上傳 1 張原圖！'); 
-            else return showError('參數尚未完整設定！'); 
-        }
-        lockUI(ui); await triggerMissionSummary(); 
-    };
+    ui.querySelector('#btnUploadScene').onclick = () => { const input = document.createElement('input'); input.type = 'file'; input.multiple = false; input.onchange = async (e) => { await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; input.click(); };
+    ui.querySelector('#btnAcceptVisual').onclick = async () => { if (!isMissionComplete()) { if (isEnhance) return showError('美化模式必須上傳 1 張原圖！'); else return showError('參數尚未完整設定！'); } lockUI(ui); await triggerMissionSummary(); };
 }
 
 async function triggerCharacterPicker(container) {
@@ -221,7 +171,6 @@ async function triggerCharacterPicker(container) {
     const panel = document.createElement('div'); panel.className = 'char-picker-panel bg-slate-900/30 rounded-xl border border-white/5 p-3 animate-fade-in';
     panel.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-[10px] text-blue-400 font-bold uppercase">名單 (${MISSION.characters.length}/4)</span><span class="text-[10px] text-slate-500 cursor-pointer" onclick="window.openSystemSettings()">⚙️ 品牌後台</span></div>`;
     const list = document.createElement('div'); list.className = 'flex gap-4 overflow-x-auto pb-2 no-scrollbar items-center';
-
     available.forEach(char => {
         const isSelected = MISSION.characters.includes(char.name);
         const card = document.createElement('div'); card.className = `flex-shrink-0 flex flex-col items-center gap-1 cursor-pointer transition-all active:scale-90 ${isSelected ? 'opacity-50 ring-2 ring-blue-500 rounded-full' : ''}`;
@@ -238,20 +187,14 @@ async function triggerCharacterPicker(container) {
 }
 
 async function handleAssetUpload(file, container) {
-    if(!file) return;
-    const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove();
+    if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove();
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in';
-    const dataUrl = await readFileAsDataURL(file);
-    MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }];
+    const dataUrl = await readFileAsDataURL(file); MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }];
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 鎖定場景素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`;
-    container.appendChild(panel);
-    await addLog("影像處理組", "📐", `載入場景圖：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`);
+    container.appendChild(panel); await addLog("影像處理組", "📐", `載入場景圖：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`);
     document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
-// ==========================================
-// 🚀 V0.16: 任務樞紐 (Hub) 與反悔機制
-// ==========================================
 async function triggerMissionSummary() {
     IS_EDIT_MODE = false; updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認發布清單。所有欄位皆可點擊修改，無誤後請進行排程或生成：", true);
@@ -262,22 +205,13 @@ async function triggerMissionSummary() {
 
     let assetsHtml = '<div class="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[140px] lg:max-w-[200px] justify-end">';
     MISSION.characters.forEach(c => { const o = MOCK_CHARACTERS.find(mc => mc.name === c); if(o) assetsHtml += `<img src="${o.imageUrl}" class="w-6 h-6 rounded-full border border-slate-500 flex-shrink-0">`; });
-    if (MISSION.sceneFiles.length > 0) {
-        if(MISSION.characters.length > 0) assetsHtml += '<span class="text-slate-600 mx-1">|</span>';
-        assetsHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`;
-    }
+    if (MISSION.sceneFiles.length > 0) { if(MISSION.characters.length > 0) assetsHtml += '<span class="text-slate-600 mx-1">|</span>'; assetsHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`; }
     assetsHtml += '</div>';
-    
-    // 🌟 V0.16: 針對未選角色的「強烈反悔提示」
-    if (MISSION.characters.length === 0 && MISSION.sceneFiles.length === 0) {
-        assetsHtml = '<span class="text-[10px] lg:text-xs text-orange-400 font-bold border-b border-dashed border-orange-400">尚未召喚角色，如要使用請點擊選取</span>';
-    }
+    if (MISSION.characters.length === 0 && MISSION.sceneFiles.length === 0) { assetsHtml = '<span class="text-[10px] lg:text-xs text-orange-400 font-bold border-b border-dashed border-orange-400">尚未召喚角色，如要使用請點擊選取</span>'; }
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 relative">
-            <div class="flex justify-between items-center border-b border-white/10 pb-3">
-                <span class="text-xs lg:text-sm font-black text-blue-400">MISSION BRIEF</span><span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">${APP_VERSION}</span>
-            </div>
+            <div class="flex justify-between items-center border-b border-white/10 pb-3"><span class="text-xs lg:text-sm font-black text-blue-400">MISSION BRIEF</span><span class="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">${APP_VERSION}</span></div>
             <div class="space-y-3">
                 <div class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors" onclick="window.retryStep('PLATFORM')"><span class="text-[11px] lg:text-xs text-slate-500">🚀 平台</span><span class="text-[11px] lg:text-xs font-bold text-white flex items-center gap-1">${MISSION.platforms.join(', ')} <span class="text-[10px] text-blue-400">✎</span></span></div>
                 <div class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors" onclick="window.retryStep('TOPIC')"><span class="text-[11px] lg:text-xs text-slate-500">📝 主題</span><span class="text-[11px] lg:text-xs font-bold text-white truncate max-w-[120px] lg:max-w-[200px] flex items-center gap-1">${MISSION.topic} <span class="text-[10px] text-blue-400">✎</span></span></div>
@@ -285,7 +219,6 @@ async function triggerMissionSummary() {
                 <div class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors" onclick="window.retryStep('VISUAL')"><span class="text-[11px] lg:text-xs text-slate-500">📐 參數</span><span class="text-[11px] lg:text-xs font-bold text-white flex items-center gap-1">${MISSION.ratio} / ${MISSION.resolution} <span class="text-[10px] text-blue-400">✎</span></span></div>
                 <div class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 active:bg-white/10 transition-colors" onclick="window.retryStep('VISUAL')"><span class="text-[11px] lg:text-xs text-slate-500">👥 角色/素材</span><div class="flex items-center gap-2">${assetsHtml} <span class="text-[10px] text-blue-400">✎</span></div></div>
             </div>
-            
             <div class="pt-4 border-t border-white/10">
                 <div class="flex justify-between items-center mb-3"><span class="text-[10px] text-indigo-400 font-black uppercase">📅 排程狀態</span><span id="schDisplay" class="text-xs font-bold text-slate-400">立即發布 (NOW)</span></div>
                 <div class="flex gap-2">
@@ -296,21 +229,19 @@ async function triggerMissionSummary() {
         </div>
     `);
 
-    // 🌟 V0.16 核心樞紐跳轉邏輯
-    window.retryStep = (step) => {
-        IS_EDIT_MODE = true; lockUI(ui); addLog("系統", "🔄", `進入編輯模式...`);
-        if(step === 'PLATFORM') triggerPlatformSkill(); 
-        if(step === 'TOPIC') unlockTopicInput(); 
-        if(step === 'UNIVERSE') triggerUniverseSkill(); 
-        if(step === 'VISUAL') triggerVisualSkill();
-    };
-
+    window.retryStep = (step) => { IS_EDIT_MODE = true; lockUI(ui); addLog("系統", "🔄", `進入編輯模式...`); if(step === 'PLATFORM') triggerPlatformSkill(); if(step === 'TOPIC') unlockTopicInput(); if(step === 'UNIVERSE') triggerUniverseSkill(); if(step === 'VISUAL') triggerVisualSkill(); };
     ui.querySelector('#btnOpenSch').onclick = () => openScheduleModal(ui);
     ui.querySelector('#btnRender').onclick = async () => { lockUI(ui); await addLog("首席文案", "✍️", "資料封裝完成。啟動社群文案編撰與視覺引擎...", true); };
 }
 
+// 🌟 V0.17: 排程狀態記憶 (State Retention) + 圓盤過濾
 function openScheduleModal(summaryUI) {
     const modal = document.getElementById('scheduleModal'); const panel = document.getElementById('schedulePanel');
+    
+    // 🌟 讀取先前儲存的狀態 (若無則預設為今日與中午 12:00)
+    const defaultDate = MISSION.scheduleDate || "today";
+    const defaultTime = MISSION.scheduleTime || "12:00 PM";
+
     panel.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-black text-white tracking-widest uppercase">時間指揮艙</h3>
@@ -319,12 +250,12 @@ function openScheduleModal(summaryUI) {
         <div class="space-y-4">
             <div>
                 <p class="text-[10px] text-slate-400 font-bold mb-1">選擇日期 (Date)</p>
-                <input type="text" id="flatpickr-input" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 text-center cursor-pointer shadow-inner" placeholder="點擊選擇日期..." readonly>
+                <input type="text" id="flatpickr-input" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 text-center cursor-pointer shadow-inner" readonly>
             </div>
             <div>
                 <p class="text-[10px] text-slate-400 font-bold mb-1">選擇時間 (Time)</p>
                 <div class="timepicker-ui" id="timepicker-container">
-                    <input type="text" class="timepicker-ui-input w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 text-center cursor-pointer shadow-inner" value="12:00 PM" readonly>
+                    <input type="text" class="timepicker-ui-input w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-indigo-500 text-center cursor-pointer shadow-inner" value="${defaultTime}" readonly>
                 </div>
             </div>
             <div class="flex gap-2 pt-2">
@@ -335,10 +266,21 @@ function openScheduleModal(summaryUI) {
     `;
     
     modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
-    const fp = flatpickr("#flatpickr-input", { minDate: "today", theme: "dark", dateFormat: "Y-m-d", defaultDate: MISSION.scheduleDate || "today" });
+    
+    // 🌟 初始化 Flatpickr 並帶入先前狀態
+    const fp = flatpickr("#flatpickr-input", { minDate: "today", theme: "dark", dateFormat: "Y-m-d", defaultDate: defaultDate });
+    
+    // 🌟 初始化 Timepicker-UI 並帶入先前狀態
     const timepickerEl = document.querySelector('.timepicker-ui');
     const tui = new window.tui.TimepickerUI(timepickerEl, { theme: 'dark', clockType: '12h', mobile: window.innerWidth < 1024, incrementMinutes: 15 });
     tui.create();
+
+    // 🌟 V0.17 核心：強制定軌圓盤視覺 (隱藏非 00, 15, 30, 45 的刻度)
+    setTimeout(() => {
+        const minuteNodes = document.querySelectorAll('.timepicker-ui-minutes-time');
+        const allowed = ['00', '15', '30', '45'];
+        minuteNodes.forEach(node => { if (!allowed.includes(node.innerText)) { node.classList.add('hide-minute-tick'); } });
+    }, 150); // 延遲等待 DOM 生成
 
     panel.querySelector('#btnConfirmSch').onclick = () => {
         const d = document.getElementById('flatpickr-input').value; const t = document.querySelector('.timepicker-ui-input').value;
@@ -354,7 +296,6 @@ function openScheduleModal(summaryUI) {
     };
 }
 
-// 輔助工具
 function floatActionBtnToBottom() { const activeBtn = document.getElementById('activeAcceptBtnCard'); if (activeBtn) document.getElementById('funnelLog').appendChild(activeBtn); }
 function updateStepHeader(name) { document.getElementById('missionStep').innerText = name; }
 function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none'); }
