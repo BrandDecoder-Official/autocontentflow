@@ -105,14 +105,14 @@ async function triggerColorSkill() {
     updateStepHeader("COLOR MODE"); await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
     const ui = createSkillUI(`
         <div class="grid grid-cols-2 gap-3 mb-4">
-            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'B&W' ? 'border-blue-500 bg-white/5' : ''}" data-val="B&W"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白 (Classic B&W)</span><span class="text-[9px] text-slate-400">日式墨線、懷舊網點質感</span></button>
+            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白 (Classic B&W)</span><span class="text-[9px] text-slate-400">日式墨線、懷舊網點質感</span></button>
             <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-3xl mb-1">🌈</span><span class="font-bold text-xs text-white">現代全彩 (Modern Color)</span><span class="text-[9px] text-slate-400">飽滿手繪色澤、現代動漫感</span></button>
         </div>
     `);
     ui.querySelectorAll('.color-btn').forEach(btn => {
         btn.onclick = async () => {
             MISSION.colorMode = btn.dataset.val; releaseUI(ui);
-            await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'B&W' ? "黑白漫畫" : "全彩動漫"}</b>。`);
+            await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`);
             if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
             else if (MISSION.universe === 'ENHANCE') { await triggerVisualSkill(); }
             else { await triggerCharacterSkill(); }
@@ -179,7 +179,7 @@ async function handleAssetUpload(file, container) {
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化並載入圖資。`); 
 }
 
-// 🌟 關卡 9: 防彈級專業排程時鐘 (安全氣囊 Try-Catch)
+// 🌟 關卡 9: 防彈級專業排程時鐘
 async function triggerScheduleSkill() {
     updateStepHeader("PUBLISH SCHEDULE"); await addLog("社群總監", "📅", "最後一步，請指派部署時間（留空為立即發佈）：", true);
     
@@ -195,48 +195,33 @@ async function triggerScheduleSkill() {
         </div>
     `);
     
-    // 1. 安全載入 Flatpickr (防呆: 如果沒掛語系，就用預設)
     const fpConfig = { dateFormat: "Y-m-d", minDate: "today", time_24hr: true, defaultDate: MISSION.scheduledAt ? new Date(MISSION.scheduledAt) : null };
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
     
-    // 2. 安全載入 TimepickerUi (防彈機制: 如果沒掛 CDN 就不會死機)
     const timeInput = ui.querySelector('#timePickerInput');
     let tp = null;
     try {
         if (typeof timepickerUi !== 'undefined') {
-            timeInput.setAttribute('readonly', true); // 華麗時鐘模式需防寫
-            tp = new timepickerUi.TimepickerUi(ui.querySelector('#timePickerWrapper'), {
-                clockType: "24h", theme: "dark", okLabel: "確認", cancelLabel: "取消", editable: false, inputClass: "timepicker-ui-input",
-                defaultTime: MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : null
-            });
-            setupTimePickerConstraints(ui.querySelector('#timePickerWrapper'));
-            timeInput.onclick = () => { tp.open(); };
-        } else {
-            throw new Error("找不到 timepickerUi 套件");
-        }
+            timeInput.setAttribute('readonly', true); 
+            tp = new timepickerUi.TimepickerUi(ui.querySelector('#timePickerWrapper'), { clockType: "24h", theme: "dark", okLabel: "確認", cancelLabel: "取消", editable: false, inputClass: "timepicker-ui-input", defaultTime: MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : null });
+            setupTimePickerConstraints(ui.querySelector('#timePickerWrapper')); timeInput.onclick = () => { tp.open(); };
+        } else { throw new Error("找不到 timepickerUi 套件"); }
     } catch (e) {
-        console.warn("⚠️ 華麗時鐘載入失敗，降級為原生輸入模式", e);
-        timeInput.type = "time"; // 降級為原生時間選單，按鈕一樣可以按！
-        timeInput.step = "900";  // 原生限制 15 分鐘
+        console.warn("⚠️ 華麗時鐘載入失敗，降級為原生輸入模式", e); timeInput.type = "time"; timeInput.step = "900"; 
     }
     
-    // 3. 綁定確認按鈕 (這段現在受到嚴格保護，絕對不會死掉)
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
-        const dateStr = fp ? fp.input.value : ui.querySelector('#datePicker').value; 
-        const timeStr = timeInput.value;
+        const dateStr = fp ? fp.input.value : ui.querySelector('#datePicker').value; const timeStr = timeInput.value;
         if(fp) fp.destroy(); if(tp) tp.destroy(); 
 
         if (dateStr && timeStr) {
-            const dtStr = `${dateStr}T${timeStr}:00+08:00`; 
-            const schDate = new Date(dtStr);
+            const dtStr = `${dateStr}T${timeStr}:00+08:00`; const schDate = new Date(dtStr);
             if (schDate < new Date()) { showError("部署時間不能小於當前時間！"); await triggerScheduleSkill(); return; }
             MISSION.scheduledAt = schDate.toISOString(); releaseUI(ui);
             const displaySch = schDate.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            await addLog("社群總監", "✅", `部署時間已寫入排程：<b>${displaySch}</b> (Asia/Taipei)。`);
-        } else {
-            MISSION.scheduledAt = null; releaseUI(ui); await addLog("社群總監", "⚡", `已選擇<b>「立即部署」</b>模式。`); 
-        }
+            await addLog("社群總監", "✅", `部署時間已寫入排程：<b>${displaySch}</b>。`);
+        } else { MISSION.scheduledAt = null; releaseUI(ui); await addLog("社群總監", "⚡", `已選擇<b>「立即部署」</b>模式。`); }
         await triggerMissionSummary();
     };
 }
@@ -246,20 +231,13 @@ function setupTimePickerConstraints(wrapper) {
     const hourHand = wrapper.querySelector('.timepicker-ui-hour-hand'); const minuteHand = wrapper.querySelector('.timepicker-ui-minute-hand');
     if (hourHand && minuteHand) {
         const minutesNodes = wrapper.querySelectorAll('.timepicker-ui-minute');
-        minutesNodes.forEach(node => {
-            const minuteValue = parseInt(node.textContent);
-            if (!minutes.includes(minuteValue)) { node.style.opacity = '0.3'; node.style.pointerEvents = 'none'; } 
-            else { node.style.fontWeight = 'black'; node.style.color = '#3b82f6'; }
-        });
+        minutesNodes.forEach(node => { const minuteValue = parseInt(node.textContent); if (!minutes.includes(minuteValue)) { node.style.opacity = '0.3'; node.style.pointerEvents = 'none'; } else { node.style.fontWeight = 'black'; node.style.color = '#3b82f6'; } });
         const input = wrapper.querySelector('.timepicker-ui-input');
-        if (input.value) {
-            let [h, m] = input.value.split(':'); let mint = parseInt(m);
-            if (!minutes.includes(mint)) { mint = minutes.reduce((prev, curr) => (Math.abs(curr - mint) < Math.abs(prev - mint) ? curr : prev)); input.value = `${h}:${String(mint).padStart(2, '0')}`; }
-        }
+        if (input.value) { let [h, m] = input.value.split(':'); let mint = parseInt(m); if (!minutes.includes(mint)) { mint = minutes.reduce((prev, curr) => (Math.abs(curr - mint) < Math.abs(prev - mint) ? curr : prev)); input.value = `${h}:${String(mint).padStart(2, '0')}`; } }
     }
 }
 
-// 🌟 Mission Brief (動態扣點)
+// 🌟 Mission Brief (動態扣點與動畫控制修復)
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION"); await addLog("專案總監", "👨‍💼", "總編，請進行最後確認。點擊 ✎ 可發起反悔修正：", true);
 
@@ -273,7 +251,7 @@ async function triggerMissionSummary() {
     if (MISSION.sceneFiles.length > 0) visHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`; else visHtml += `<span class="text-[10px] text-slate-500">${MISSION.ratio} / ${MISSION.resolution}</span>`; visHtml += '</div>';
 
     const schDisplay = MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "⚡ 立即部署";
-    const clrDisplay = MISSION.colorMode === 'B&W' ? "🏁 經典黑白" : "🌈 現代全彩";
+    const clrDisplay = MISSION.colorMode === 'BW' ? "🏁 經典黑白" : "🌈 現代全彩"; // 修正顯示對應
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-3xl p-5 shadow-2xl space-y-4 mb-4">
@@ -295,7 +273,9 @@ async function triggerMissionSummary() {
     bindRetry('#retryPersona', triggerPersonaSkill); bindRetry('#retryPlat', triggerPlatformSkill); bindRetry('#retryTopic', triggerTopicSkill); bindRetry('#retryUni', triggerUniverseSkill); bindRetry('#retryChar', triggerCharacterSkill); bindRetry('#retryVis', triggerVisualSkill); bindRetry('#retrySch', triggerScheduleSkill); 
 
     ui.querySelector('#btnRender').onclick = async () => {
-        releaseUI(ui); await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在產出劇本...</span></div>`, true);
+        releaseUI(ui); 
+        const spinId = 'spin_draft_' + Date.now();
+        await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在產出劇本...</span></div>`, true);
 
         const referenceImages = []; MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
@@ -304,8 +284,11 @@ async function triggerMissionSummary() {
         try {
             const result = await API.createDraftAPI(JSON.parse(JSON.stringify(rawPayload)));
             if (result.success) {
+                // 🌟 停下圈圈
+                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
+                
                 STATE.userPoints = result.newBalance || (STATE.userPoints - totalPts); document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                await addLog("首席文案", "✅", "劇本已產出！", true); await renderDraftEditorCard(result.taskId, result.draftContent, result.isComicMode);
+                await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); await renderDraftEditorCard(result.taskId, result.draftContent, result.isComicMode);
             } else throw new Error(result.message);
         } catch (e) { showError(`發送失敗：${e.message}`); }
     };
@@ -313,7 +296,7 @@ async function triggerMissionSummary() {
 
 // 🌟 校稿總編室
 async function renderDraftEditorCard(taskId, draftContent, isComic) {
-    updateStepHeader("DRAFT EDITOR"); await addLog("首席文案", "📝", "請總編進行社群內文與分鏡對白的最後校稿：", true);
+    updateStepHeader("DRAFT EDITOR"); 
 
     let panelsHtml = '';
     if (isComic && draftContent.panels) {
@@ -335,13 +318,18 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         const editedCaption = ui.querySelector('#editCaption').value; const editedPanels = []; ui.querySelectorAll('.panel-dialogue').forEach(input => { const idx = input.dataset.idx; editedPanels.push({ panel_number: draftContent.panels[idx].panel_number, dialogue: input.value }); });
-        releaseUI(ui); await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span>正在進行 AI 影像合成 (預估需 20~30 秒)...</span></div>`, true);
+        releaseUI(ui); 
+        
+        const spinId = 'spin_img_' + Date.now();
+        await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在進行 AI 影像合成 (預估需 20~30 秒)...</span></div>`, true);
         
         try {
             const payload = { taskId: taskId, tenantId: STATE.uid, editedCaption: editedCaption, editedPanels: editedPanels };
             const result = await API.generateImageAPI(payload);
             if (result.success && result.images && result.images.length > 0) {
-                await addLog("視覺工程師", "✅", "影像合成完畢！", true); await renderFinalPublishCard(taskId, result.images, editedCaption);
+                // 🌟 停下圈圈
+                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
+                await renderFinalPublishCard(taskId, result.images, editedCaption);
             } else { throw new Error(result.message || "生圖回傳異常"); }
         } catch (e) { showError(`生圖失敗：${e.message}`); }
     };
@@ -365,17 +353,27 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
     `);
 
     ui.querySelector('#btnDeploy').onclick = async () => {
-        releaseUI(ui); await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span>正在與社群伺服器連線...</span></div>`, true);
+        releaseUI(ui); 
+        const spinId = 'spin_pub_' + Date.now();
+        await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在與社群伺服器連線...</span></div>`, true);
+        
         try {
             const payload = { taskId: taskId, tenantId: STATE.uid, finalCaption: finalCaption, scheduledAt: MISSION.scheduledAt };
             const result = await API.publishContentAPI(payload);
             if (result.success) {
+                // 🌟 停下圈圈 (發佈成功)
+                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
+                
                 STATE.userPoints = result.newBalance || (STATE.userPoints - (SYSTEM_DB.pricing?.publishPoints || 0)); document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">${result.message}</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 發起新任務</button>`);
                 endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); initAgentFunnel(); }; 
             } else { throw new Error(result.message || "發佈異常"); }
-        } catch(e) { showError(`操作失敗：${e.message}`); }
+        } catch(e) { 
+            // 🌟 停下圈圈 (發佈失敗)
+            const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-emerald-500'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
+            showError(`操作失敗：${e.message}`); 
+        }
     };
 }
 
