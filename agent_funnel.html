@@ -3,19 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BrandDecoder V9 | Agent Funnel</title>
+    <title>BrandDecoder V9 | Ultimate Command Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/timepicker-ui@2.6.1/dist/timepicker-ui.umd.js"></script>
+
     <style>
         body { font-family: 'Noto Sans TC', sans-serif; background-color: #0f172a; overscroll-behavior: none; }
-        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); }
+        .glass-panel { background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.05); }
         .agent-chat-area { height: calc(100vh - 160px); }
         .input-locked { background-color: #1e293b !important; cursor: not-allowed; opacity: 0.6; }
         .input-active { background-color: #0f172a !important; border-color: #3b82f6 !important; box-shadow: 0 0 15px rgba(59, 130, 246, 0.3); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         #funnelLog::-webkit-scrollbar { width: 4px; }
         #funnelLog::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
         .skill-card { animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* 手機端 Bottom Sheet 優化 */
+        @media (max-width: 1024px) {
+            .mobile-bottom-sheet { align-items: flex-end !important; }
+            .mobile-bottom-sheet > div { border-radius: 24px 24px 0 0 !important; max-height: 90vh; border-bottom: none; transform: translateY(100%); transition: transform 0.3s ease-out; }
+            .mobile-bottom-sheet.show > div { transform: translateY(0); }
+            #funnelLog { padding-left: 0.5rem; padding-right: 0.5rem; }
+            .skill-card { margin-left: 2rem !important; margin-right: 0 !important; }
+        }
     </style>
 </head>
 <body class="text-slate-200 overflow-hidden relative">
@@ -26,111 +44,68 @@
 
     <div id="sidebarOverlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-40 hidden lg:hidden transition-opacity"></div>
     
-    <aside id="sidebar" class="fixed left-0 top-0 h-full w-64 lg:w-20 lg:hover:w-64 glass-panel z-50 transition-all duration-300 -translate-x-full lg:translate-x-0 group overflow-hidden">
-        <div class="flex flex-col h-full">
-            <div class="p-6 mb-4 flex items-center justify-between">
-                <div class="text-2xl font-black text-blue-500 tracking-tighter">BD <span class="text-[10px] text-slate-500 align-top">V9</span></div>
-                <button onclick="toggleSidebar()" class="lg:hidden text-slate-400">✕</button>
-            </div>
-            
-            <nav class="flex-grow px-4 space-y-4">
-                <button onclick="window.openCharacterLib()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-blue-400">
-                    <span class="text-xl">🧬</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">角色基因庫</span>
-                </button>
-                <button class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-blue-400">
-                    <span class="text-xl">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">系統設定</span>
-                </button>
-            </nav>
-
-            <div class="p-4 border-t border-white/5">
-                <button class="w-full flex items-center gap-4 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all">
-                    <span class="text-xl">🚪</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold">登出</span>
-                </button>
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-72 lg:w-20 lg:hover:w-72 glass-panel z-50 transition-all duration-300 -translate-x-full lg:translate-x-0 group overflow-hidden flex flex-col shadow-2xl">
+        
+        <div class="p-4 border-b border-white/5 bg-slate-900/50">
+            <div class="flex items-center gap-3 w-full cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors">
+                <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-lg flex-shrink-0 shadow-lg">BD</div>
+                <div class="lg:opacity-0 lg:group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap">
+                    <p class="text-xs font-black text-white">BrandDecoder 官方</p>
+                    <p class="text-[10px] text-blue-400">網紅生活 / 幽默酸民</p>
+                </div>
+                <div class="ml-auto lg:opacity-0 lg:group-hover:opacity-100 text-slate-500">▼</div>
             </div>
         </div>
+        
+        <nav class="flex-grow px-3 py-6 space-y-2">
+            <button onclick="window.openCharacterLib()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
+                <span class="text-2xl group-hover/btn:scale-110 transition-transform">🧬</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">專屬角色基因庫</span>
+            </button>
+            <button onclick="window.openSystemSettings()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
+                <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">品牌與系統設定</span>
+            </button>
+        </nav>
+        <div class="p-4 border-t border-white/5"><button class="w-full flex items-center gap-4 p-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><span class="text-xl">🚪</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold">登出</span></button></div>
     </aside>
 
     <main class="lg:ml-20 h-screen flex flex-col relative transition-all duration-300">
-        <header class="h-16 flex items-center justify-between px-6 border-b border-white/5 bg-slate-900/40">
-            <div class="flex items-center gap-3">
-                <div class="w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6]"></div>
-                <h1 id="missionStep" class="text-[10px] font-black tracking-[0.2em] text-slate-500 uppercase">System Initializing...</h1>
+        <header class="h-16 flex items-center justify-between px-4 lg:px-6 border-b border-white/5 bg-slate-900/40 backdrop-blur-md z-10">
+            <div class="flex items-center gap-2 lg:gap-3 ml-10 lg:ml-0">
+                <div class="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e] animate-pulse"></div>
+                <h1 id="missionStep" class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">LOBBY / COMMAND CENTER</h1>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="text-[10px] font-bold bg-slate-800 px-3 py-1 rounded-full border border-white/10">
-                    ⚡ <span id="userPoints" class="text-yellow-400">---</span> PTS
-                </div>
+            <div class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors shadow-inner flex items-center gap-1" onclick="window.openSystemSettings()">
+                ⚡ <span id="userPoints" class="text-yellow-400 text-xs">---</span> PTS
             </div>
         </header>
 
-        <section id="funnelLog" class="flex-grow overflow-y-auto p-4 lg:p-8 space-y-6 agent-chat-area"></section>
+        <section id="funnelLog" class="flex-grow overflow-y-auto p-2 lg:p-8 agent-chat-area relative"></section>
 
-        <footer class="p-4 lg:p-6 border-t border-white/5 bg-slate-900/60 backdrop-blur-md">
-            <div class="max-w-4xl mx-auto flex items-end gap-3">
+        <footer class="p-3 lg:p-6 border-t border-white/5 bg-slate-900/80 backdrop-blur-xl z-10">
+            <div class="max-w-4xl mx-auto flex items-end gap-2 lg:gap-3">
                 <div class="flex-grow relative">
-                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-4 px-5 pr-12 focus:outline-none resize-none transition-all input-locked text-sm" placeholder="請遵循代理人引導..." rows="1" disabled></textarea>
+                    <textarea id="agentInput" class="w-full bg-slate-800/50 border border-white/10 rounded-2xl py-3 px-4 lg:py-4 lg:px-5 focus:outline-none resize-none transition-all input-locked text-sm shadow-inner" placeholder="請先在大廳選擇任務模式..." rows="1" disabled></textarea>
                 </div>
-                <button id="btnSend" class="p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20" disabled>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg>
+                <button id="btnSend" class="p-3 lg:p-4 bg-blue-600 rounded-2xl text-white opacity-50 cursor-not-allowed transition-all shadow-lg shadow-blue-900/20 flex-shrink-0" disabled>
+                    <svg class="w-5 h-5 lg:w-6 lg:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 12h14M12 5l7 7-7 7"></path></svg>
                 </button>
             </div>
         </footer>
     </main>
 
-    <div id="characterVaultModal" class="fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
-        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-md" onclick="closeCharacterLib()"></div>
-        <div class="relative w-full max-w-4xl bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] scale-95 transition-transform duration-300" id="vaultPanel">
-            <div class="flex justify-between items-center p-6 border-b border-white/10 bg-slate-900/50">
-                <div class="flex items-center gap-3">
-                    <span class="text-3xl">🧬</span>
-                    <div>
-                        <h2 class="text-lg font-black text-indigo-400 tracking-widest uppercase">Gene Vault</h2>
-                        <p class="text-[10px] text-slate-400">專屬角色基因庫管理</p>
-                    </div>
-                </div>
-                <button onclick="closeCharacterLib()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500 transition-colors">✕</button>
-            </div>
-            <div class="p-6 overflow-y-auto flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" id="geneGrid">
-                <button class="flex flex-col items-center justify-center gap-2 min-h-[160px] rounded-2xl border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 hover:bg-indigo-500/10 transition-all group">
-                    <div class="w-12 h-12 rounded-full bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">＋</div>
-                    <span class="text-xs font-bold text-indigo-300">注入新角色基因</span>
-                </button>
-                <div class="bg-slate-700/50 rounded-2xl p-4 border border-white/5 flex gap-4 items-center group hover:bg-slate-700 transition-colors relative overflow-hidden">
-                    <div class="w-16 h-16 rounded-full bg-slate-800 border-2 border-indigo-500/50 flex-shrink-0 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=K" class="w-full h-full object-cover"></div>
-                    <div class="flex flex-col">
-                        <span class="font-black text-white text-sm">老K (Leo)</span>
-                        <div class="flex flex-wrap gap-1 mt-2">
-                            <span class="text-[9px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded cursor-not-allowed" title="核心基因不可編輯">#核心基因固定</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div id="scheduleModal" class="mobile-bottom-sheet fixed inset-0 z-[100] hidden items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm" onclick="closeScheduleModal()"></div>
+        <div class="relative w-full max-w-md bg-slate-800 border border-indigo-500/30 rounded-3xl shadow-2xl p-6 w-full max-h-screen overflow-y-auto" id="schedulePanel"></div>
     </div>
 
     <script type="module">
         import { initAgentFunnel } from './js/agent_v9_core.js';
-        
-        window.toggleSidebar = function() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            sidebar.classList.toggle('-translate-x-full'); overlay.classList.toggle('hidden');
-        };
-
-        window.openCharacterLib = function() {
-            const modal = document.getElementById('characterVaultModal');
-            const panel = document.getElementById('vaultPanel');
-            modal.classList.remove('hidden');
-            setTimeout(() => { modal.classList.remove('opacity-0'); panel.classList.remove('scale-95'); }, 10);
-        };
-
-        window.closeCharacterLib = function() {
-            const modal = document.getElementById('characterVaultModal');
-            const panel = document.getElementById('vaultPanel');
-            modal.classList.add('opacity-0'); panel.classList.add('scale-95');
+        window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); };
+        window.closeScheduleModal = function() {
+            const modal = document.getElementById('scheduleModal');
+            modal.classList.remove('show'); modal.classList.add('opacity-0');
             setTimeout(() => { modal.classList.add('hidden'); }, 300);
         };
-
         window.onload = () => initAgentFunnel();
     </script>
 </body>
