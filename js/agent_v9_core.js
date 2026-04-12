@@ -1,7 +1,7 @@
 // js/agent_v9_core.js
 import { STATE } from './config.js';
 
-const APP_VERSION = "V0.14 完全體";
+const APP_VERSION = "V0.15 破繭版";
 
 const MISSION = {
     platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K',
@@ -33,10 +33,11 @@ const MOCK_CHARACTERS = [
     { name: '米亞', type: 'COMIC', imageUrl: 'https://api.dicebear.com/7.x/adventurer/svg?seed=Mia&backgroundColor=ffdfbf' }
 ];
 
+// 🌟 V0.15: 角色改為「非必填」，純風景也可過關！
 function isMissionComplete() {
     if (MISSION.platforms.length === 0 || !MISSION.topic || !MISSION.universe || !MISSION.style) return false;
-    if (MISSION.universe === 'ENHANCE') { if (MISSION.sceneFiles.length === 0) return false; } 
-    else { if (MISSION.characters.length === 0) return false; }
+    // 只有 Enhance 模式強迫上傳圖片，一般模式即使沒選角色也可以
+    if (MISSION.universe === 'ENHANCE' && MISSION.sceneFiles.length === 0) return false; 
     return true;
 }
 
@@ -56,7 +57,7 @@ export async function initAgentFunnel() {
 }
 
 // ==========================================
-// 🚀 V0.14: 雙模指揮艙大廳
+// 🚀 雙模指揮艙大廳
 // ==========================================
 function renderLobby() {
     const log = document.getElementById('funnelLog');
@@ -66,54 +67,74 @@ function renderLobby() {
                 <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">歡迎回到指揮艙，總編</h2>
                 <p class="text-xs text-slate-400">目前運作品牌：<span class="text-blue-400 font-bold">BrandDecoder 官方</span> | 剩餘算力：<span class="text-yellow-400 font-bold">1,250 PTS</span></p>
             </div>
-            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
-                <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-6 lg:p-8 hover:bg-slate-800 transition-all cursor-pointer group shadow-xl relative overflow-hidden flex flex-col h-full" onclick="alert('全自動情報網建置中，敬請期待後續更新！')">
+                <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-6 lg:p-8 hover:bg-slate-800 transition-all cursor-pointer group shadow-xl relative flex flex-col h-full" onclick="alert('全自動情報網建置中，敬請期待後續更新！')">
                     <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase">Auto-Pilot</div>
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">🤖</div>
                     <h3 class="text-lg font-black text-white mb-2">全自動情報偵測</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">Agent 基於設定之 Tag 與人設，24小時自動過濾新聞與趨勢，主動為您撰寫發文草稿。</p>
-                    <div class="mt-auto space-y-2">
-                        <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg text-[10px] text-slate-300"><span class="flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> 監控源</span><span>Google Trends, TechCrunch</span></div>
-                        <div class="flex justify-between items-center bg-slate-900/50 p-2 rounded-lg text-[10px] text-slate-300"><span>待審閱草稿</span><span class="bg-red-500 text-white px-1.5 rounded-full font-bold">3 則</span></div>
-                    </div>
+                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">Agent 根據您的品牌標籤與人設，24小時過濾新聞趨勢，主動撰寫發文草稿。</p>
                 </div>
-
                 <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 hover:bg-blue-600/20 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
                     <h3 class="text-lg font-black text-white mb-2">手動發起任務</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">進入專屬 AI 漏斗。由您親自指定平台、宇宙風格、召喚角色，精準掌控每一篇貼文的生成細節。</p>
+                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">進入專屬 AI 漏斗。親自指定平台、宇宙與角色，精準掌控每一篇貼文細節。</p>
                     <button class="mt-auto w-full bg-blue-600 group-hover:bg-blue-500 text-white py-3 rounded-xl text-xs font-black shadow-lg transition-colors">🚀 啟動漏斗</button>
                 </div>
             </div>
         </div>
     `;
-
-    document.getElementById('btnManualStart').onclick = async () => {
-        log.innerHTML = ''; 
-        MISSION.universe = ''; // 初始化
-        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。資源限制協議已生效：單次角色 Max 4、場景圖唯一。`);
-        await triggerPlatformSkill();
-    };
+    document.getElementById('btnManualStart').onclick = async () => { log.innerHTML = ''; MISSION.universe = ''; await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。`); await triggerPlatformSkill(); };
 }
 
 // --- 漏斗流程 ---
 
+/** 🛠️ Skill 1: 平台鎖定 (🌟 V0.15: 專屬色與打勾狀態，移除 Hover 殘影) */
 async function triggerPlatformSkill() {
     updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定本次任務的投遞平台：", true);
-    const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 sm:flex sm:gap-3"><button class="plat-btn border border-white/10 px-4 py-3 rounded-xl hover:bg-blue-600 transition-all text-xs font-bold ${MISSION.platforms.includes('FB') ? 'bg-blue-600' : ''}" data-val="FB">Facebook</button><button class="plat-btn border border-white/10 px-4 py-3 rounded-xl hover:bg-pink-600 transition-all text-xs font-bold ${MISSION.platforms.includes('IG') ? 'bg-blue-600' : ''}" data-val="IG">Instagram</button><button class="plat-btn border border-white/10 px-4 py-3 rounded-xl hover:bg-slate-700 transition-all text-xs font-bold ${MISSION.platforms.includes('THREADS') ? 'bg-blue-600' : ''}" data-val="THREADS">Threads</button><button id="btnConfirmPlat" class="bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg ml-auto">確認鎖定</button></div>`);
-    ui.querySelectorAll('.plat-btn').forEach(btn => btn.onclick = () => btn.classList.toggle('bg-blue-600'));
+    
+    // 定義平台專屬樣式 (未選取一律深灰)
+    const plats = [
+        { id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 shadow-[0_0_15px_rgba(37,99,235,0.4)] text-white' },
+        { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.4)] text-white' },
+        { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 shadow-[0_0_15px_rgba(255,255,255,0.2)] text-white' }
+    ];
+
+    let btnsHtml = '';
+    plats.forEach(p => {
+        const isSelected = MISSION.platforms.includes(p.id);
+        const baseClass = "plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border";
+        // 未選取時：乾淨深灰；選取時：套用專屬色並加上 ✓
+        const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400";
+        const textStr = isSelected ? `${p.name} ✓` : p.name;
+        btnsHtml += `<button class="${baseClass} ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}">${textStr}</button>`;
+    });
+
+    const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 sm:flex sm:gap-3">${btnsHtml}<button id="btnConfirmPlat" class="bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg ml-auto">確認鎖定</button></div>`);
+    
+    ui.querySelectorAll('.plat-btn').forEach(btn => {
+        btn.onclick = () => {
+            const val = btn.dataset.val; const activeClasses = btn.dataset.active.split(' ');
+            if (MISSION.platforms.includes(val)) {
+                MISSION.platforms = MISSION.platforms.filter(p => p !== val);
+                btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400');
+                btn.innerText = btn.innerText.replace(' ✓', '');
+            } else {
+                MISSION.platforms.push(val);
+                btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses);
+                btn.innerText = `${btn.innerText} ✓`;
+            }
+        };
+    });
+
     ui.querySelector('#btnConfirmPlat').onclick = async () => {
-        const selected = Array.from(ui.querySelectorAll('.plat-btn.bg-blue-600')).map(b => b.dataset.val);
-        if (selected.length === 0) return showError('請至少選擇一個平台！');
-        MISSION.platforms = selected; lockUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${selected.join(' / ')}。`);
+        if (MISSION.platforms.length === 0) return showError('請至少選擇一個平台！');
+        lockUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`);
         if (IS_EDIT_MODE && isMissionComplete()) { await triggerMissionSummary(); } else { await unlockTopicInput(); }
     };
 }
 
 async function unlockTopicInput() {
-    updateStepHeader("TOPIC CAPTURE");
-    const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend');
+    updateStepHeader("TOPIC CAPTURE"); const input = document.getElementById('agentInput'); const btn = document.getElementById('btnSend');
     await addLog("專案總監", "👨‍💼", "請在下方輸入框提供您的「貼文主題」。");
     input.disabled = false; input.classList.replace('input-locked', 'input-active'); input.placeholder = "輸入主題..."; if (MISSION.topic) input.value = MISSION.topic; input.focus(); btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
     btn.onclick = async () => {
@@ -146,9 +167,11 @@ async function triggerStyleSkill() {
     });
 }
 
+/** 🛠️ Skill 5: 視覺參數 (🌟 V0.15: 角色改為非必填) */
 async function triggerVisualSkill() {
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE';
-    await addLog("美術總監", "👨‍🎨", isEnhance ? "請上傳 1 張需美化的原圖。" : "請召喚角色 (Max 4 位) 並確認比例：", true);
+    // 🌟 文案修改，告知使用者可以不選角色
+    await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳 1 張原圖。" : "請確認畫面參數。您可自由召喚角色（非必填，適合商品/純風景），或上傳參考場景：", true);
 
     document.querySelectorAll('.accept-visual-btn').forEach(btn => { btn.disabled = true; btn.classList.add('opacity-40'); btn.innerHTML = '🔒 已失效'; });
 
@@ -165,8 +188,8 @@ async function triggerVisualSkill() {
                 <div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">✨ 解析度</label><div class="grid grid-cols-3 gap-2"><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold" data-val="1K">1K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold" data-val="2K">2K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold" data-val="4K">4K</button></div></div>
             </div>
             <div class="grid grid-cols-2 gap-2 lg:gap-3">
-                <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-xl text-xs font-black border border-indigo-500/50 ${isEnhance ? 'opacity-30' : ''}"><span class="text-lg">🧬</span> 召喚角色</button>
-                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:bg-slate-700 transition-colors"><span class="text-lg">📸</span> 場景圖(限1張)</button>
+                <button id="btnSummonChar" ${isEnhance ? 'disabled' : ''} class="bg-indigo-600/20 py-4 rounded-xl text-xs font-black border border-indigo-500/50 ${isEnhance ? 'opacity-30' : ''}"><span class="text-lg">🧬</span> 召喚角色(選填)</button>
+                <button id="btnUploadScene" class="bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:bg-slate-700 transition-colors"><span class="text-lg">📸</span> 參考場景圖</button>
             </div>
             <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
             <button id="btnAcceptVisual" class="accept-visual-btn w-full bg-blue-600 hover:bg-blue-500 py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-sm shadow-lg mt-auto transition-colors">✅ 鎖定參數</button>
@@ -174,6 +197,7 @@ async function triggerVisualSkill() {
     `);
 
     window.quickEdit = (type) => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth' }); };
+    
     if (!isEnhance) {
         ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === MISSION.ratio) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.ratio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = MISSION.ratio; }; });
         ui.querySelector('#btnSummonChar').onclick = async () => triggerCharacterPicker(ui.querySelector('#dynamicAssetsArea'));
@@ -181,12 +205,16 @@ async function triggerVisualSkill() {
     ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === MISSION.resolution) btn.classList.add('bg-blue-600'); btn.onclick = () => { MISSION.resolution = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = MISSION.resolution; }; });
     
     ui.querySelector('#btnUploadScene').onclick = () => {
-        const input = document.createElement('input'); input.type = 'file'; input.multiple = false; // 🌟 限 1 張
+        const input = document.createElement('input'); input.type = 'file'; input.multiple = false;
         input.onchange = async (e) => { await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; input.click();
     };
 
     ui.querySelector('#btnAcceptVisual').onclick = async () => {
-        if (!isMissionComplete()) { if (isEnhance) return showError('美化模式必須上傳 1 張原圖！'); else return showError('召喚清單為空，請至少召喚一位角色！'); }
+        // 🌟 移除一般模式對角色的硬性檢查
+        if (!isMissionComplete()) { 
+            if (isEnhance) return showError('美化模式必須上傳 1 張原圖！'); 
+            else return showError('參數尚未完整設定！'); // 保底防呆
+        }
         lockUI(ui); await triggerMissionSummary(); 
     };
 }
@@ -195,7 +223,7 @@ async function triggerCharacterPicker(container) {
     const existing = container.querySelector('.char-picker-panel'); if (existing) existing.remove();
     const available = MOCK_CHARACTERS.filter(c => c.type === MISSION.universe);
     const panel = document.createElement('div'); panel.className = 'char-picker-panel bg-slate-900/30 rounded-xl border border-white/5 p-3 animate-fade-in';
-    panel.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-[10px] text-blue-400 font-bold uppercase">名單 (${MISSION.characters.length}/4)</span><span class="text-[10px] text-slate-500 cursor-pointer hover:text-white">⚙️ 管理基因</span></div>`;
+    panel.innerHTML = `<div class="flex justify-between items-center mb-2"><span class="text-[10px] text-blue-400 font-bold uppercase">名單 (${MISSION.characters.length}/4)</span><span class="text-[10px] text-slate-500 cursor-pointer" onclick="window.openSystemSettings()">⚙️ 品牌後台</span></div>`;
     const list = document.createElement('div'); list.className = 'flex gap-4 overflow-x-auto pb-2 no-scrollbar items-center';
 
     available.forEach(char => {
@@ -204,7 +232,7 @@ async function triggerCharacterPicker(container) {
         card.innerHTML = `<div class="w-12 h-12 rounded-full border-2 border-slate-700 overflow-hidden bg-slate-800"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-[9px] font-bold text-slate-400">${char.name}</span>`;
         card.onclick = async () => { 
             if (MISSION.characters.includes(char.name)) return;
-            if (MISSION.characters.length >= 4) return showError('算力限制：單次任務最多召喚 4 位角色。'); // 🌟 防呆
+            if (MISSION.characters.length >= 4) return showError('算力限制：單次任務最多召喚 4 位角色。');
             MISSION.characters.push(char.name); card.classList.add('opacity-50', 'ring-2', 'ring-blue-500', 'rounded-full');
             await addLog("視覺工程師", "✅", `召喚確認 <img src="${char.imageUrl}" class="w-6 h-6 rounded-full inline-block align-middle border border-slate-600 mx-1"> <b>${char.name}</b> (附加 1 點)`);
             panel.querySelector('span').innerText = `名單 (${MISSION.characters.length}/4)`;
@@ -215,19 +243,16 @@ async function triggerCharacterPicker(container) {
 
 async function handleAssetUpload(file, container) {
     if(!file) return;
-    const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove(); // 🌟 唯一化
+    const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove();
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in';
     const dataUrl = await readFileAsDataURL(file);
-    MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }]; // 🌟 覆蓋舊圖
+    MISSION.sceneFiles = [{ file: file, dataUrl: dataUrl }];
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 鎖定場景素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`;
     container.appendChild(panel);
     await addLog("影像處理組", "📐", `載入場景圖：<img src="${dataUrl}" class="w-8 h-8 rounded border border-slate-600 inline-block align-middle mx-1 object-cover">`);
     document.querySelector('.accept-visual-btn')?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 }
 
-// ==========================================
-// 🚀 V0.14: 最終摘要與神級排程系統
-// ==========================================
 async function triggerMissionSummary() {
     IS_EDIT_MODE = false; updateStepHeader("FINAL CONFIRMATION");
     await addLog("專案總監", "👨‍💼", "請確認發布清單，點選底部進行排程或立即生成：", true);
@@ -243,6 +268,11 @@ async function triggerMissionSummary() {
         assetsHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`;
     }
     assetsHtml += '</div>';
+    
+    // 🌟 V0.15: 處理無角色/無場景的純風景狀態
+    if (MISSION.characters.length === 0 && MISSION.sceneFiles.length === 0) {
+        assetsHtml = '<span class="text-[10px] text-slate-500 bg-slate-800 px-2 py-1 rounded">純文字/意境生成</span>';
+    }
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-2xl lg:rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 relative">
@@ -276,11 +306,10 @@ async function triggerMissionSummary() {
     ui.querySelector('#btnRender').onclick = async () => { lockUI(ui); await addLog("首席文案", "✍️", "開始編撰並啟動視覺引擎...", true); };
 }
 
-// 🌟 V0.14: 神級排程面板 (結合 Flatpickr 與 TimepickerUI)
+// 🌟 V0.15: 15 分鐘定軌轉盤 (incrementMinutes)
 function openScheduleModal(summaryUI) {
     const modal = document.getElementById('scheduleModal'); const panel = document.getElementById('schedulePanel');
     
-    // UI 結構：Flatpickr 容器 + Timepicker-UI 容器
     panel.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-sm font-black text-white tracking-widest uppercase">時間指揮艙</h3>
@@ -306,23 +335,17 @@ function openScheduleModal(summaryUI) {
     
     modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
 
-    // 🌟 初始化 Flatpickr (鎖死過去日期)
-    const fp = flatpickr("#flatpickr-input", {
-        minDate: "today",
-        theme: "dark",
-        dateFormat: "Y-m-d",
-        defaultDate: MISSION.scheduleDate || "today"
-    });
+    const fp = flatpickr("#flatpickr-input", { minDate: "today", theme: "dark", dateFormat: "Y-m-d", defaultDate: MISSION.scheduleDate || "today" });
 
-    // 🌟 初始化 Timepicker-UI (Material 時鐘介面)
+    // 🌟 關鍵參數：incrementMinutes: 15
     const timepickerEl = document.querySelector('.timepicker-ui');
     const tui = new window.tui.TimepickerUI(timepickerEl, {
         theme: 'dark', clockType: '12h',
-        mobile: window.innerWidth < 1024 // 手機上採用觸控友好的圓盤
+        mobile: window.innerWidth < 1024,
+        incrementMinutes: 15 
     });
     tui.create();
 
-    // 確認按鈕邏輯
     panel.querySelector('#btnConfirmSch').onclick = () => {
         const selectedDate = document.getElementById('flatpickr-input').value;
         const selectedTime = document.querySelector('.timepicker-ui-input').value;
