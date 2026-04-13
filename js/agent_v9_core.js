@@ -13,28 +13,43 @@ export { bootSystemData } from './v9_state.js';
 // 🧠 企業級 AI 代理人通訊模組 (Agent Client)
 // ==========================================
 const AgentClient = {
-    // ⚠️ 記得確認您的 API 網址，若是本地測試為 http://localhost:8080/api/agent/orchestrate
-    API_URL: '/api/agent/orchestrate', 
+    // 🚀 [關鍵修復 1] 強制使用 config.js 裡面的 GCP 正式網址，絕對不迷路！
+    get API_URL() {
+        // 如果 CONFIG.CLOUD_RUN_URL 結尾有斜線就去掉，然後接上我們的 Agent 總機
+        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
+        return `${baseUrl}/api/agent/orchestrate`;
+    },
 
     /**
      * 🚀 向後端大腦發送指令的核心函數
      */
     async sendCommand(action, payload = {}, existingTaskId = null) {
         try {
-            // 如果沒有傳入 taskId (代表是新任務)，就立刻生成一個
             const taskId = existingTaskId || ('task_agent_' + Date.now());
             console.log(`[UI -> Agent] 發送指令: ${action}, TaskID: ${taskId}`);
+            console.log(`[UI -> Agent] 目標網址: ${this.API_URL}`);
             
+            // 🚀 [關鍵修復 2] 給予預設身份，避免 undefined 觸發防線
+            const currentTenantId = STATE.uid || 'user_chief_001';
+
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    tenantId: STATE.uid, // 從您的系統狀態抓取目前登入者的 UID
+                    tenantId: currentTenantId,
                     taskId: taskId,
                     action: action,
                     payload: payload
                 })
             });
+
+            // 如果遇到 500 等伺服器錯誤，強制解析為文字避免 json() 報錯
+            if (!response.ok) {
+                const errText = await response.text();
+                let errMsg = errText;
+                try { errMsg = JSON.parse(errText).message; } catch(e) {}
+                throw new Error(errMsg || `伺服器回應錯誤碼: ${response.status}`);
+            }
 
             const result = await response.json();
             
@@ -43,11 +58,11 @@ const AgentClient = {
             }
 
             console.log(`[Agent -> UI] 接收到大腦最新狀態:`, result.state);
-            return result.state; // 回傳大腦的最新任務大表
+            return result.state; 
 
         } catch (error) {
             console.error('[Agent Client Error]', error);
-            throw error; // 把錯誤往上丟，讓外層的 catch 去顯示 showError
+            throw error; 
         }
     }
 };
