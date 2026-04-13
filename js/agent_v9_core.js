@@ -319,7 +319,7 @@ async function triggerMissionSummary() {
                 <div id="retryVis" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📐 畫面與參考圖</span><div class="flex items-center gap-2">${visHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
                 <div id="retrySch" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors pt-3 border-t border-white/10"><span class="text-indigo-400 font-black">📅 部署時間</span><span class="text-white font-bold">${schDisplay} ✎</span></div>
             </div>
-            <button id="btnRender" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">⚡ 扣除 ${totalPts} 點產出劇本與校稿卡</button>
+            <button id="btnRender" class="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">⚡ 扣除點數並產出劇本校稿卡</button>
         </div>
     `);
 
@@ -340,10 +340,18 @@ async function triggerMissionSummary() {
             if (agentState && agentState.currentStatus === 'AWAITING_APPROVAL') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
-                // 🌟 前端 UI 即時扣點 (草稿費) 並觸發靈魂特效
-                STATE.userPoints = STATE.userPoints - totalPts; 
-                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                showPointDeductionEffect(totalPts, 'userPoints'); 
+                // 🌟 讀取後端動態扣點 (草稿費) 並觸發靈魂特效
+                const deducted = agentState.lastCost ? agentState.lastCost.deducted : totalPts;
+                if (deducted > 0) {
+                    STATE.userPoints = STATE.userPoints - deducted; 
+                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                    showPointDeductionEffect(deducted, 'userPoints'); 
+                }
+
+                // 🚀 記錄 TaskId 並彈出 Agent 對話框
+                MISSION.currentTaskId = agentState.taskId;
+                const chatBar = document.getElementById('agentChatBar');
+                if(chatBar) chatBar.classList.remove('translate-y-full');
 
                 await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
                 await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
@@ -424,10 +432,13 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
             if (agentState && agentState.currentStatus === 'IMAGES_GENERATED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 
-                // 🌟 前端 UI 即時扣點 (生圖固定費) 並觸發靈魂特效
-                STATE.userPoints = STATE.userPoints - 50; 
-                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                showPointDeductionEffect(50, 'userPoints');
+                // 🌟 讀取後端動態扣點 (生圖費) 並觸發靈魂特效
+                const deducted = agentState.lastCost ? agentState.lastCost.deducted : 50;
+                if (deducted > 0) {
+                    STATE.userPoints = STATE.userPoints - deducted; 
+                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                    showPointDeductionEffect(deducted, 'userPoints');
+                }
 
                 await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, editedCaption);
             } else { throw new Error("大腦狀態異常，未能取得圖片。"); }
@@ -464,10 +475,17 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
             if (agentState && agentState.currentStatus === 'COMPLETED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
                 
-                // 🌟 前端 UI 即時扣點 (發佈費) 並觸發靈魂特效
-                STATE.userPoints = STATE.userPoints - 5; 
-                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                showPointDeductionEffect(5, 'userPoints');
+                // 🌟 讀取後端動態扣點 (發佈費) 並觸發靈魂特效
+                const deducted = agentState.lastCost ? agentState.lastCost.deducted : 5;
+                if (deducted > 0) {
+                    STATE.userPoints = STATE.userPoints - deducted; 
+                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                    showPointDeductionEffect(deducted, 'userPoints');
+                }
+
+                // 任務結束，收起對話框
+                const chatBar = document.getElementById('agentChatBar');
+                if(chatBar) chatBar.classList.add('translate-y-full');
 
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 發起新任務</button>`);
@@ -517,6 +535,69 @@ export function showPointDeductionEffect(points, targetElementId = 'userPoints')
     // 5. 動畫結束後自動清除 DOM 垃圾
     animation.onfinish = () => soul.remove();
 }
+
+// 🪄 新增：真 Agent 懸浮對話框
+function initAgentChatBar() {
+    if(document.getElementById('agentChatBar')) return;
+    
+    const chatBar = document.createElement('div');
+    chatBar.id = "agentChatBar";
+    chatBar.className = "fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-indigo-500/50 p-3 z-[9000] flex items-center justify-center transition-transform translate-y-full duration-500 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]";
+    chatBar.innerHTML = `
+        <div class="max-w-4xl w-full flex gap-2">
+            <input type="text" id="agentChatInput" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none" placeholder="隨時與 Agent 對話 (例如：這句對白太無聊了，幫我改幽默一點然後重出圖)...">
+            <button id="btnSendChat" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all">送出指令</button>
+        </div>
+    `;
+    document.body.appendChild(chatBar);
+
+    document.getElementById('btnSendChat').onclick = async () => {
+        const input = document.getElementById('agentChatInput');
+        const msg = input.value.trim();
+        if(!msg) return;
+        input.value = ''; input.disabled = true;
+
+        await addLog("總編", "👤", msg);
+        const spinId = 'spin_chat_' + Date.now();
+        await addLog("Agent", "🤖", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">思考與執行中...</span></div>`, true);
+
+        try {
+            if (!MISSION.currentTaskId) throw new Error("請先啟動任務漏斗！");
+            
+            // 送出聊天指令給大腦
+            const agentState = await AgentClient.sendCommand('CHAT', { message: msg }, MISSION.currentTaskId);
+            
+            const spEl = document.getElementById(spinId); if(spEl) spEl.closest('.flex').parentElement.remove();
+            
+            // 顯示 Agent 的回話
+            const reply = agentState.memory[agentState.memory.length - 1].message;
+            await addLog("Agent", "🤖", `<span class="text-indigo-300">${reply}</span>`);
+
+            // 🚀 動態扣除點數 (純對話微量計費，或偷偷呼叫生圖的龐大費用)
+            const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
+            if (deducted > 0) {
+                STATE.userPoints = STATE.userPoints - deducted;
+                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                showPointDeductionEffect(deducted, 'userPoints');
+            }
+
+            // 🌟 最神奇的地方：如果 Agent 聽懂了並自己跑去改草稿或重畫圖，自動更新 UI！
+            if (agentState.currentStatus === 'AWAITING_APPROVAL') {
+                await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
+            } else if (agentState.currentStatus === 'IMAGES_GENERATED') {
+                await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, agentState.agentData.draftContent.post_caption);
+            }
+
+        } catch(e) {
+            const spEl = document.getElementById(spinId); if(spEl) { spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
+            showError(`Agent 回應失敗：${e.message}`);
+        } finally {
+            input.disabled = false; input.focus();
+        }
+    };
+}
+// 初始化漏斗時建立聊天條
+initAgentChatBar();
 
 // ==========================================
 // 🧬 側欄管理 (保持原樣不動)
