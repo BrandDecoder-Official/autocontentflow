@@ -339,7 +339,12 @@ async function triggerMissionSummary() {
             const agentState = await AgentClient.sendCommand('START_NEW_MISSION', rawPayload);
             if (agentState && agentState.currentStatus === 'AWAITING_APPROVAL') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
-                STATE.userPoints = STATE.userPoints - totalPts; document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                
+                // 🌟 前端 UI 即時扣點 (草稿費) 並觸發靈魂特效
+                STATE.userPoints = STATE.userPoints - totalPts; 
+                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                showPointDeductionEffect(totalPts, 'userPoints'); 
+
                 await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
                 await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
             } else { throw new Error("大腦狀態異常，未能取得草稿。"); }
@@ -418,6 +423,12 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
             const agentState = await AgentClient.sendCommand('APPROVE_DRAFT', { editedCaption: editedCaption, editedPanels: editedPanels }, taskId);
             if (agentState && agentState.currentStatus === 'IMAGES_GENERATED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
+                
+                // 🌟 前端 UI 即時扣點 (生圖固定費) 並觸發靈魂特效
+                STATE.userPoints = STATE.userPoints - 50; 
+                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                showPointDeductionEffect(50, 'userPoints');
+
                 await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, editedCaption);
             } else { throw new Error("大腦狀態異常，未能取得圖片。"); }
         } catch (e) { 
@@ -452,6 +463,12 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
             const agentState = await AgentClient.sendCommand('APPROVE_PUBLISH', { scheduledAt: MISSION.scheduledAt }, taskId);
             if (agentState && agentState.currentStatus === 'COMPLETED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
+                
+                // 🌟 前端 UI 即時扣點 (發佈費) 並觸發靈魂特效
+                STATE.userPoints = STATE.userPoints - 5; 
+                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                showPointDeductionEffect(5, 'userPoints');
+
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 發起新任務</button>`);
                 endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); initAgentFunnel(); }; 
@@ -461,6 +478,44 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
             showError(`操作失敗：${e.message}`); 
         }
     };
+}
+
+// 🪄 點數靈魂飄出特效 (Soul Floating Animation)
+export function showPointDeductionEffect(points, targetElementId = 'userPoints') {
+    const target = document.getElementById(targetElementId);
+    if (!target || points <= 0) return;
+
+    // 1. 取得目標物 (點數顯示區) 的座標
+    const rect = target.getBoundingClientRect();
+
+    // 2. 建立「靈魂數字」元素
+    const soul = document.createElement('div');
+    soul.innerText = `-${points}`;
+    
+    // 使用 Tailwind 加上紅色、粗體、以及紅色發光陰影 (drop-shadow)
+    soul.className = 'fixed font-black text-red-500 pointer-events-none z-[9999] text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]';
+
+    // 3. 設定初始位置 (在點數旁邊稍微隨機偏移，讓多次扣點看起來更自然)
+    const startX = rect.left + (Math.random() * 20 - 10) + (rect.width / 2) - 10;
+    const startY = rect.top - 10;
+    soul.style.left = `${startX}px`;
+    soul.style.top = `${startY}px`;
+
+    document.body.appendChild(soul);
+
+    // 4. 啟動原生動畫 (向上飄移 + 放大縮小 + 淡出)
+    const animation = soul.animate([
+        { transform: 'translateY(0) scale(1)', opacity: 1 },
+        { transform: 'translateY(-40px) scale(1.5)', opacity: 0.9, offset: 0.4 }, // 飄到中段時變大
+        { transform: 'translateY(-80px) scale(0.8)', opacity: 0 }                 // 最後縮小消散
+    ], {
+        duration: 1200, // 動畫長度 1.2 秒
+        easing: 'cubic-bezier(0.25, 1, 0.5, 1)', // 完美的減速曲線 (像氣球升空)
+        fill: 'forwards'
+    });
+
+    // 5. 動畫結束後自動清除 DOM 垃圾
+    animation.onfinish = () => soul.remove();
 }
 
 // ==========================================
