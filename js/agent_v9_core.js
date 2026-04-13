@@ -337,6 +337,7 @@ async function triggerMissionSummary() {
 
         try {
             const agentState = await AgentClient.sendCommand('START_NEW_MISSION', rawPayload);
+            
             if (agentState && agentState.currentStatus === 'AWAITING_APPROVAL') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
@@ -348,14 +349,21 @@ async function triggerMissionSummary() {
                     showPointDeductionEffect(deducted, 'userPoints'); 
                 }
 
-                // 🚀 記錄 TaskId 並彈出 Agent 對話框
                 MISSION.currentTaskId = agentState.taskId;
                 const chatBar = document.getElementById('agentChatBar');
                 if(chatBar) chatBar.classList.remove('translate-y-full');
 
                 await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
                 await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
-            } else { throw new Error("大腦狀態異常，未能取得草稿。"); }
+            
+            // 🚀 [新增] 讓大腦說實話：如果後端標記 ERROR，把記憶體裡的錯誤訊息印出來！
+            } else if (agentState && agentState.currentStatus === 'ERROR') {
+                const lastMem = agentState.memory[agentState.memory.length - 1];
+                throw new Error(`後端任務失敗: ${lastMem ? lastMem.message : '未知錯誤'}`);
+            } else { 
+                throw new Error(`大腦未回傳預期狀態 (目前狀態: ${agentState?.currentStatus || '無'})`); 
+            }
+
         } catch (e) { 
             const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "產出失敗"; }
             showError(`連線失敗：${e.message}`); 
