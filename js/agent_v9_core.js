@@ -10,6 +10,49 @@ import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from '.
 export { bootSystemData } from './v9_state.js';
 
 // ==========================================
+// 🧠 企業級 AI 代理人通訊模組 (Agent Client)
+// ==========================================
+const AgentClient = {
+    // ⚠️ 記得確認您的 API 網址，若是本地測試為 http://localhost:8080/api/agent/orchestrate
+    API_URL: '/api/agent/orchestrate', 
+
+    /**
+     * 🚀 向後端大腦發送指令的核心函數
+     */
+    async sendCommand(action, payload = {}, existingTaskId = null) {
+        try {
+            // 如果沒有傳入 taskId (代表是新任務)，就立刻生成一個
+            const taskId = existingTaskId || ('task_agent_' + Date.now());
+            console.log(`[UI -> Agent] 發送指令: ${action}, TaskID: ${taskId}`);
+            
+            const response = await fetch(this.API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: STATE.uid, // 從您的系統狀態抓取目前登入者的 UID
+                    taskId: taskId,
+                    action: action,
+                    payload: payload
+                })
+            });
+
+            const result = await response.json();
+            
+            if (!result.success) {
+                throw new Error(result.message);
+            }
+
+            console.log(`[Agent -> UI] 接收到大腦最新狀態:`, result.state);
+            return result.state; // 回傳大腦的最新任務大表
+
+        } catch (error) {
+            console.error('[Agent Client Error]', error);
+            throw error; // 把錯誤往上丟，讓外層的 catch 去顯示 showError
+        }
+    }
+};
+
+// ==========================================
 // 🚀 漏斗核心流程
 // ==========================================
 export async function initAgentFunnel() { updateStepHeader("COMMAND LOBBY"); renderLobby(); }
@@ -179,7 +222,6 @@ async function handleAssetUpload(file, container) {
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化並載入圖資。`); 
 }
 
-// 🌟 關卡 9: 防彈級專業排程時鐘
 async function triggerScheduleSkill() {
     updateStepHeader("PUBLISH SCHEDULE"); await addLog("社群總監", "📅", "最後一步，請指派部署時間（留空為立即發佈）：", true);
     
@@ -237,7 +279,9 @@ function setupTimePickerConstraints(wrapper) {
     }
 }
 
-// 🌟 Mission Brief (動態扣點與動畫控制修復)
+// ==========================================
+// 🚀 大腦接軌區 1：發起任務 (START_NEW_MISSION)
+// ==========================================
 async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION"); await addLog("專案總監", "👨‍💼", "總編，請進行最後確認。點擊 ✎ 可發起反悔修正：", true);
 
@@ -251,7 +295,7 @@ async function triggerMissionSummary() {
     if (MISSION.sceneFiles.length > 0) visHtml += `<img src="${MISSION.sceneFiles[0].dataUrl}" class="w-6 h-6 rounded border border-slate-500 object-cover flex-shrink-0">`; else visHtml += `<span class="text-[10px] text-slate-500">${MISSION.ratio} / ${MISSION.resolution}</span>`; visHtml += '</div>';
 
     const schDisplay = MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "⚡ 立即部署";
-    const clrDisplay = MISSION.colorMode === 'BW' ? "🏁 經典黑白" : "🌈 現代全彩"; // 修正顯示對應
+    const clrDisplay = MISSION.colorMode === 'BW' ? "🏁 經典黑白" : "🌈 現代全彩"; 
 
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-3xl p-5 shadow-2xl space-y-4 mb-4">
@@ -275,26 +319,40 @@ async function triggerMissionSummary() {
     ui.querySelector('#btnRender').onclick = async () => {
         releaseUI(ui); 
         const spinId = 'spin_draft_' + Date.now();
-        await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在產出劇本...</span></div>`, true);
+        await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在產出劇本...</span></div>`, true);
 
         const referenceImages = []; MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
-        const rawPayload = { tenantId: STATE.uid, topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC', style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona, colorMode: MISSION.colorMode, ratio: MISSION.ratio, resolution: MISSION.resolution, scheduledAt: MISSION.scheduledAt, characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } };
+        const rawPayload = { topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC', style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona, colorMode: MISSION.colorMode, ratio: MISSION.ratio, resolution: MISSION.resolution, scheduledAt: MISSION.scheduledAt, characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } };
 
         try {
-            const result = await API.createDraftAPI(JSON.parse(JSON.stringify(rawPayload)));
-            if (result.success) {
-                // 🌟 停下圈圈
+            // ⚔️ [大腦換血] 拔掉舊 API，改呼叫 Agent 大腦
+            const agentState = await AgentClient.sendCommand('START_NEW_MISSION', rawPayload);
+            
+            // 當大腦回傳 AWAITING_APPROVAL，代表草稿寫好了
+            if (agentState && agentState.currentStatus === 'AWAITING_APPROVAL') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
-                STATE.userPoints = result.newBalance || (STATE.userPoints - totalPts); document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); await renderDraftEditorCard(result.taskId, result.draftContent, result.isComicMode);
-            } else throw new Error(result.message);
-        } catch (e) { showError(`發送失敗：${e.message}`); }
+                // 註：未來點數扣除邏輯會移交後端 Tool 處理，這裡先用舊的前端預演顯示
+                STATE.userPoints = STATE.userPoints - totalPts; document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
+                
+                await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
+                
+                // 把大腦傳回來的 draftContent 丟給 UI 顯示，並傳遞 taskId
+                await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
+            } else {
+                throw new Error("大腦狀態異常，未能取得草稿。");
+            }
+        } catch (e) { 
+            const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "產出失敗"; }
+            showError(`與 Agent 連線失敗：${e.message}`); 
+        }
     };
 }
 
-// 🌟 校稿總編室
+// ==========================================
+// 🚀 大腦接軌區 2：核准生圖 (APPROVE_DRAFT)
+// ==========================================
 async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
 
@@ -321,21 +379,34 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
         releaseUI(ui); 
         
         const spinId = 'spin_img_' + Date.now();
-        await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在進行 AI 影像合成 (預估需 20~30 秒)...</span></div>`, true);
+        await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在進行影像合成 (預估需 20~30 秒)...</span></div>`, true);
         
         try {
-            const payload = { taskId: taskId, tenantId: STATE.uid, editedCaption: editedCaption, editedPanels: editedPanels };
-            const result = await API.generateImageAPI(payload);
-            if (result.success && result.images && result.images.length > 0) {
-                // 🌟 停下圈圈
+            // ⚔️ [大腦換血] 告訴大腦：總編核准了！去生圖吧！(並附上總編修改後的文字)
+            const agentState = await AgentClient.sendCommand('APPROVE_DRAFT', { 
+                editedCaption: editedCaption, 
+                editedPanels: editedPanels 
+            }, taskId);
+
+            // 當大腦回傳 IMAGES_GENERATED，代表圖生好了
+            if (agentState && agentState.currentStatus === 'IMAGES_GENERATED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
-                await renderFinalPublishCard(taskId, result.images, editedCaption);
-            } else { throw new Error(result.message || "生圖回傳異常"); }
-        } catch (e) { showError(`生圖失敗：${e.message}`); }
+                
+                // 把生出來的圖片送到發佈預覽卡
+                await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, editedCaption);
+            } else { 
+                throw new Error("大腦狀態異常，未能取得圖片。"); 
+            }
+        } catch (e) { 
+            const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "合成失敗"; }
+            showError(`與 Agent 連線失敗：${e.message}`); 
+        }
     };
 }
 
-// 🌟 發佈預覽
+// ==========================================
+// 🚀 大腦接軌區 3：發佈預覽 (APPROVE_PUBLISH)
+// ==========================================
 async function renderFinalPublishCard(taskId, images, finalCaption) {
     updateStepHeader("FINAL DEPLOYMENT"); await addLog("社群總監", "🚀", "大作已完成！請做最後確認，準備部署至社群：", true);
 
@@ -355,22 +426,25 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnDeploy').onclick = async () => {
         releaseUI(ui); 
         const spinId = 'spin_pub_' + Date.now();
-        await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">正在與社群伺服器連線...</span></div>`, true);
+        await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
         
         try {
-            const payload = { taskId: taskId, tenantId: STATE.uid, finalCaption: finalCaption, scheduledAt: MISSION.scheduledAt };
-            const result = await API.publishContentAPI(payload);
-            if (result.success) {
-                // 🌟 停下圈圈 (發佈成功)
+            // ⚔️ [大腦換血] 告訴大腦：總編核准發佈！
+            const agentState = await AgentClient.sendCommand('APPROVE_PUBLISH', { 
+                scheduledAt: MISSION.scheduledAt 
+            }, taskId);
+            
+            // 當大腦回傳 COMPLETED，代表大結局！
+            if (agentState && agentState.currentStatus === 'COMPLETED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
                 
-                STATE.userPoints = result.newBalance || (STATE.userPoints - (SYSTEM_DB.pricing?.publishPoints || 0)); document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                await addLog("系統", "🎉", `<span class="text-green-400 font-bold">${result.message}</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
+                await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 發起新任務</button>`);
                 endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); initAgentFunnel(); }; 
-            } else { throw new Error(result.message || "發佈異常"); }
+            } else { 
+                throw new Error("大腦狀態異常，未能完成發佈。"); 
+            }
         } catch(e) { 
-            // 🌟 停下圈圈 (發佈失敗)
             const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-emerald-500'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
             showError(`操作失敗：${e.message}`); 
         }
@@ -378,7 +452,7 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
 }
 
 // ==========================================
-// 🧬 側欄管理
+// 🧬 側欄管理 (保持原樣不動)
 // ==========================================
 window.openCharManager = function() { const modal = document.getElementById('charManageModal'); modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); renderCharGrid(); };
 window.closeCharManager = function() { const modal = document.getElementById('charManageModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); window.cancelNewChar(); };
