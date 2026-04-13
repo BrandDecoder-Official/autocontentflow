@@ -440,13 +440,8 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
             if (agentState && agentState.currentStatus === 'IMAGES_GENERATED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 
-                // 🌟 讀取後端動態扣點 (生圖費) 並觸發靈魂特效
                 const deducted = agentState.lastCost ? agentState.lastCost.deducted : 50;
-                if (deducted > 0) {
-                    STATE.userPoints = STATE.userPoints - deducted; 
-                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                    showPointDeductionEffect(deducted, 'userPoints');
-                }
+                await applyPointDeduction(deducted, "影像合成算力");
 
                 await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, editedCaption);
             } else { throw new Error("大腦狀態異常，未能取得圖片。"); }
@@ -483,13 +478,8 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
             if (agentState && agentState.currentStatus === 'COMPLETED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
                 
-                // 🌟 讀取後端動態扣點 (發佈費) 並觸發靈魂特效
-                const deducted = agentState.lastCost ? agentState.lastCost.deducted : 5;
-                if (deducted > 0) {
-                    STATE.userPoints = STATE.userPoints - deducted; 
-                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                    showPointDeductionEffect(deducted, 'userPoints');
-                }
+                const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
+                await applyPointDeduction(deducted, "Agent 決策與微調");
 
                 // 任務結束，收起對話框
                 const chatBar = document.getElementById('agentChatBar');
@@ -506,41 +496,80 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
     };
 }
 
-// 🪄 點數靈魂飄出特效 (Soul Floating Animation)
-export function showPointDeductionEffect(points, targetElementId = 'userPoints') {
+// ==========================================
+// 🪄 終極點數視覺引擎 (拉霸 + 慢飄 + 日誌)
+// ==========================================
+
+// 1. 統籌管家：只要呼叫這個，三個願望一次滿足
+export async function applyPointDeduction(deducted, reason = "") {
+    if (deducted <= 0) return;
+
+    const targetEl = document.getElementById('userPoints');
+    if (targetEl) {
+        const oldPoints = STATE.userPoints;
+        STATE.userPoints -= deducted;
+
+        // 🎰 觸發拉霸滾動特效 (1.5秒)
+        animateNumberRoll(targetEl, oldPoints, STATE.userPoints, 1500);
+        
+        // 👻 觸發靈魂慢飄特效
+        showPointDeductionEffect(deducted, 'userPoints');
+    }
+
+    // 💬 在對話框印出扣款明細 (可選)
+    if (reason) {
+        await addLog("計費系統", "🪙", `<span class="text-[10px] text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-2 py-1 rounded shadow-inner">本次消耗 ${deducted} 點 (${reason})</span>`);
+    }
+}
+
+// 2. 拉霸滾動特效 (Slot Machine Roll)
+function animateNumberRoll(obj, start, end, duration) {
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        // 使用 easeOutQuart 曲線，讓滾動先快後慢，停得很有感覺
+        const easeProgress = 1 - Math.pow(1 - progress, 4);
+        const currentVal = Math.floor(start + easeProgress * (end - start));
+        obj.innerText = currentVal.toLocaleString();
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            obj.innerText = end.toLocaleString(); // 確保最後數字精準
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// 3. 靈魂慢飄特效 (Slow Drifting Soul)
+function showPointDeductionEffect(points, targetElementId = 'userPoints') {
     const target = document.getElementById(targetElementId);
     if (!target || points <= 0) return;
 
-    // 1. 取得目標物 (點數顯示區) 的座標
     const rect = target.getBoundingClientRect();
-
-    // 2. 建立「靈魂數字」元素
     const soul = document.createElement('div');
     soul.innerText = `-${points}`;
-    
-    // 使用 Tailwind 加上紅色、粗體、以及紅色發光陰影 (drop-shadow)
-    soul.className = 'fixed font-black text-red-500 pointer-events-none z-[9999] text-xl drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]';
+    soul.className = 'fixed font-black text-red-500 pointer-events-none z-[9999] text-2xl drop-shadow-[0_0_12px_rgba(239,68,68,1)]';
 
-    // 3. 設定初始位置 (在點數旁邊稍微隨機偏移，讓多次扣點看起來更自然)
-    const startX = rect.left + (Math.random() * 20 - 10) + (rect.width / 2) - 10;
-    const startY = rect.top - 10;
+    const startX = rect.left + (rect.width / 2) - 15;
+    const startY = rect.top - 5;
     soul.style.left = `${startX}px`;
     soul.style.top = `${startY}px`;
 
     document.body.appendChild(soul);
 
-    // 4. 啟動原生動畫 (向上飄移 + 放大縮小 + 淡出)
+    // 👻 動畫升級：時間拉長到 2.5 秒，加入左右搖擺的幽靈飄移感
     const animation = soul.animate([
-        { transform: 'translateY(0) scale(1)', opacity: 1 },
-        { transform: 'translateY(-40px) scale(1.5)', opacity: 0.9, offset: 0.4 }, // 飄到中段時變大
-        { transform: 'translateY(-80px) scale(0.8)', opacity: 0 }                 // 最後縮小消散
+        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+        { transform: 'translate(-15px, -30px) scale(1.4)', opacity: 0.9, offset: 0.3 }, // 向左上放大
+        { transform: 'translate(10px, -60px) scale(1.1)', opacity: 0.7, offset: 0.6 },  // 向右上飄
+        { transform: 'translate(-5px, -100px) scale(0.8)', opacity: 0 }                 // 向上消散
     ], {
-        duration: 1200, // 動畫長度 1.2 秒
-        easing: 'cubic-bezier(0.25, 1, 0.5, 1)', // 完美的減速曲線 (像氣球升空)
+        duration: 2500, 
+        easing: 'ease-out',
         fill: 'forwards'
     });
 
-    // 5. 動畫結束後自動清除 DOM 垃圾
     animation.onfinish = () => soul.remove();
 }
 
@@ -581,13 +610,8 @@ function initAgentChatBar() {
             const reply = agentState.memory[agentState.memory.length - 1].message;
             await addLog("Agent", "🤖", `<span class="text-indigo-300">${reply}</span>`);
 
-            // 🚀 動態扣除點數 (純對話微量計費，或偷偷呼叫生圖的龐大費用)
-            const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
-            if (deducted > 0) {
-                STATE.userPoints = STATE.userPoints - deducted;
-                if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                showPointDeductionEffect(deducted, 'userPoints');
-            }
+            const deducted = agentState.lastCost ? agentState.lastCost.deducted : totalPts;
+            await applyPointDeduction(deducted, "AI 劇本產出");
 
             // 🌟 最神奇的地方：如果 Agent 聽懂了並自己跑去改草稿或重畫圖，自動更新 UI！
             if (agentState.currentStatus === 'AWAITING_APPROVAL') {
