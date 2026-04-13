@@ -2,7 +2,7 @@
 import { STATE } from './config.js';
 import * as API from './api.js';
 
-export const APP_VERSION = "V0.31 模組壓縮版";
+export const APP_VERSION = "V0.32";
 export const MISSION = { persona: '', platforms: [], topic: '', universe: '', style: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [] };
 export const IS_EDIT_MODE = { value: false }; // 使用物件包裝以利跨模組修改
 
