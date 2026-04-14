@@ -111,7 +111,7 @@
                     <div class="flex items-center justify-between bg-slate-800 p-4 rounded-xl border border-indigo-500/50 mb-3">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white">BD</div>
-                            <div><p class="text-sm font-bold text-white">專屬基因庫</p><p class="text-[10px] text-slate-400" id="charCountLabel">已擁有 0 組角色模型</p></div>
+                            <div><p class="text-sm font-bold text-white">專屬基因庫</p><p class="text-[10px] text-slate-400" id="charCountLabel">已擁有 0 組角色/人設模型</p></div>
                         </div>
                         <button onclick="window.openCharManager()" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg transition-colors font-bold shadow-lg">管理基因庫</button>
                     </div>
@@ -128,50 +128,88 @@
 
     <div id="charManageModal" class="mobile-bottom-sheet fixed inset-0 z-[110] hidden items-center justify-center opacity-0 transition-opacity duration-300">
         <div class="absolute inset-0 bg-slate-900/90 backdrop-blur-md" onclick="window.closeCharManager()"></div>
-        <div class="relative w-full max-w-3xl bg-slate-800 border border-indigo-500/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]">
+        <div class="relative w-full max-w-3xl bg-slate-800 border border-indigo-500/50 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh] h-full">
+            
             <div class="flex justify-between items-center p-5 border-b border-white/10 bg-slate-900/80 flex-shrink-0">
-                <div class="flex items-center gap-3"><span class="text-2xl">🧬</span><div><h2 class="text-base font-black text-white uppercase">專屬角色基因庫</h2><p class="text-[10px] text-slate-400">管理您的 AI 視覺分身 (上限 10 名)</p></div></div>
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🧬</span>
+                    <div>
+                        <h2 class="text-base font-black text-white uppercase">企業專屬模型庫</h2>
+                        <p class="text-[10px] text-slate-400">管理您的視覺分身與大腦語氣</p>
+                    </div>
+                </div>
                 <button onclick="window.closeCharManager()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full">✕</button>
+            </div>
+
+            <div class="flex border-b border-white/5 bg-slate-900 flex-shrink-0">
+                <button onclick="window.switchVaultTab('VISUAL')" id="tabVisual" class="flex-1 py-3 text-sm font-black border-b-2 transition-all text-blue-400 border-blue-500 bg-slate-800/50">🖼️ 視覺角色 (Characters)</button>
+                <button onclick="window.switchVaultTab('TEXT')" id="tabText" class="flex-1 py-3 text-sm font-black border-b-2 transition-all text-slate-500 border-transparent hover:bg-slate-800/30">✍️ 品牌人設 (Personas)</button>
             </div>
             
             <div class="p-5 overflow-y-auto flex-grow bg-slate-900/30 relative">
-    <div id="charGridContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
-    
-                <div id="newCharForm" class="hidden bg-slate-800 p-5 rounded-2xl border border-indigo-500/30 animate-fade-in">
-                    <h3 class="text-xs font-black text-indigo-400 uppercase mb-4">✨ 註冊新視覺基因</h3>
-                    <div class="flex flex-col md:flex-row gap-4">
-                        <div class="w-full md:w-1/3 flex flex-col gap-2">
-                            <div id="charPreviewBox" class="w-full aspect-square bg-slate-900 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center cursor-pointer hover:border-indigo-500 overflow-hidden relative" onclick="document.getElementById('charFileInput').click()">
-                                <div class="text-center p-4" id="charPreviewEmpty"><span class="text-2xl block mb-1">📸</span><span class="text-[10px] text-slate-400">點擊上傳清晰的半身照</span></div>
-                                <img id="charPreviewImg" class="w-full h-full object-cover hidden">
+                <div id="vaultVisualContent" class="block animate-fade-in h-full flex flex-col">
+                    <div id="charGridContainer" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6"></div>
+                    <div id="newCharForm" class="hidden bg-slate-800 p-5 rounded-2xl border border-indigo-500/30 animate-fade-in mt-auto mb-4">
+                        <h3 class="text-xs font-black text-indigo-400 uppercase mb-4">✨ 註冊新視覺基因</h3>
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="w-full md:w-1/3 flex flex-col gap-2">
+                                <div id="charPreviewBox" class="w-full aspect-square bg-slate-900 rounded-xl border-2 border-dashed border-slate-600 flex items-center justify-center cursor-pointer hover:border-indigo-500 overflow-hidden relative" onclick="document.getElementById('charFileInput').click()">
+                                    <div class="text-center p-4" id="charPreviewEmpty"><span class="text-2xl block mb-1">📸</span><span class="text-[10px] text-slate-400">點擊上傳半身照</span></div>
+                                    <img id="charPreviewImg" class="w-full h-full object-cover hidden">
+                                    <input type="file" id="charFileInput" accept="image/*" class="hidden" onchange="window.handleCharPhotoSelect(event)">
+                                </div>
                             </div>
-                            <input type="file" id="charFileInput" accept="image/*" class="hidden" onchange="window.handleCharPhotoSelect(event)">
-                        </div>
-                        
-                        <div class="w-full md:w-2/3 space-y-3 flex flex-col justify-center">
-                            <div class="grid grid-cols-2 gap-2">
-                                <input type="text" id="newCharName" placeholder="角色代號" class="bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
-                                <select id="newCharType" class="bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
-                                    <option value="REALISTIC">📷 真實攝影</option>
-                                    <option value="COMIC" selected>🎨 2D 動漫</option>
-                                </select>
-                            </div>
-                            <input type="text" id="newCharPersona" placeholder="補充設定 (選填)" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
-                            
-                            <div class="flex gap-2 pt-2">
-                                <button onclick="window.cancelNewChar()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all">取消</button>
-                                <button id="btnSubmitNewChar" onclick="window.submitNewChar()" class="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-black shadow-lg shadow-indigo-500/20 transition-all flex justify-center items-center gap-2">上傳並萃取基因</button>
+                            <div class="w-full md:w-2/3 space-y-3 flex flex-col justify-center">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="text" id="newCharName" placeholder="角色代號" class="bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                                    <select id="newCharType" class="bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                                        <option value="REALISTIC">📷 真實攝影</option>
+                                        <option value="COMIC" selected>🎨 2D 動漫</option>
+                                    </select>
+                                </div>
+                                <input type="text" id="newCharPersona" placeholder="補充設定 (選填)" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                                <div class="flex gap-2 pt-2">
+                                    <button onclick="window.cancelNewChar()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all">取消</button>
+                                    <button id="btnSubmitNewChar" onclick="window.submitNewChar()" class="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-black shadow-lg transition-all flex justify-center items-center gap-2">上傳並萃取</button>
+                                </div>
                             </div>
                         </div>
                     </div>
+                    <div class="mt-auto border-t border-white/10 pt-4" id="btnAddNewCharContainer">
+                        <button onclick="window.openNewCharForm()" class="bg-slate-800 hover:bg-slate-700 border border-white/10 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all w-full flex justify-center items-center gap-2"><span class="text-lg">+</span> 註冊新視覺角色</button>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="p-4 border-t border-white/10 bg-slate-900/80 flex-shrink-0 flex justify-center" id="btnAddNewCharContainer">
-                <button onclick="window.openNewCharForm()" class="bg-slate-800 hover:bg-slate-700 border border-white/10 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all w-full max-w-sm flex justify-center items-center gap-2"><span class="text-lg">+</span> 註冊新角色</button>
+
+                <div id="vaultTextContent" class="hidden animate-fade-in h-full flex flex-col">
+                    <div id="personaListContainer" class="space-y-3 mb-6"></div>
+                    
+                    <div id="newPersonaForm" class="hidden bg-slate-800 p-5 rounded-2xl border border-pink-500/30 animate-fade-in mt-auto mb-4">
+                        <h3 class="text-xs font-black text-pink-400 uppercase mb-4">✨ 訓練新品牌人設</h3>
+                        <div class="space-y-3">
+                            <div class="grid grid-cols-3 gap-2">
+                                <input type="text" id="newPersonaEmoji" placeholder="代表圖示 (如 👨‍⚕️)" class="col-span-1 bg-slate-900 border border-white/10 rounded-xl p-3 text-center text-xl text-white focus:border-pink-500 focus:outline-none">
+                                <input type="text" id="newPersonaName" placeholder="人設名稱 (如：專業醫美權威)" class="col-span-2 bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-pink-500 focus:outline-none">
+                            </div>
+                            <textarea id="newPersonaTone" placeholder="請描述語氣特徵，例如：說話客觀、使用醫療專業術語、態度溫柔堅定..." class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-pink-500 focus:outline-none min-h-[80px] resize-y"></textarea>
+                            <input type="text" id="newPersonaTaboo" placeholder="禁忌詞 / 負面提示 (選填，如：絕對不要用網路流行語)" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-red-300 placeholder-red-800/50 focus:border-red-500 focus:outline-none">
+                            <div class="flex gap-2 pt-2">
+                                <button onclick="window.cancelNewPersona()" class="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2.5 rounded-xl text-xs font-bold transition-all">取消</button>
+                                <button id="btnSubmitNewPersona" onclick="window.submitNewPersona()" class="flex-[2] bg-pink-600 hover:bg-pink-500 text-white py-2.5 rounded-xl text-xs font-black shadow-lg transition-all flex justify-center items-center gap-2">寫入神經網路</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-auto border-t border-white/10 pt-4" id="btnAddNewPersonaContainer">
+                        <button onclick="window.openNewPersonaForm()" class="bg-slate-800 hover:bg-slate-700 border border-white/10 text-white px-6 py-3 rounded-xl text-sm font-bold shadow-lg transition-all w-full flex justify-center items-center gap-2"><span class="text-lg">+</span> 訓練新品牌人設</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-red-600 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.6)] font-bold flex items-center z-[11000] text-sm whitespace-nowrap">
+        <span id="toastMsg">系統錯誤</span>
+    </div> 
 
     <script type="module">
         import { CONFIG, STATE } from './js/config.js';
@@ -198,7 +236,6 @@
 
             statusArea.innerHTML = `<div class="text-sm font-bold text-green-400">✅ 驗證成功，正在同步雲端資料庫...</div>`;
             
-            // 🌟 V0.26: 啟動前先抓取全域 DB 資料 (風格、角色)
             await bootSystemData();
             
             setTimeout(() => { document.getElementById('loginGate').classList.add('gate-hidden'); initAgentFunnel(); }, 600);
@@ -228,7 +265,7 @@
         window.openSystemSettings = function() { 
             const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('hidden'); 
             setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); 
-            window.refreshAuditLogs(); // 打開時順便抓 Log
+            window.refreshAuditLogs(); 
         };
         window.closeSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
     </script>
