@@ -5,11 +5,15 @@ import { SYSTEM_DB, compressImage, bootSystemData } from './v9_state.js';
 
 let tempCharBase64 = null;
 
+// ==========================================
+// 🧬 側邊欄全域管理與頁籤切換
+// ==========================================
 window.openCharManager = function() { 
     const modal = document.getElementById('charManageModal'); 
     modal.classList.remove('hidden'); 
     setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); 
     renderCharGrid(); 
+    renderPersonaList(); // 開啟時一併渲染人設清單
 };
 
 window.closeCharManager = function() { 
@@ -17,8 +21,36 @@ window.closeCharManager = function() {
     modal.classList.remove('show'); 
     setTimeout(() => { modal.classList.add('hidden'); }, 300); 
     window.cancelNewChar(); 
+    window.cancelNewPersona();
 };
 
+window.switchVaultTab = function(tabName) {
+    const tabVisual = document.getElementById('tabVisual');
+    const tabText = document.getElementById('tabText');
+    const contentVisual = document.getElementById('vaultVisualContent');
+    const contentText = document.getElementById('vaultTextContent');
+
+    if (tabName === 'VISUAL') {
+        tabVisual.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-blue-400 border-blue-500 bg-slate-800/50";
+        tabText.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-slate-500 border-transparent hover:bg-slate-800/30";
+        contentVisual.classList.remove('hidden');
+        contentVisual.classList.add('block');
+        contentText.classList.remove('block');
+        contentText.classList.add('hidden');
+    } else {
+        tabText.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-pink-400 border-pink-500 bg-slate-800/50";
+        tabVisual.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-slate-500 border-transparent hover:bg-slate-800/30";
+        contentText.classList.remove('hidden');
+        contentText.classList.add('block');
+        contentVisual.classList.remove('block');
+        contentVisual.classList.add('hidden');
+    }
+};
+
+
+// ==========================================
+// 🖼️ 視覺角色 (Characters) 邏輯
+// ==========================================
 function renderCharGrid() { 
     const grid = document.getElementById('charGridContainer'); 
     grid.innerHTML = ''; 
@@ -66,7 +98,7 @@ window.submitNewChar = async function() {
         if(res.success) { alert('🎉 註冊成功！'); await bootSystemData(); window.cancelNewChar(); renderCharGrid(); } 
         else throw new Error(res.message); 
     } catch(e) { alert(`❌ 失敗: ${e.message}`); } 
-    finally { btn.innerHTML = '上傳並萃取基因'; btn.disabled = false; } 
+    finally { btn.innerHTML = '上傳並萃取'; btn.disabled = false; } 
 };
 
 window.deleteChar = async function(charId) { 
@@ -78,6 +110,106 @@ window.deleteChar = async function(charId) {
     } catch(e) { alert(`❌ 刪除失敗: ${e.message}`); } 
 };
 
+
+// ==========================================
+// ✍️ 品牌人設 (Personas) 邏輯
+// ==========================================
+function renderPersonaList() {
+    const container = document.getElementById('personaListContainer');
+    container.innerHTML = '';
+    
+    if(SYSTEM_DB.personas.length === 0) {
+        container.innerHTML = `<div class="text-center text-sm text-slate-500 py-10 border border-dashed border-white/10 rounded-xl">尚無品牌人設，系統將使用預設設定。</div>`; return;
+    }
+    
+    SYSTEM_DB.personas.forEach(p => {
+        // 如果該人設有設定 taboos，則顯示出來；否則隱藏
+        const tabooHtml = p.taboos ? `<div class="mt-2 text-[10px] text-red-300 bg-red-900/20 p-2 rounded border border-red-500/20"><b>禁忌指令：</b>${p.taboos}</div>` : '';
+        
+        container.innerHTML += `
+            <div class="bg-slate-800 rounded-xl border border-white/10 p-4 relative group">
+                <div class="flex items-start gap-3">
+                    <div class="text-3xl bg-slate-900 w-12 h-12 flex items-center justify-center rounded-lg border border-white/5 flex-shrink-0">${p.icon}</div>
+                    <div class="flex-grow">
+                        <h4 class="text-sm font-black text-white">${p.name}</h4>
+                        <p class="text-xs text-slate-400 mt-1 leading-relaxed">${p.desc}</p>
+                        ${tabooHtml}
+                    </div>
+                </div>
+                <button onclick="window.deletePersona('${p.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            </div>
+        `;
+    });
+}
+
+window.openNewPersonaForm = function() {
+    document.getElementById('newPersonaForm').classList.remove('hidden');
+    document.getElementById('btnAddNewPersonaContainer').classList.add('hidden');
+};
+
+window.cancelNewPersona = function() {
+    document.getElementById('newPersonaForm').classList.add('hidden');
+    document.getElementById('btnAddNewPersonaContainer').classList.remove('hidden');
+    document.getElementById('newPersonaEmoji').value = '';
+    document.getElementById('newPersonaName').value = '';
+    document.getElementById('newPersonaTone').value = '';
+    document.getElementById('newPersonaTaboo').value = '';
+};
+
+window.submitNewPersona = async function() {
+    const icon = document.getElementById('newPersonaEmoji').value.trim() || '🤖';
+    const name = document.getElementById('newPersonaName').value.trim();
+    const desc = document.getElementById('newPersonaTone').value.trim();
+    const taboos = document.getElementById('newPersonaTaboo').value.trim();
+    
+    if(!name || !desc) return alert('圖示可以不填，但請提供人設名稱與語氣特徵！');
+    
+    const btn = document.getElementById('btnSubmitNewPersona');
+    btn.innerHTML = '<div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></div> 寫入中...';
+    btn.disabled = true;
+    
+    try {
+        // TODO: 這裡預留給後端 API。在後端寫好之前，我們先把它「假裝」存進全域變數裡，讓您可以立刻在畫面上看到效果！
+        // 等後端 createPersonaAPI 完成後，這裡就換成真實的 fetch。
+        
+        /* const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
+        if(!res.success) throw new Error(res.message);
+        */
+        
+        // --- 模擬後端成功存入 ---
+        const newId = 'p_' + Date.now();
+        SYSTEM_DB.personas.push({ id: newId, icon, name, desc, taboos });
+        
+        alert('🎉 品牌人設已寫入神經網路！');
+        window.cancelNewPersona();
+        renderPersonaList();
+        
+    } catch(e) { 
+        alert(`❌ 失敗: ${e.message}`); 
+    } finally { 
+        btn.innerHTML = '寫入神經網路'; 
+        btn.disabled = false; 
+    }
+};
+
+window.deletePersona = async function(personaId) {
+    if(!confirm('確定要刪除這組品牌人設嗎？')) return;
+    try {
+        // TODO: 同上，預留給後端的 deletePersonaAPI
+        
+        // --- 模擬後端刪除 ---
+        SYSTEM_DB.personas = SYSTEM_DB.personas.filter(p => p.id !== personaId);
+        renderPersonaList();
+        
+    } catch(e) { 
+        alert(`❌ 刪除失敗: ${e.message}`); 
+    }
+};
+
+
+// ==========================================
+// 📜 算力歷史紀錄邏輯
+// ==========================================
 window.refreshAuditLogs = async function() { 
     const container = document.getElementById('auditLogsContainer'); 
     container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 讀取中...</div>'; 
