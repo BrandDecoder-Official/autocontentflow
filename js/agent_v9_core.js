@@ -1,24 +1,32 @@
 // js/agent_v9_core.js
 import { STATE, CONFIG } from './config.js';
-import * as API from './api.js'; 
-
 import { APP_VERSION, MISSION, IS_EDIT_MODE, SYSTEM_DB, isMissionComplete, compressImage } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
+
+// 📦 引入獨立模組
 import { AgentClient } from './v9_agent_client.js';
 import { applyPointDeduction } from './v9_finance.js';
+import { initAgentChatBar } from './v9_chat.js';
+import './v9_sidebar.js'; // 引入以觸發 window 綁定
 
 export { bootSystemData } from './v9_state.js';
 
-
-
 // ==========================================
-// 🚀 漏斗核心流程
+// 🚀 漏斗核心大廳與初始化
 // ==========================================
-export async function initAgentFunnel() { updateStepHeader("COMMAND LOBBY"); renderLobby(); }
+export async function initAgentFunnel() { 
+    updateStepHeader("COMMAND LOBBY"); 
+    renderLobby(); 
+    
+    // 初始化聊天條，並傳入渲染卡片的 callbacks 進行解耦
+    initAgentChatBar({
+        onDraftReady: renderDraftEditorCard,
+        onImagesReady: renderFinalPublishCard
+    });
+}
 
 function renderLobby() {
     const log = document.getElementById('funnelLog');
-    // 🚀 新增 hookType 與 contentLength 預設值
     Object.assign(MISSION, { persona: '', hookType: '痛點提問', contentLength: '深度文 (約300字)', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4, currentTaskId: null });
     
     log.innerHTML = `
@@ -61,7 +69,6 @@ function renderLobby() {
         await triggerPersonaSkill();
     };
 
-    // 啟動時自動載入歷史任務
     renderTaskDashboard();
 }
 
@@ -78,7 +85,6 @@ window.renderTaskDashboard = async function() {
         const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
         const currentTenantId = STATE.uid || 'user_chief_001';
         
-        // 呼叫後端 API
         const response = await fetch(`${baseUrl}/api/agent/tasks/${currentTenantId}`);
         const data = await response.json();
         
@@ -90,7 +96,6 @@ window.renderTaskDashboard = async function() {
         }
 
         let html = '';
-        // 將撈回來的資料存到全域變數，方便點擊時讀取
         window.tempTaskCache = data.tasks; 
 
         data.tasks.forEach((task, index) => {
@@ -103,7 +108,7 @@ window.renderTaskDashboard = async function() {
                 case 'AWAITING_APPROVAL': statusColor = 'text-yellow-400'; statusText = '等待總編審核'; actionText = '接續校稿'; icon = '🟡'; break;
                 case 'IMAGES_GENERATED': statusColor = 'text-blue-400'; statusText = '等待發佈'; actionText = '接續發佈'; icon = '🔵'; break;
                 case 'ERROR': statusColor = 'text-red-400'; statusText = '執行異常'; actionText = '重試任務'; icon = '🔴'; break;
-                default: statusColor = 'text-slate-400'; statusText = '初始化 / 處理中'; actionText = '查看'; icon = '⚪'; break;
+                default: statusColor = 'text-slate-400'; statusText = '處理中'; actionText = '查看'; icon = '⚪'; break;
             }
 
             html += `
@@ -124,48 +129,39 @@ window.renderTaskDashboard = async function() {
         });
         
         container.innerHTML = html;
-
     } catch (error) {
         container.innerHTML = `<p class="text-red-400 text-xs text-center py-4">讀取失敗: ${error.message}</p>`;
     }
 }
 
-// 🚀 斷點續傳：把任務叫回畫面上！
 window.resumeTask = async function(taskIndex) {
     const task = window.tempTaskCache[taskIndex];
     if(!task) return showError("任務資料遺失！");
 
     const log = document.getElementById('funnelLog');
-    log.innerHTML = ''; // 清空大廳
+    log.innerHTML = ''; 
     
-    // 1. 恢復 MISSION 狀態 (讓懸浮對話框知道現在在講哪個任務)
     MISSION.currentTaskId = task.taskId;
     MISSION.topic = task.missionContext?.topic || '';
     MISSION.universe = task.missionContext?.universe || 'REALISTIC';
-    // 🚀 恢復策略狀態
     MISSION.hookType = task.missionContext?.hookType || '痛點提問';
     MISSION.contentLength = task.missionContext?.contentLength || '深度文 (約300字)';
     MISSION.persona = task.missionContext?.persona || '專業顧問';
     
     await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic}</b>`, true);
 
-    // 2. 根據任務狀態，將 UI 直接跳轉到該有的畫面！
     const chatBar = document.getElementById('agentChatBar');
 
     if (task.currentStatus === 'AWAITING_APPROVAL') {
-        if(chatBar) chatBar.classList.remove('translate-y-full'); // 升起對話框
+        if(chatBar) chatBar.classList.remove('translate-y-full'); 
         await renderDraftEditorCard(task.taskId, task.agentData.draftContent, MISSION.universe === 'COMIC');
-    
     } else if (task.currentStatus === 'IMAGES_GENERATED') {
         if(chatBar) chatBar.classList.remove('translate-y-full');
         await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
-    
     } else if (task.currentStatus === 'COMPLETED') {
-        if(chatBar) chatBar.classList.add('translate-y-full'); // 發佈完畢，隱藏對話框
+        if(chatBar) chatBar.classList.add('translate-y-full'); 
         await addLog("社群總監", "✅", "這篇貼文已經發佈完畢囉！以下是最終成品：", true);
         await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
-        // (可選) 這裡可以把「立即發佈」按鈕隱藏，因為已經發過了
-        
     } else {
         if(chatBar) chatBar.classList.add('translate-y-full');
         showError(`此任務狀態 (${task.currentStatus}) 尚不支援直接續傳，請發起新任務。`);
@@ -173,6 +169,9 @@ window.resumeTask = async function(taskIndex) {
     }
 }
 
+// ==========================================
+// 🧠 漏斗步驟 (Skills) - 負責收集參數
+// ==========================================
 async function triggerPersonaSkill() {
     updateStepHeader("PERSONA SELECTION"); await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
     let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
@@ -193,12 +192,9 @@ async function triggerPlatformSkill() {
 async function triggerTopicSkill() {
     updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
     
-    // 🚀 新增：數位人格與互動策略面板 HTML
     const strategyPanelHTML = `
         <div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in">
-            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2">
-                <span>🎭</span> 數位人格與互動策略
-            </h4>
+            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎭</span> 數位人格與互動策略</h4>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 mb-1">大腦發言人設</label>
@@ -207,23 +203,23 @@ async function triggerTopicSkill() {
                         <option value="毒舌教官" ${MISSION.persona === '毒舌教官' ? 'selected' : ''}>😎 毒舌教官 (犀利、一針見血)</option>
                         <option value="溫暖知心" ${MISSION.persona === '溫暖知心' ? 'selected' : ''}>🌸 溫暖知心 (同理心、感性)</option>
                         <option value="迷因小編" ${MISSION.persona === '迷因小編' ? 'selected' : ''}>🤡 迷因小編 (愛用網路梗、浮誇)</option>
-                        <option value="${MISSION.persona}" ${!['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) && MISSION.persona ? 'selected' : ''} class="${['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) || !MISSION.persona ? 'hidden' : ''}">${MISSION.persona} (從上一步繼承)</option>
+                        <option value="${MISSION.persona}" ${!['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) && MISSION.persona ? 'selected' : ''} class="${['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) || !MISSION.persona ? 'hidden' : ''}">${MISSION.persona} (繼承)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子戰術</label>
                     <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
-                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (戳中讀者煩惱)</option>
-                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破常規認知)</option>
-                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (暗示好處/解答)</option>
-                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊 (二選一逼迫留言)</option>
+                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (戳中煩惱)</option>
+                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破認知)</option>
+                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (暗示解答)</option>
+                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊 (逼迫留言)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label>
                     <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
-                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads)</option>
-                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/LinkedIn)</option>
+                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (IG/Threads)</option>
+                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (FB/LinkedIn)</option>
                     </select>
                 </div>
             </div>
@@ -237,16 +233,13 @@ async function triggerTopicSkill() {
         const val = inputEl.value.trim(); 
         if(!val) return showError('主題不能為空！'); 
         
-        // 記錄主題與策略參數
         MISSION.topic = val; 
         MISSION.persona = ui.querySelector('#selPersona').value;
         MISSION.hookType = ui.querySelector('#selHookType').value;
         MISSION.contentLength = ui.querySelector('#selLength').value;
 
-        inputEl.disabled = true; 
-        inputEl.classList.add('opacity-50', 'bg-slate-800'); 
-        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); 
-        releaseUI(ui); 
+        inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); 
+        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); 
         
         await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 策略：${MISSION.persona} / ${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
@@ -287,8 +280,8 @@ async function triggerColorSkill() {
     updateStepHeader("COLOR MODE"); await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
     const ui = createSkillUI(`
         <div class="grid grid-cols-2 gap-3 mb-4">
-            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白 (Classic B&W)</span><span class="text-[9px] text-slate-400">日式墨線、懷舊網點質感</span></button>
-            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-3xl mb-1">🌈</span><span class="font-bold text-xs text-white">現代全彩 (Modern Color)</span><span class="text-[9px] text-slate-400">飽滿手繪色澤、現代動漫感</span></button>
+            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400">懷舊網點質感</span></button>
+            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-3xl mb-1">🌈</span><span class="font-bold text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400">飽滿現代動漫感</span></button>
         </div>
     `);
     ui.querySelectorAll('.color-btn').forEach(btn => {
@@ -303,11 +296,11 @@ async function triggerColorSkill() {
 }
 
 async function triggerCharacterSkill() {
-    updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的 ${MISSION.universe === 'COMIC' ? '動漫' : '真人'} 角色 (最多4位)：`, true);
+    updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     const available = SYSTEM_DB.characters.filter(c => c.type === MISSION.universe);
     if(available.length === 0) {
         const ui = createSkillUI(`<div class="text-center p-4"><p class="text-slate-400 text-xs mb-4">您的基因庫目前沒有角色，將採用純場景模式。</p><button id="btnSkipChar" class="w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-bold active:scale-95 shadow-lg">⏭️ 確認並繼續</button></div>`);
-        ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "已確認，採用純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; return;
+        ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; return;
     }
 
     let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">`; let tempSelected = [...MISSION.characters];
@@ -336,15 +329,14 @@ async function triggerVisualSkill() {
     
     let currentRatio = MISSION.ratio; let currentRes = MISSION.resolution; let currentPanelCount = MISSION.panelCount || 4;
     
-    // 🚀 [新增] 1~4格漫畫選擇器 UI
     const panelHtml = isComic ? `
         <div class="space-y-3 pt-4 border-t border-white/10">
             <label class="text-[10px] text-slate-500 font-black">🖼️ 漫畫格數</label>
             <div class="grid grid-cols-4 gap-2">
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1">1格 (大作)</button>
+                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1">1格</button>
                 <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2">2格</button>
                 <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="3">3格</button>
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4">4格 (標準)</button>
+                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4">4格</button>
             </div>
         </div>
     ` : '';
@@ -353,7 +345,7 @@ async function triggerVisualSkill() {
         <div class="space-y-4 lg:space-y-6 flex flex-col relative mb-4">
             <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30"><div class="grid grid-cols-2 gap-3"><button ${isEnhance ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button><button id="btnEditRes" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button></div></div>
             <div id="customPanel" class="hidden space-y-4 bg-slate-900/80 p-5 rounded-2xl border border-white/10 animate-fade-in">${isEnhance ? '' : `<div class="space-y-3"><label class="text-[10px] text-slate-500 font-black">📐 比例</label><div class="grid grid-cols-3 gap-2"><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="9:16">9:16</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="16:9">16:9</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1:1">1:1</button></div></div>`}<div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">✨ 解析度</label><div class="grid grid-cols-3 gap-2"><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1K">1K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2K">2K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4K">4K</button></div></div>${panelHtml}</div>
-            <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:border-slate-500 active:scale-95 transition-all"><span class="text-lg">📸</span> 點此上傳場景或道具圖 (選填)</button>
+            <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:border-slate-500 active:scale-95 transition-all"><span class="text-lg">📸</span> 點此上傳場景圖 (選填)</button>
             <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
             <button id="btnAcceptVisual" class="w-full bg-blue-600 py-4 lg:py-5 rounded-xl font-black text-sm shadow-lg mt-auto active:scale-[0.98]">✅ 鎖定參數</button>
         </div>
@@ -369,11 +361,7 @@ async function triggerVisualSkill() {
     if (isComic) {
         ui.querySelectorAll('.panel-btn').forEach(btn => {
             if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600');
-            btn.onclick = () => {
-                currentPanelCount = parseInt(btn.dataset.val);
-                ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600'));
-                btn.classList.add('bg-blue-600');
-            };
+            btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); };
         });
     }
 
@@ -407,16 +395,10 @@ async function triggerScheduleSkill() {
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
     
-    // 🚀 [修正] 降級為原生 Time 選擇器，並加上清除按鈕
     const timeWrapper = ui.querySelector('#timePickerWrapper');
-    timeWrapper.innerHTML += `<button id="btnClearTime" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors z-10">清除(立即發佈)</button>`;
+    timeWrapper.innerHTML += `<button id="btnClearTime" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors z-10">清除</button>`;
     
-    ui.querySelector('#btnClearTime').onclick = (e) => {
-        e.preventDefault();
-        ui.querySelector('#timePickerInput').value = "";
-        if(fp) fp.clear(); 
-        ui.querySelector('#datePicker').value = "";
-    };
+    ui.querySelector('#btnClearTime').onclick = (e) => { e.preventDefault(); ui.querySelector('#timePickerInput').value = ""; if(fp) fp.clear(); ui.querySelector('#datePicker').value = ""; };
     
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
         const dateStr = fp ? fp.input.value : ui.querySelector('#datePicker').value; 
@@ -448,8 +430,6 @@ async function triggerMissionSummary() {
 
     const schDisplay = MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "⚡ 立即部署";
     const clrDisplay = MISSION.colorMode === 'BW' ? "🏁 經典黑白" : "🌈 現代全彩"; 
-
-    // 🚀 將主題與策略合在一行顯示
     const topicStrategyDisplay = `${MISSION.topic} <br><span class="text-[9px] text-slate-500 font-normal">(${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]})</span>`;
 
     const ui = createSkillUI(`
@@ -478,38 +458,19 @@ async function triggerMissionSummary() {
 
         const referenceImages = []; MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
-        // 🚀 將策略參數放進 Payload
         const rawPayload = { 
-            topic: MISSION.topic, 
-            isComicMode: MISSION.universe === 'COMIC', 
-            universe: MISSION.universe, 
-            style: MISSION.style, 
-            platforms: MISSION.platforms, 
-            persona: MISSION.persona, 
-            hookType: MISSION.hookType, 
-            contentLength: MISSION.contentLength, 
-            colorMode: MISSION.colorMode, 
-            ratio: MISSION.ratio, 
-            resolution: MISSION.resolution, 
-            panelCount: MISSION.panelCount, 
-            scheduledAt: MISSION.scheduledAt, 
+            topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC', universe: MISSION.universe, style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona, hookType: MISSION.hookType, contentLength: MISSION.contentLength, colorMode: MISSION.colorMode, ratio: MISSION.ratio, resolution: MISSION.resolution, panelCount: MISSION.panelCount, scheduledAt: MISSION.scheduledAt, 
             characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), 
             image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } 
         };
 
         try {
             const agentState = await AgentClient.sendCommand('START_NEW_MISSION', rawPayload);
-            
             if (agentState && agentState.currentStatus === 'AWAITING_APPROVAL') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
-                // 🌟 讀取後端動態扣點 (草稿費) 並觸發靈魂特效
                 const deducted = agentState.lastCost ? agentState.lastCost.deducted : totalPts;
-                if (deducted > 0) {
-                    STATE.userPoints = STATE.userPoints - deducted; 
-                    if(document.getElementById('userPoints')) document.getElementById('userPoints').innerText = STATE.userPoints.toLocaleString();
-                    showPointDeductionEffect(deducted, 'userPoints'); 
-                }
+                if (deducted > 0) { await applyPointDeduction(deducted, "Agent 決策與微調"); }
 
                 MISSION.currentTaskId = agentState.taskId;
                 const chatBar = document.getElementById('agentChatBar');
@@ -517,15 +478,10 @@ async function triggerMissionSummary() {
 
                 await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
                 await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
-            
-            // 🚀 讓大腦說實話：如果後端標記 ERROR，把記憶體裡的錯誤訊息印出來！
             } else if (agentState && agentState.currentStatus === 'ERROR') {
                 const lastMem = agentState.memory[agentState.memory.length - 1];
                 throw new Error(`後端任務失敗: ${lastMem ? lastMem.message : '未知錯誤'}`);
-            } else { 
-                throw new Error(`大腦未回傳預期狀態 (目前狀態: ${agentState?.currentStatus || '無'})`); 
-            }
-
+            } else { throw new Error(`大腦狀態異常 (${agentState?.currentStatus})`); }
         } catch (e) { 
             const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "產出失敗"; }
             showError(`連線失敗：${e.message}`); 
@@ -533,24 +489,22 @@ async function triggerMissionSummary() {
     };
 }
 
-async function renderDraftEditorCard(taskId, draftContent, isComic) {
+// ==========================================
+// 🎨 卡片渲染器 (負責草稿與成品)
+// ==========================================
+export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
 
     let panelsHtml = '';
     if (isComic && draftContent.panels) {
         const pCount = draftContent.panels.length;
         let wLimit = 9;
-        if(pCount === 1) wLimit = 20;
-        else if (pCount === 2) wLimit = 15;
-        else if (pCount === 3) wLimit = 12;
+        if(pCount === 1) wLimit = 20; else if (pCount === 2) wLimit = 15; else if (pCount === 3) wLimit = 12;
 
         draftContent.panels.forEach((p, idx) => {
             panelsHtml += `
             <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5 space-y-2 relative panel-container">
-                <div class="flex justify-between items-center">
-                    <span class="text-[9px] font-black text-indigo-400"># PANEL ${p.panel_number}</span>
-                    <span class="text-[9px] font-bold text-slate-500 char-counter" data-limit="${wLimit}">0 / ${wLimit} 字</span>
-                </div>
+                <div class="flex justify-between items-center"><span class="text-[9px] font-black text-indigo-400"># PANEL ${p.panel_number}</span><span class="text-[9px] font-bold text-slate-500 char-counter" data-limit="${wLimit}">0 / ${wLimit} 字</span></div>
                 <p class="text-[10px] text-slate-400 leading-tight italic">${p.action_zh || p.action_en}</p>
                 <input type="text" class="panel-dialogue w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-blue-500 outline-none transition-colors" value="${p.dialogue}" data-idx="${idx}">
             </div>`;
@@ -572,26 +526,13 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
         const container = input.closest('.panel-container');
         const counter = container.querySelector('.char-counter');
         const limit = parseInt(counter.dataset.limit);
-        
-        const updateCounter = () => {
-            const len = input.value.length;
-            counter.innerText = `${len} / ${limit} 字`;
-            if (len > limit) {
-                counter.classList.remove('text-slate-500'); counter.classList.add('text-red-500');
-                input.classList.add('border-red-500', 'text-red-400');
-            } else {
-                counter.classList.remove('text-red-500'); counter.classList.add('text-slate-500');
-                input.classList.remove('border-red-500', 'text-red-400');
-            }
-        };
-        input.addEventListener('input', updateCounter);
-        updateCounter(); // 初始化
+        const updateCounter = () => { const len = input.value.length; counter.innerText = `${len} / ${limit} 字`; if (len > limit) { counter.classList.remove('text-slate-500'); counter.classList.add('text-red-500'); input.classList.add('border-red-500', 'text-red-400'); } else { counter.classList.remove('text-red-500'); counter.classList.add('text-slate-500'); input.classList.remove('border-red-500', 'text-red-400'); } };
+        input.addEventListener('input', updateCounter); updateCounter();
     });
 
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         const editedCaption = ui.querySelector('#editCaption').value; const editedPanels = []; ui.querySelectorAll('.panel-dialogue').forEach(input => { const idx = input.dataset.idx; editedPanels.push({ panel_number: draftContent.panels[idx].panel_number, dialogue: input.value, action_zh: draftContent.panels[idx].action_zh, action_en: draftContent.panels[idx].action_en }); });
         releaseUI(ui); 
-        
         const spinId = 'spin_img_' + Date.now();
         await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在進行影像合成 (預估需 20~30 秒)...</span></div>`, true);
         
@@ -599,10 +540,8 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
             const agentState = await AgentClient.sendCommand('APPROVE_DRAFT', { editedCaption: editedCaption, editedPanels: editedPanels }, taskId);
             if (agentState && agentState.currentStatus === 'IMAGES_GENERATED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
-                
                 const deducted = agentState.lastCost ? agentState.lastCost.deducted : 50;
                 await applyPointDeduction(deducted, "影像合成算力");
-
                 await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, editedCaption);
             } else { throw new Error("大腦狀態異常，未能取得圖片。"); }
         } catch (e) { 
@@ -612,7 +551,7 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
     };
 }
 
-async function renderFinalPublishCard(taskId, images, finalCaption) {
+export async function renderFinalPublishCard(taskId, images, finalCaption) {
     updateStepHeader("FINAL DEPLOYMENT"); await addLog("社群總監", "🚀", "大作已完成！請做最後確認，準備部署至社群：", true);
 
     const displayImgUrl = images[0].finalUrl; let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
@@ -632,19 +571,13 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
         releaseUI(ui); 
         const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
-        
         try {
             const agentState = await AgentClient.sendCommand('APPROVE_PUBLISH', { scheduledAt: MISSION.scheduledAt }, taskId);
             if (agentState && agentState.currentStatus === 'COMPLETED') {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
-                
                 const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
                 await applyPointDeduction(deducted, "Agent 決策與微調");
-
-                // 任務結束，收起對話框
-                const chatBar = document.getElementById('agentChatBar');
-                if(chatBar) chatBar.classList.add('translate-y-full');
-
+                const chatBar = document.getElementById('agentChatBar'); if(chatBar) chatBar.classList.add('translate-y-full');
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 發起新任務</button>`);
                 endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); initAgentFunnel(); }; 
@@ -655,99 +588,3 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
         }
     };
 }
-
-// 🪄 新增：真 Agent 懸浮對話框
-function initAgentChatBar() {
-    if(document.getElementById('agentChatBar')) return;
-    
-    const chatBar = document.createElement('div');
-    chatBar.id = "agentChatBar";
-    chatBar.className = "fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-indigo-500/50 p-3 pb-safe z-[9000] flex items-end justify-center transition-transform translate-y-full duration-500 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]";
-    
-    chatBar.innerHTML = `
-        <div class="max-w-4xl w-full flex items-end gap-2">
-            <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="與 Agent 對話 (Shift+Enter 換行)..."></textarea>
-            <button id="btnSendChat" class="flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all h-[46px]">
-                <span class="hidden sm:inline">送出指令</span>
-                <span class="sm:hidden text-xl">🚀</span>
-            </button>
-        </div>
-    `;
-    document.body.appendChild(chatBar);
-
-    const input = document.getElementById('agentChatInput');
-
-    input.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
-        if(this.value === '') this.style.height = 'auto'; 
-    });
-
-    input.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault(); 
-            document.getElementById('btnSendChat').click();
-        }
-    });
-
-    document.getElementById('btnSendChat').onclick = async () => {
-        const msg = input.value.trim();
-        if(!msg) return;
-
-        input.value = '';
-        input.style.height = 'auto';
-        input.disabled = true;
-
-        await addLog("總編", "👤", `<span class="whitespace-pre-wrap">${msg}</span>`);
-        const spinId = 'spin_chat_' + Date.now();
-        await addLog("Agent", "🤖", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">思考與執行中...</span></div>`, true);
-
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
-
-        try {
-            if (!MISSION.currentTaskId) throw new Error("請先啟動任務漏斗！");
-            
-            const agentState = await AgentClient.sendCommand('CHAT', { message: msg }, MISSION.currentTaskId);
-            
-            const spEl = document.getElementById(spinId); if(spEl) spEl.closest('.flex').parentElement.remove();
-            
-            const reply = agentState.memory[agentState.memory.length - 1].message;
-            await addLog("Agent", "🤖", `<span class="text-indigo-300 whitespace-pre-wrap">${reply}</span>`);
-
-            const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
-            if (typeof applyPointDeduction === 'function') {
-                await applyPointDeduction(deducted, "Agent 決策與對話");
-            }
-
-            if (agentState.currentStatus === 'AWAITING_APPROVAL') {
-                await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
-            } else if (agentState.currentStatus === 'IMAGES_GENERATED') {
-                await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, agentState.agentData.draftContent.post_caption);
-            }
-            
-            setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
-
-        } catch(e) {
-            const spEl = document.getElementById(spinId); if(spEl) { spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
-            showError(`Agent 回應失敗：${e.message}`);
-        } finally {
-            input.disabled = false; input.focus();
-        }
-    };
-}
-// 初始化漏斗時建立聊天條
-initAgentChatBar();
-
-// ==========================================
-// 🧬 側欄管理 (保持原樣不動)
-// ==========================================
-window.openCharManager = function() { const modal = document.getElementById('charManageModal'); modal.classList.remove('hidden'); setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); renderCharGrid(); };
-window.closeCharManager = function() { const modal = document.getElementById('charManageModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); window.cancelNewChar(); };
-function renderCharGrid() { const grid = document.getElementById('charGridContainer'); grid.innerHTML = ''; if(SYSTEM_DB.characters.length === 0) { grid.innerHTML = `<div class="col-span-full text-center text-sm text-slate-500 py-10">尚無角色，請立即註冊！</div>`; return; } SYSTEM_DB.characters.forEach(char => { grid.innerHTML += `<div class="bg-slate-800 rounded-xl border border-white/10 p-3 flex flex-col items-center gap-2 relative group"><div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-600"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><div class="text-center w-full"><p class="text-xs font-bold text-white truncate">${char.name}</p><p class="text-[9px] text-slate-400 truncate w-full" title="${char.aiExtractedFeatures}">${char.aiExtractedFeatures || '特徵分析中...'}</p></div><button onclick="window.deleteChar('${char.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button></div>`; }); }
-let tempCharBase64 = null;
-window.openNewCharForm = function() { document.getElementById('newCharForm').classList.remove('hidden'); document.getElementById('btnAddNewCharContainer').classList.add('hidden'); };
-window.cancelNewChar = function() { document.getElementById('newCharForm').classList.add('hidden'); document.getElementById('btnAddNewCharContainer').classList.remove('hidden'); document.getElementById('charPreviewEmpty').classList.remove('hidden'); document.getElementById('charPreviewImg').classList.add('hidden'); document.getElementById('newCharName').value = ''; document.getElementById('newCharPersona').value = ''; tempCharBase64 = null; };
-window.handleCharPhotoSelect = async function(e) { const file = e.target.files[0]; if(!file) return; tempCharBase64 = await compressImage(file, 600); document.getElementById('charPreviewEmpty').classList.add('hidden'); const img = document.getElementById('charPreviewImg'); img.src = tempCharBase64; img.classList.remove('hidden'); };
-window.submitNewChar = async function() { const name = document.getElementById('newCharName').value.trim(); const type = document.getElementById('newCharType').value; const persona = document.getElementById('newCharPersona').value.trim(); if(!name || !tempCharBase64) return alert('請提供照片與名稱！'); const btn = document.getElementById('btnSubmitNewChar'); btn.innerHTML = '<div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></div> 萃取中...'; btn.disabled = true; try { const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' }); if(res.success) { alert('🎉 註冊成功！'); await bootSystemData(); window.cancelNewChar(); renderCharGrid(); } else throw new Error(res.message); } catch(e) { alert(`❌ 失敗: ${e.message}`); } finally { btn.innerHTML = '上傳並萃取基因'; btn.disabled = false; } };
-window.deleteChar = async function(charId) { if(!confirm('確定要刪除嗎？')) return; try { const res = await API.deleteCharacterAPI({ charId, tenantId: STATE.uid }); if(res.success) { await bootSystemData(); renderCharGrid(); } else throw new Error(res.message); } catch(e) { alert(`❌ 刪除失敗: ${e.message}`); } };
-window.refreshAuditLogs = async function() { const container = document.getElementById('auditLogsContainer'); container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 讀取中...</div>'; try { const res = await API.fetchAuditLogsAPI(STATE.uid); if(res.success && res.logs.length > 0) { container.innerHTML = ''; res.logs.forEach(log => { const action = (log.actionType || 'SYSTEM_LOG'); const isDeduct = action.includes('GENERATE') || action.includes('PUBLISH') || action.includes('UPLOAD'); const ptClass = isDeduct ? 'text-red-400' : 'text-green-400'; const sign = isDeduct ? '-' : '+'; const pts = log.pointsDeducted || Math.abs(log.pointsChanged || 0); const dateTaipei = new Date(log.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); container.innerHTML += `<div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2 border border-white/5 shadow-inner"><div><p class="text-white font-bold">${action}</p><p class="text-slate-500 text-[10px]">${dateTaipei}</p></div><span class="${ptClass} font-black text-xs">${sign} ${pts.toLocaleString()} PTS</span></div>`; }); } else { container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">目前尚無算力紀錄，立即開啟新任務！</div>'; } } catch(e) { container.innerHTML = `<div class="text-center text-xs text-red-400 py-4">讀取失敗 (髒資料跳過)</div>`; } };
