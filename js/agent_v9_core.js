@@ -56,7 +56,8 @@ export async function initAgentFunnel() { updateStepHeader("COMMAND LOBBY"); ren
 
 function renderLobby() {
     const log = document.getElementById('funnelLog');
-    Object.assign(MISSION, { persona: '', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4, currentTaskId: null });
+    // 🚀 新增 hookType 與 contentLength 預設值
+    Object.assign(MISSION, { persona: '', hookType: '痛點提問', contentLength: '深度文 (約300字)', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4, currentTaskId: null });
     
     log.innerHTML = `
         <div class="max-w-4xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6">
@@ -179,6 +180,10 @@ window.resumeTask = async function(taskIndex) {
     MISSION.currentTaskId = task.taskId;
     MISSION.topic = task.missionContext?.topic || '';
     MISSION.universe = task.missionContext?.universe || 'REALISTIC';
+    // 🚀 恢復策略狀態
+    MISSION.hookType = task.missionContext?.hookType || '痛點提問';
+    MISSION.contentLength = task.missionContext?.contentLength || '深度文 (約300字)';
+    MISSION.persona = task.missionContext?.persona || '專業顧問';
     
     await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic}</b>`, true);
 
@@ -225,9 +230,65 @@ async function triggerPlatformSkill() {
 
 async function triggerTopicSkill() {
     updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
-    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="例如：介紹夏日防曬乳...">${MISSION.topic}</textarea><div class="flex justify-end"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題</button></div></div>`);
+    
+    // 🚀 新增：數位人格與互動策略面板 HTML
+    const strategyPanelHTML = `
+        <div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in">
+            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2">
+                <span>🎭</span> 數位人格與互動策略
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1">大腦發言人設</label>
+                    <select id="selPersona" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
+                        <option value="專業顧問" ${MISSION.persona === '專業顧問' ? 'selected' : ''}>👔 專業顧問 (客觀、數據導向)</option>
+                        <option value="毒舌教官" ${MISSION.persona === '毒舌教官' ? 'selected' : ''}>😎 毒舌教官 (犀利、一針見血)</option>
+                        <option value="溫暖知心" ${MISSION.persona === '溫暖知心' ? 'selected' : ''}>🌸 溫暖知心 (同理心、感性)</option>
+                        <option value="迷因小編" ${MISSION.persona === '迷因小編' ? 'selected' : ''}>🤡 迷因小編 (愛用網路梗、浮誇)</option>
+                        <option value="${MISSION.persona}" ${!['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) && MISSION.persona ? 'selected' : ''} class="${['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) || !MISSION.persona ? 'hidden' : ''}">${MISSION.persona} (從上一步繼承)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子戰術</label>
+                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
+                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (戳中讀者煩惱)</option>
+                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破常規認知)</option>
+                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (暗示好處/解答)</option>
+                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊 (二選一逼迫留言)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label>
+                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
+                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads)</option>
+                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/LinkedIn)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="例如：介紹夏日防曬乳...">${MISSION.topic}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與策略</button></div></div>`);
     const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
-    ui.querySelector('#btnConfirmTopic').onclick = async () => { const val = inputEl.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); await addLog("總編指令", "🗣️", `鎖定主題：${val}`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
+    
+    ui.querySelector('#btnConfirmTopic').onclick = async () => { 
+        const val = inputEl.value.trim(); 
+        if(!val) return showError('主題不能為空！'); 
+        
+        // 記錄主題與策略參數
+        MISSION.topic = val; 
+        MISSION.persona = ui.querySelector('#selPersona').value;
+        MISSION.hookType = ui.querySelector('#selHookType').value;
+        MISSION.contentLength = ui.querySelector('#selLength').value;
+
+        inputEl.disabled = true; 
+        inputEl.classList.add('opacity-50', 'bg-slate-800'); 
+        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); 
+        releaseUI(ui); 
+        
+        await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 策略：${MISSION.persona} / ${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); 
+        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
+    };
 }
 
 async function triggerUniverseSkill() {
@@ -426,13 +487,16 @@ async function triggerMissionSummary() {
     const schDisplay = MISSION.scheduledAt ? new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "⚡ 立即部署";
     const clrDisplay = MISSION.colorMode === 'BW' ? "🏁 經典黑白" : "🌈 現代全彩"; 
 
+    // 🚀 將主題與策略合在一行顯示
+    const topicStrategyDisplay = `${MISSION.topic} <br><span class="text-[9px] text-slate-500 font-normal">(${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]})</span>`;
+
     const ui = createSkillUI(`
         <div class="bg-slate-900 border border-blue-500/30 rounded-3xl p-5 shadow-2xl space-y-4 mb-4">
             <div class="flex justify-between items-center border-b border-white/10 pb-3"><span class="text-xs font-black text-blue-400">MISSION BRIEF</span><span class="text-[10px] text-slate-500">${APP_VERSION}</span></div>
             <div class="space-y-3 text-[11px]">
                 <div id="retryPersona" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🎭 人設</span><span class="text-white font-bold">${MISSION.persona} ✎</span></div>
                 <div id="retryPlat" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🚀 平台</span><span class="text-white font-bold">${MISSION.platforms.join(', ')} ✎</span></div>
-                <div id="retryTopic" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📝 主題</span><span class="text-white font-bold truncate max-w-[150px]">${MISSION.topic} ✎</span></div>
+                <div id="retryTopic" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📝 主題策略</span><span class="text-white font-bold text-right">${topicStrategyDisplay} <span class="text-[10px] text-blue-400 font-bold">✎</span></span></div>
                 <div id="retryUni" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>🌌 宇宙 / 🎨 風格 / 🌈 色系</span><span class="text-white font-bold">${MISSION.universe} / ${MISSION.style} / ${clrDisplay} ✎</span></div>
                 <div id="retryChar" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>👥 登場角色</span><div class="flex items-center gap-2">${charsHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
                 <div id="retryVis" class="flex justify-between items-center cursor-pointer p-2 rounded-lg hover:bg-white/5 transition-colors"><span>📐 畫面與參考圖</span><div class="flex items-center gap-2">${visHtml} <span class="text-[10px] text-blue-400 font-bold">✎</span></div></div>
@@ -452,7 +516,24 @@ async function triggerMissionSummary() {
 
         const referenceImages = []; MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
-        const rawPayload = { topic: MISSION.topic, isComicMode: MISSION.universe === 'COMIC', universe: MISSION.universe, style: MISSION.style, platforms: MISSION.platforms, persona: MISSION.persona, colorMode: MISSION.colorMode, ratio: MISSION.ratio, resolution: MISSION.resolution, panelCount: MISSION.panelCount, scheduledAt: MISSION.scheduledAt, characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } };
+        // 🚀 將策略參數放進 Payload
+        const rawPayload = { 
+            topic: MISSION.topic, 
+            isComicMode: MISSION.universe === 'COMIC', 
+            universe: MISSION.universe, 
+            style: MISSION.style, 
+            platforms: MISSION.platforms, 
+            persona: MISSION.persona, 
+            hookType: MISSION.hookType, 
+            contentLength: MISSION.contentLength, 
+            colorMode: MISSION.colorMode, 
+            ratio: MISSION.ratio, 
+            resolution: MISSION.resolution, 
+            panelCount: MISSION.panelCount, 
+            scheduledAt: MISSION.scheduledAt, 
+            characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), 
+            image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } 
+        };
 
         try {
             const agentState = await AgentClient.sendCommand('START_NEW_MISSION', rawPayload);
@@ -475,7 +556,7 @@ async function triggerMissionSummary() {
                 await addLog("首席文案", "✅", "為您呈上草稿，請審閱！", true); 
                 await renderDraftEditorCard(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
             
-            // 🚀 [新增] 讓大腦說實話：如果後端標記 ERROR，把記憶體裡的錯誤訊息印出來！
+            // 🚀 讓大腦說實話：如果後端標記 ERROR，把記憶體裡的錯誤訊息印出來！
             } else if (agentState && agentState.currentStatus === 'ERROR') {
                 const lastMem = agentState.memory[agentState.memory.length - 1];
                 throw new Error(`後端任務失敗: ${lastMem ? lastMem.message : '未知錯誤'}`);
@@ -495,7 +576,6 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     let panelsHtml = '';
     if (isComic && draftContent.panels) {
-        // 🚀 [新增] 根據回傳格數，動態決定字數限制
         const pCount = draftContent.panels.length;
         let wLimit = 9;
         if(pCount === 1) wLimit = 20;
@@ -526,7 +606,6 @@ async function renderDraftEditorCard(taskId, draftContent, isComic) {
         </div>
     `);
 
-    // 🚀 [新增] 綁定字數監聽器：超過字數框框變紅！
     ui.querySelectorAll('.panel-dialogue').forEach(input => {
         const container = input.closest('.panel-container');
         const counter = container.querySelector('.char-counter');
@@ -619,7 +698,6 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
 // 🪄 終極點數視覺引擎 (拉霸 + 慢飄 + 日誌)
 // ==========================================
 
-// 1. 統籌管家：只要呼叫這個，三個願望一次滿足
 export async function applyPointDeduction(deducted, reason = "") {
     if (deducted <= 0) return;
 
@@ -628,39 +706,32 @@ export async function applyPointDeduction(deducted, reason = "") {
         const oldPoints = STATE.userPoints;
         STATE.userPoints -= deducted;
 
-        // 🎰 觸發拉霸滾動特效 (1.5秒)
         animateNumberRoll(targetEl, oldPoints, STATE.userPoints, 1500);
-        
-        // 👻 觸發靈魂慢飄特效
         showPointDeductionEffect(deducted, 'userPoints');
     }
 
-    // 💬 在對話框印出扣款明細 (可選)
     if (reason) {
         await addLog("計費系統", "🪙", `<span class="text-[10px] text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-2 py-1 rounded shadow-inner">本次消耗 ${deducted} 點 (${reason})</span>`);
     }
 }
 
-// 2. 拉霸滾動特效 (Slot Machine Roll)
 function animateNumberRoll(obj, start, end, duration) {
     let startTimestamp = null;
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        // 使用 easeOutQuart 曲線，讓滾動先快後慢，停得很有感覺
         const easeProgress = 1 - Math.pow(1 - progress, 4);
         const currentVal = Math.floor(start + easeProgress * (end - start));
         obj.innerText = currentVal.toLocaleString();
         if (progress < 1) {
             window.requestAnimationFrame(step);
         } else {
-            obj.innerText = end.toLocaleString(); // 確保最後數字精準
+            obj.innerText = end.toLocaleString(); 
         }
     };
     window.requestAnimationFrame(step);
 }
 
-// 3. 靈魂慢飄特效 (Slow Drifting Soul)
 function showPointDeductionEffect(points, targetElementId = 'userPoints') {
     const target = document.getElementById(targetElementId);
     if (!target || points <= 0) return;
@@ -677,12 +748,11 @@ function showPointDeductionEffect(points, targetElementId = 'userPoints') {
 
     document.body.appendChild(soul);
 
-    // 👻 動畫升級：時間拉長到 2.5 秒，加入左右搖擺的幽靈飄移感
     const animation = soul.animate([
         { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-        { transform: 'translate(-15px, -30px) scale(1.4)', opacity: 0.9, offset: 0.3 }, // 向左上放大
-        { transform: 'translate(10px, -60px) scale(1.1)', opacity: 0.7, offset: 0.6 },  // 向右上飄
-        { transform: 'translate(-5px, -100px) scale(0.8)', opacity: 0 }                 // 向上消散
+        { transform: 'translate(-15px, -30px) scale(1.4)', opacity: 0.9, offset: 0.3 }, 
+        { transform: 'translate(10px, -60px) scale(1.1)', opacity: 0.7, offset: 0.6 },  
+        { transform: 'translate(-5px, -100px) scale(0.8)', opacity: 0 }                 
     ], {
         duration: 2500, 
         easing: 'ease-out',
@@ -692,16 +762,14 @@ function showPointDeductionEffect(points, targetElementId = 'userPoints') {
     animation.onfinish = () => soul.remove();
 }
 
-// 🪄 新增：真 Agent 懸浮對話框 (優化版：支援 RWD、多行輸入、自動捲動)
+// 🪄 新增：真 Agent 懸浮對話框
 function initAgentChatBar() {
     if(document.getElementById('agentChatBar')) return;
     
     const chatBar = document.createElement('div');
     chatBar.id = "agentChatBar";
-    // 🎨 UI 優化：加入 items-end 讓底部對齊，加入 pb-safe 適應 iOS 底部橫條
     chatBar.className = "fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-indigo-500/50 p-3 pb-safe z-[9000] flex items-end justify-center transition-transform translate-y-full duration-500 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]";
     
-    // 🎨 UI 優化：改用 <textarea>，按鈕加上 flex-none 防止被擠壓，手機版縮為 🚀 圖示
     chatBar.innerHTML = `
         <div class="max-w-4xl w-full flex items-end gap-2">
             <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="與 Agent 對話 (Shift+Enter 換行)..."></textarea>
@@ -715,17 +783,15 @@ function initAgentChatBar() {
 
     const input = document.getElementById('agentChatInput');
 
-    // ⌨️ 互動優化：輸入框根據內容自動長高 (最高 32px 即 max-h-32)
     input.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
-        if(this.value === '') this.style.height = 'auto'; // 清空時歸零
+        if(this.value === '') this.style.height = 'auto'; 
     });
 
-    // ⌨️ 互動優化：支援 Enter 送出，Shift+Enter 換行
     input.addEventListener('keydown', function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault(); // 阻止預設換行
+            e.preventDefault(); 
             document.getElementById('btnSendChat').click();
         }
     });
@@ -734,7 +800,6 @@ function initAgentChatBar() {
         const msg = input.value.trim();
         if(!msg) return;
 
-        // 恢復輸入框初始狀態
         input.value = '';
         input.style.height = 'auto';
         input.disabled = true;
@@ -743,7 +808,6 @@ function initAgentChatBar() {
         const spinId = 'spin_chat_' + Date.now();
         await addLog("Agent", "🤖", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">思考與執行中...</span></div>`, true);
 
-        // 📜 視窗優化：送出指令後，強制畫面捲動到底部，確保不被對話框遮擋
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
 
         try {
@@ -767,7 +831,6 @@ function initAgentChatBar() {
                 await renderFinalPublishCard(agentState.taskId, agentState.agentData.generatedImages, agentState.agentData.draftContent.post_caption);
             }
             
-            // 📜 視窗優化：卡片渲染完畢後，再次確保畫面置底
             setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
 
         } catch(e) {
