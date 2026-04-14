@@ -56,7 +56,7 @@ export async function initAgentFunnel() { updateStepHeader("COMMAND LOBBY"); ren
 
 function renderLobby() {
     const log = document.getElementById('funnelLog');
-    Object.assign(MISSION, { persona: '', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4 });
+    Object.assign(MISSION, { persona: '', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4, currentTaskId: null });
     
     log.innerHTML = `
         <div class="max-w-4xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6">
@@ -64,7 +64,8 @@ function renderLobby() {
                 <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">歡迎回到指揮艙，總編</h2>
                 <p class="text-xs text-slate-400">目前運作品牌：<span class="text-blue-400 font-bold">BrandDecoder 官方</span></p>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
                 <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-6 lg:p-8 hover:bg-slate-800 transition-all cursor-pointer group shadow-xl relative flex flex-col h-full" onclick="alert('全自動情報網建置中...')">
                     <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase">Auto-Pilot</div>
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">🤖</div>
@@ -75,16 +76,134 @@ function renderLobby() {
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
                     <h3 class="text-lg font-black text-white mb-2">手動發起任務</h3>
                     <p class="text-xs text-slate-400 mb-6 leading-relaxed">進入專屬 AI 漏斗。由您親自指定所有視覺與文案細節。</p>
-                    <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動漏斗</button>
+                    <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動全新漏斗</button>
+                </div>
+            </div>
+
+            <div id="taskDashboardArea" class="bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-sm font-black text-white">📋 任務控制台 (Mission Logs)</h3>
+                    <button onclick="renderTaskDashboard()" class="text-xs text-indigo-400 hover:text-indigo-300">🔄 重新整理</button>
+                </div>
+                <div id="taskListContainer" class="space-y-3">
+                    <p class="text-slate-500 text-xs text-center py-4">讀取歷史任務中...</p>
                 </div>
             </div>
         </div>
     `;
+
     document.getElementById('btnManualStart').onclick = async () => { 
         log.innerHTML = ''; 
         await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。讀取真實基因庫中...`); 
         await triggerPersonaSkill();
     };
+
+    // 啟動時自動載入歷史任務
+    renderTaskDashboard();
+}
+
+// ==========================================
+// 📋 任務儀表板渲染與續傳邏輯
+// ==========================================
+window.renderTaskDashboard = async function() {
+    const container = document.getElementById('taskListContainer');
+    if(!container) return;
+    
+    container.innerHTML = '<div class="text-center py-4"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block"></div></div>';
+    
+    try {
+        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
+        const currentTenantId = STATE.uid || 'user_chief_001';
+        
+        // 呼叫後端 API
+        const response = await fetch(`${baseUrl}/api/agent/tasks/${currentTenantId}`);
+        const data = await response.json();
+        
+        if (!data.success) throw new Error(data.message);
+        
+        if (data.tasks.length === 0) {
+            container.innerHTML = '<p class="text-slate-500 text-xs text-center py-4">目前尚無歷史任務，請從上方發起新任務。</p>';
+            return;
+        }
+
+        let html = '';
+        // 將撈回來的資料存到全域變數，方便點擊時讀取
+        window.tempTaskCache = data.tasks; 
+
+        data.tasks.forEach((task, index) => {
+            let statusColor, statusText, actionText, icon;
+            const topic = task.missionContext?.topic || '未命名主題';
+            const timeStr = new Date(task.updatedAt || task.taskId.split('_')[2] * 1).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+            switch(task.currentStatus) {
+                case 'COMPLETED': statusColor = 'text-emerald-400'; statusText = '已發佈'; actionText = '查看結果'; icon = '🟢'; break;
+                case 'AWAITING_APPROVAL': statusColor = 'text-yellow-400'; statusText = '等待總編審核'; actionText = '接續校稿'; icon = '🟡'; break;
+                case 'IMAGES_GENERATED': statusColor = 'text-blue-400'; statusText = '等待發佈'; actionText = '接續發佈'; icon = '🔵'; break;
+                case 'ERROR': statusColor = 'text-red-400'; statusText = '執行異常'; actionText = '重試任務'; icon = '🔴'; break;
+                default: statusColor = 'text-slate-400'; statusText = '初始化 / 處理中'; actionText = '查看'; icon = '⚪'; break;
+            }
+
+            html += `
+                <div class="flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 p-4 rounded-xl cursor-pointer transition-all group" onclick="resumeTask(${index})">
+                    <div class="flex flex-col gap-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs">${icon}</span>
+                            <span class="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[400px]">${topic}</span>
+                        </div>
+                        <div class="flex gap-3 text-[10px]">
+                            <span class="${statusColor} font-black">${statusText}</span>
+                            <span class="text-slate-500">${timeStr}</span>
+                        </div>
+                    </div>
+                    <button class="bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-bold group-hover:bg-indigo-600 transition-colors">${actionText}</button>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+
+    } catch (error) {
+        container.innerHTML = `<p class="text-red-400 text-xs text-center py-4">讀取失敗: ${error.message}</p>`;
+    }
+}
+
+// 🚀 斷點續傳：把任務叫回畫面上！
+window.resumeTask = async function(taskIndex) {
+    const task = window.tempTaskCache[taskIndex];
+    if(!task) return showError("任務資料遺失！");
+
+    const log = document.getElementById('funnelLog');
+    log.innerHTML = ''; // 清空大廳
+    
+    // 1. 恢復 MISSION 狀態 (讓懸浮對話框知道現在在講哪個任務)
+    MISSION.currentTaskId = task.taskId;
+    MISSION.topic = task.missionContext?.topic || '';
+    MISSION.universe = task.missionContext?.universe || 'REALISTIC';
+    
+    await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic}</b>`, true);
+
+    // 2. 根據任務狀態，將 UI 直接跳轉到該有的畫面！
+    const chatBar = document.getElementById('agentChatBar');
+
+    if (task.currentStatus === 'AWAITING_APPROVAL') {
+        if(chatBar) chatBar.classList.remove('translate-y-full'); // 升起對話框
+        await renderDraftEditorCard(task.taskId, task.agentData.draftContent, MISSION.universe === 'COMIC');
+    
+    } else if (task.currentStatus === 'IMAGES_GENERATED') {
+        if(chatBar) chatBar.classList.remove('translate-y-full');
+        await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
+    
+    } else if (task.currentStatus === 'COMPLETED') {
+        if(chatBar) chatBar.classList.add('translate-y-full'); // 發佈完畢，隱藏對話框
+        await addLog("社群總監", "✅", "這篇貼文已經發佈完畢囉！以下是最終成品：", true);
+        await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
+        // (可選) 這裡可以把「立即發佈」按鈕隱藏，因為已經發過了
+        
+    } else {
+        if(chatBar) chatBar.classList.add('translate-y-full');
+        showError(`此任務狀態 (${task.currentStatus}) 尚不支援直接續傳，請發起新任務。`);
+        setTimeout(() => initAgentFunnel(), 2000);
+    }
 }
 
 async function triggerPersonaSkill() {
