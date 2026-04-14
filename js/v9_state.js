@@ -20,7 +20,7 @@ export function isMissionComplete() {
     return true;
 }
 
-// 🚀 修改點：載入資料庫並合併人設
+// 🚀 修復：正確解析後端傳來的 res.data
 export async function bootSystemData() {
     // 預先準備好四大經典預設人設
     const defaultPersonas = [
@@ -32,13 +32,19 @@ export async function bootSystemData() {
 
     try {
         const res = await API.fetchSystemOptionsAPI(STATE.uid);
-        if (res && res.success !== false) {
-            SYSTEM_DB.characters = res.characters || [];
-            SYSTEM_DB.styles = res.styles || [];
-            SYSTEM_DB.pricing = res.pricing || {};
+        if (res && res.success) {
+            // 🐛 蟲子在這裡被捏死了：資料是包在 res.data 裡面的！
+            const dbData = res.data || {};
+            
+            SYSTEM_DB.characters = dbData.characters || [];
+            SYSTEM_DB.styles = dbData.styles || [];
+            SYSTEM_DB.pricing = dbData.pricing || {};
+            
             // 將後端傳回的客製化人設與預設人設接合
-            const customPersonas = res.personas || [];
+            const customPersonas = dbData.personas || [];
             SYSTEM_DB.personas = [...defaultPersonas, ...customPersonas];
+        } else {
+            SYSTEM_DB.personas = [...defaultPersonas];
         }
     } catch (e) {
         console.error("系統資料載入失敗:", e);
