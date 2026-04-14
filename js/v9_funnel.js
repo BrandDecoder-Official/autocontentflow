@@ -34,41 +34,32 @@ async function triggerPlatformSkill() {
 async function triggerTopicSkill() {
     updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
     
+    // 🚀 優化：移除了重複的「人設」選單，專注於「單次發文戰術」
     const strategyPanelHTML = `
         <div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in">
-            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎭</span> 數位人格與互動策略</h4>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎯</span> 單次發文戰術配置</h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">大腦發言人設</label>
-                    <select id="selPersona" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
-                        <option value="專業顧問" ${MISSION.persona === '專業顧問' ? 'selected' : ''}>👔 專業顧問 (客觀、數據導向)</option>
-                        <option value="毒舌教官" ${MISSION.persona === '毒舌教官' ? 'selected' : ''}>😎 毒舌教官 (犀利、一針見血)</option>
-                        <option value="溫暖知心" ${MISSION.persona === '溫暖知心' ? 'selected' : ''}>🌸 溫暖知心 (同理心、感性)</option>
-                        <option value="迷因小編" ${MISSION.persona === '迷因小編' ? 'selected' : ''}>🤡 迷因小編 (愛用網路梗、浮誇)</option>
-                        <option value="${MISSION.persona}" ${!['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) && MISSION.persona ? 'selected' : ''} class="${['專業顧問','毒舌教官','溫暖知心','迷因小編'].includes(MISSION.persona) || !MISSION.persona ? 'hidden' : ''}">${MISSION.persona} (繼承)</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子戰術</label>
-                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
-                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (戳中煩惱)</option>
-                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破認知)</option>
-                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (暗示解答)</option>
-                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊 (逼迫留言)</option>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子 (Hook)</label>
+                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
+                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (戳中讀者煩惱)</option>
+                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破常規認知)</option>
+                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (暗示好處與解答)</option>
+                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊 (二選一逼迫留言)</option>
                     </select>
                 </div>
                 <div>
                     <label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label>
-                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none">
-                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (IG/Threads)</option>
-                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (FB/LinkedIn)</option>
+                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
+                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads 快速閱讀)</option>
+                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/LinkedIn 價值傳遞)</option>
                     </select>
                 </div>
             </div>
         </div>
     `;
 
-    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="例如：介紹夏日防曬乳...">${MISSION.topic}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與策略</button></div></div>`);
+    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${MISSION.topic}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button></div></div>`);
     const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
     
     ui.querySelector('#btnConfirmTopic').onclick = async () => { 
@@ -76,14 +67,14 @@ async function triggerTopicSkill() {
         if(!val) return showError('主題不能為空！'); 
         
         MISSION.topic = val; 
-        MISSION.persona = ui.querySelector('#selPersona').value;
+        // 🚀 注意：這裡不再讀取 selPersona，因為 Step 1 已經存入 MISSION.persona 了
         MISSION.hookType = ui.querySelector('#selHookType').value;
         MISSION.contentLength = ui.querySelector('#selLength').value;
 
         inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); 
         ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); 
         
-        await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 策略：${MISSION.persona} / ${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); 
+        await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
     };
 }
@@ -422,7 +413,6 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 const chatBar = document.getElementById('agentChatBar'); if(chatBar) chatBar.classList.add('translate-y-full');
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 
-                // 🚀 最後一步：重啟大廳！我們透過事件機制來解耦，避免互相引用
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);
                 endUi.querySelector('#btnRestart').onclick = () => { 
                     releaseUI(endUi); 
