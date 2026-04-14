@@ -156,6 +156,8 @@ window.cancelNewPersona = function() {
     document.getElementById('newPersonaTaboo').value = '';
 };
 
+// js/v9_sidebar.js (局部替換最下方的兩個函數)
+
 window.submitNewPersona = async function() {
     const icon = document.getElementById('newPersonaEmoji').value.trim() || '🤖';
     const name = document.getElementById('newPersonaName').value.trim();
@@ -169,21 +171,16 @@ window.submitNewPersona = async function() {
     btn.disabled = true;
     
     try {
-        // TODO: 這裡預留給後端 API。在後端寫好之前，我們先把它「假裝」存進全域變數裡，讓您可以立刻在畫面上看到效果！
-        // 等後端 createPersonaAPI 完成後，這裡就換成真實的 fetch。
-        
-        /* const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
-        if(!res.success) throw new Error(res.message);
-        */
-        
-        // --- 模擬後端成功存入 ---
-        const newId = 'p_' + Date.now();
-        SYSTEM_DB.personas.push({ id: newId, icon, name, desc, taboos });
-        
-        alert('🎉 品牌人設已寫入神經網路！');
-        window.cancelNewPersona();
-        renderPersonaList();
-        
+        // 🚀 正式打向後端 API
+        const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
+        if(res.success) {
+            alert('🎉 品牌人設已寫入神經網路！');
+            await bootSystemData(); // 重新向後端拉取最新資料庫
+            window.cancelNewPersona();
+            renderPersonaList();
+        } else {
+            throw new Error(res.message);
+        }
     } catch(e) { 
         alert(`❌ 失敗: ${e.message}`); 
     } finally { 
@@ -194,13 +191,21 @@ window.submitNewPersona = async function() {
 
 window.deletePersona = async function(personaId) {
     if(!confirm('確定要刪除這組品牌人設嗎？')) return;
+    
+    // 🛡️ 防呆機制：保護預設人設不被誤刪
+    if(personaId.startsWith('p_default_')) {
+        return alert('❌ 系統預設人設為唯讀屬性，無法刪除！');
+    }
+
     try {
-        // TODO: 同上，預留給後端的 deletePersonaAPI
-        
-        // --- 模擬後端刪除 ---
-        SYSTEM_DB.personas = SYSTEM_DB.personas.filter(p => p.id !== personaId);
-        renderPersonaList();
-        
+        // 🚀 正式打向後端 API
+        const res = await API.deletePersonaAPI({ personaId, tenantId: STATE.uid });
+        if(res.success) {
+            await bootSystemData();
+            renderPersonaList();
+        } else {
+            throw new Error(res.message);
+        }
     } catch(e) { 
         alert(`❌ 刪除失敗: ${e.message}`); 
     }
