@@ -4,50 +4,12 @@ import * as API from './api.js';
 
 import { APP_VERSION, MISSION, IS_EDIT_MODE, SYSTEM_DB, isMissionComplete, compressImage } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
+import { AgentClient } from './v9_agent_client.js';
+import { applyPointDeduction } from './v9_finance.js';
 
 export { bootSystemData } from './v9_state.js';
 
-// ==========================================
-// 🧠 企業級 AI 代理人通訊模組
-// ==========================================
-const AgentClient = {
-    get API_URL() {
-        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
-        return `${baseUrl}/api/agent/orchestrate`;
-    },
-    async sendCommand(action, payload = {}, existingTaskId = null) {
-        try {
-            const taskId = existingTaskId || ('task_agent_' + Date.now());
-            const currentTenantId = STATE.uid || 'user_chief_001';
 
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: currentTenantId,
-                    taskId: taskId,
-                    action: action,
-                    payload: payload
-                })
-            });
-
-            if (!response.ok) {
-                const errText = await response.text();
-                let errMsg = errText;
-                try { errMsg = JSON.parse(errText).message; } catch(e) {}
-                throw new Error(errMsg || `伺服器回應錯誤碼: ${response.status}`);
-            }
-
-            const result = await response.json();
-            if (!result.success) throw new Error(result.message);
-            return result.state; 
-
-        } catch (error) {
-            console.error('[Agent Client Error]', error);
-            throw error; 
-        }
-    }
-};
 
 // ==========================================
 // 🚀 漏斗核心流程
@@ -692,74 +654,6 @@ async function renderFinalPublishCard(taskId, images, finalCaption) {
             showError(`操作失敗：${e.message}`); 
         }
     };
-}
-
-// ==========================================
-// 🪄 終極點數視覺引擎 (拉霸 + 慢飄 + 日誌)
-// ==========================================
-
-export async function applyPointDeduction(deducted, reason = "") {
-    if (deducted <= 0) return;
-
-    const targetEl = document.getElementById('userPoints');
-    if (targetEl) {
-        const oldPoints = STATE.userPoints;
-        STATE.userPoints -= deducted;
-
-        animateNumberRoll(targetEl, oldPoints, STATE.userPoints, 1500);
-        showPointDeductionEffect(deducted, 'userPoints');
-    }
-
-    if (reason) {
-        await addLog("計費系統", "🪙", `<span class="text-[10px] text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-2 py-1 rounded shadow-inner">本次消耗 ${deducted} 點 (${reason})</span>`);
-    }
-}
-
-function animateNumberRoll(obj, start, end, duration) {
-    let startTimestamp = null;
-    const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        const easeProgress = 1 - Math.pow(1 - progress, 4);
-        const currentVal = Math.floor(start + easeProgress * (end - start));
-        obj.innerText = currentVal.toLocaleString();
-        if (progress < 1) {
-            window.requestAnimationFrame(step);
-        } else {
-            obj.innerText = end.toLocaleString(); 
-        }
-    };
-    window.requestAnimationFrame(step);
-}
-
-function showPointDeductionEffect(points, targetElementId = 'userPoints') {
-    const target = document.getElementById(targetElementId);
-    if (!target || points <= 0) return;
-
-    const rect = target.getBoundingClientRect();
-    const soul = document.createElement('div');
-    soul.innerText = `-${points}`;
-    soul.className = 'fixed font-black text-red-500 pointer-events-none z-[9999] text-2xl drop-shadow-[0_0_12px_rgba(239,68,68,1)]';
-
-    const startX = rect.left + (rect.width / 2) - 15;
-    const startY = rect.top - 5;
-    soul.style.left = `${startX}px`;
-    soul.style.top = `${startY}px`;
-
-    document.body.appendChild(soul);
-
-    const animation = soul.animate([
-        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-        { transform: 'translate(-15px, -30px) scale(1.4)', opacity: 0.9, offset: 0.3 }, 
-        { transform: 'translate(10px, -60px) scale(1.1)', opacity: 0.7, offset: 0.6 },  
-        { transform: 'translate(-5px, -100px) scale(0.8)', opacity: 0 }                 
-    ], {
-        duration: 2500, 
-        easing: 'ease-out',
-        fill: 'forwards'
-    });
-
-    animation.onfinish = () => soul.remove();
 }
 
 // 🪄 新增：真 Agent 懸浮對話框
