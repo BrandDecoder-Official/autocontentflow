@@ -74,3 +74,43 @@ export async function verifyLoginAPI(credential) {
         return await response.json();
     } catch (error) { throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試'); }
 }
+
+// ==========================================
+// 🚀 漏斗流程專屬 API (V9 新增)
+// ==========================================
+
+// ✍️ 8. 產生劇本草稿 API
+export async function generateDraftAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/draft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '產出劇本連線失敗');
+    return data;
+}
+
+// 🎨 9. 發包影像合成 API
+export async function generateImageFromDraftAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '影像合成連線失敗');
+    return data;
+}
+
+// 📤 10. 一鍵發佈與排程 API
+export async function publishTaskAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '發佈連線失敗');
+    return data;
+}
