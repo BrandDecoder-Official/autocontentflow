@@ -2,7 +2,8 @@
 import { MISSION } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
 import { AgentClient } from './v9_agent_client.js';
-import { applyPointDeduction } from './v9_finance.js';
+// ⚠️ 注意：這裡移除了 applyPointDeduction 的 import
+// 因為實時扣點我們已經交給 v9_agent_client.js 裡面的 sendChatMessage 統一處理了，避免重複扣點。
 
 export function initAgentChatBar(callbacks) {
     if(document.getElementById('agentChatBar')) return;
@@ -52,31 +53,26 @@ export function initAgentChatBar(callbacks) {
         setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
 
         try {
-            if (!MISSION.currentTaskId) throw new Error("請先啟動任務漏斗！");
+            // 🚀 核心替換：改呼叫我們今天寫的、支援 Function Calling 與實時扣點的 API
+            const response = await AgentClient.sendChatMessage(msg);
             
-            const agentState = await AgentClient.sendCommand('CHAT', { message: msg }, MISSION.currentTaskId);
+            // 移除轉圈圈
+            const spEl = document.getElementById(spinId); 
+            if(spEl) spEl.closest('.flex').parentElement.remove();
             
-            const spEl = document.getElementById(spinId); if(spEl) spEl.closest('.flex').parentElement.remove();
-            
-            const reply = agentState.memory[agentState.memory.length - 1].message;
-            await addLog("Agent", "🤖", `<span class="text-indigo-300 whitespace-pre-wrap">${reply}</span>`);
+            // 印出大腦的回覆 (不管是文字聊天還是執行結果)
+            const colorClass = response.type === 'action' ? 'text-green-400' : 'text-indigo-300';
+            await addLog("Agent", "🤖", `<span class="${colorClass} whitespace-pre-wrap font-bold">${response.message}</span>`);
 
-            const deducted = agentState.lastCost ? agentState.lastCost.deducted : 0;
-            if (typeof applyPointDeduction === 'function') {
-                await applyPointDeduction(deducted, "Agent 決策與對話");
-            }
-
-            // 🚀 透過 Callback 呼叫外部的 UI 渲染函數
-            if (agentState.currentStatus === 'AWAITING_APPROVAL' && callbacks.onDraftReady) {
-                await callbacks.onDraftReady(agentState.taskId, agentState.agentData.draftContent, MISSION.universe === 'COMIC');
-            } else if (agentState.currentStatus === 'IMAGES_GENERATED' && callbacks.onImagesReady) {
-                await callbacks.onImagesReady(agentState.taskId, agentState.agentData.generatedImages, agentState.agentData.draftContent.post_caption);
-            }
-            
             setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
 
         } catch(e) {
-            const spEl = document.getElementById(spinId); if(spEl) { spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
+            const spEl = document.getElementById(spinId); 
+            if(spEl) { 
+                spEl.classList.remove('animate-spin', 'border-t-transparent'); 
+                spEl.classList.add('border-red-500'); 
+                document.getElementById(`text_${spinId}`).innerText = "連線失敗"; 
+            }
             showError(`Agent 回應失敗：${e.message}`);
         } finally {
             input.disabled = false; input.focus();
