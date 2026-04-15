@@ -160,7 +160,10 @@ window.FunnelActions = {
     },
     
     generateImages: async (taskId, editedCaption, editedPanels) => {
-        if (!validatePoints(50, "影像合成")) return;
+        // 💸 V10 影像合成算力點：對齊後端 pricing.config.js (約 5 台幣 = 500 點)
+        const deductionPoints = 500;
+
+        if (!validatePoints(deductionPoints, "影像合成")) return;
         
         const oldActive = document.getElementById('activeControlCard');
         if (oldActive) releaseUI(oldActive);
@@ -171,8 +174,15 @@ window.FunnelActions = {
         try {
             const response = await generateImageFromDraftAPI({ taskId, tenantId: STATE.uid, editedCaption, editedPanels });
             if (response && response.success) {
-                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
-                await applyPointDeduction(50, "影像合成算力");
+                const spEl = document.getElementById(spinId); 
+                if(spEl){ 
+                    spEl.classList.remove('animate-spin', 'border-t-transparent'); 
+                    spEl.classList.add('bg-blue-500'); 
+                    document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; 
+                }
+                
+                // ✅ 更新為「算力點」名稱，並扣除對應點數
+                await applyPointDeduction(deductionPoints, "影像合成算力點");
                 
                 MISSION.currentCaption = editedCaption; 
                 MISSION.currentPanels = editedPanels;   
@@ -183,7 +193,12 @@ window.FunnelActions = {
                 await renderFinalPublishCard(taskId, response.images, finalFullCaption);
             } else { throw new Error(response.message || "未能取得圖片。"); }
         } catch (e) { 
-            const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "合成失敗"; }
+            const spEl = document.getElementById(spinId); 
+            if(spEl){ 
+                spEl.classList.remove('animate-spin', 'border-t-transparent'); 
+                spEl.classList.add('border-red-500'); 
+                document.getElementById(`text_${spinId}`).innerText = "合成失敗"; 
+            }
             showError(`連線失敗：${e.message}`); 
         }
     }
