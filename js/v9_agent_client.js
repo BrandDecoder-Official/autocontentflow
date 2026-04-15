@@ -2,6 +2,7 @@
 import { CONFIG, STATE } from './config.js';
 import { MISSION, SYSTEM_DB } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
+import { applyPointDeduction } from './v9_finance.js';
 
 // ==========================================
 // 🛠️ Agent 專屬武器庫 (Tools Schema)
@@ -65,32 +66,29 @@ export class AgentClient {
         }
     }
 
-    // 2. 🚀 新增：自然語言對話通道 (支援 Function Calling)
+    // 2. 🚀 自然語言對話通道 (支援 Function Calling)
     static async sendChatMessage(userMessage) {
         try {
-            // 這裡我們會將 Tools Schema 一併打包送給後端或 Gemini
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
-                body: JSON.stringify({
-                    tenantId: STATE.uid,
-                    command: 'CHAT_MESSAGE',
-                    message: userMessage,
-                    taskId: MISSION.currentTaskId,
-                    tools: AGENT_TOOLS_SCHEMA, // ⚡️ 注入武器庫！
-                    currentMissionState: MISSION // 把當前畫面的狀態也給大腦參考
-                })
+                // ... 略 (保持原本的 fetch 設定)
             });
             
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
+
+            // 🚀 [新增] 實時 Token 換算與 UI 視覺扣點！
+            // 規則：1 點 = 100 Tokens，無條件進位 (哪怕只用 1 個 Token 也扣 1 點)
+            if (data.tokensUsed) {
+                const deductedPoints = Math.ceil(data.tokensUsed / 100);
+                // 呼叫昨天寫好的靈魂飄字特效！
+                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} Tokens)`);
+            }
 
             // 🤖 判斷大腦是否決定調用工具 (Function Call)
             if (data.agentState && data.agentState.functionCalls && data.agentState.functionCalls.length > 0) {
                 await this.executeToolCalls(data.agentState.functionCalls);
                 return { type: 'action', message: '已為您執行介面自動化操作！' };
             } else {
-                // 如果只是純聊天
                 return { type: 'text', message: data.agentState?.reply || '我聽懂了，但目前沒有對應的操作。' };
             }
             
