@@ -583,8 +583,10 @@ async function triggerMissionSummary() {
     updateStepHeader("FINAL CONFIRMATION"); 
     await addLog("專案總監", "👨‍💼", "總編，請進行最後確認。點擊 ✎ 可發起反悔修正：", true);
 
-    const pricing = SYSTEM_DB.pricing || { baseDraftPoints: 15, characterImagePointsMultiplier: 10 }; 
-    const totalPts = pricing.baseDraftPoints + (MISSION.characters.length * (pricing.characterImagePointsMultiplier || 0));
+    const pricing = SYSTEM_DB.pricing || {}; 
+    const basePts = typeof pricing.baseDraftPoints === 'number' ? pricing.baseDraftPoints : 15;
+    const charPts = typeof pricing.characterImagePointsMultiplier === 'number' ? pricing.characterImagePointsMultiplier : 10;
+    const totalPts = basePts + (MISSION.characters.length * charPts);
     
     let charsHtml = '<div class="flex items-center gap-1 overflow-x-auto no-scrollbar max-w-[120px] justify-end">';
     if(MISSION.characters.length > 0) { 
