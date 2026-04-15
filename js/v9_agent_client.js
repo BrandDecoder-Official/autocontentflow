@@ -112,7 +112,7 @@ export class AgentClient {
             // 💸 實時扣點視覺特效
             if (data.tokensUsed && data.tokensUsed > 0) {
                 const deductedPoints = Math.ceil(data.tokensUsed / 100);
-                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} Tokens)`);
+                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力)`);
             }
 
             // 將大腦的回覆也寫入記憶，這樣它才知道自己剛說了什麼
