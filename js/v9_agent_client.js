@@ -35,6 +35,18 @@ export const AGENT_TOOLS_SCHEMA = [
             },
             required: ["action"]
         }
+    },
+    {
+        name: "revise_draft_text",
+        description: "當使用者在『草稿校稿』階段，要求修改、重寫或調整『特定分鏡對白』或『社群內文』時呼叫此工具。你要自行發揮創意寫出新內容，並將新內容填入。",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                target: { type: "STRING", description: "要修改的目標。可選值：'caption' (社群內文), 'panel_1' (第一格對白), 'panel_2' (第二格對白), 以此類推。" },
+                new_text: { type: "STRING", description: "你重新撰寫的全新文字內容。" }
+            },
+            required: ["target", "new_text"]
+        }
     }
 ];
 
@@ -85,7 +97,6 @@ export class AgentClient {
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
 
             // 💸 【實時扣點視覺特效】
-            // 收到後端傳來的 Token 消耗後，換算成點數 (1點 = 100 Token，無條件進位)
             if (data.tokensUsed && data.tokensUsed > 0) {
                 const deductedPoints = Math.ceil(data.tokensUsed / 100);
                 applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} Tokens)`);
@@ -120,10 +131,8 @@ export class AgentClient {
                 if (args.hookType) { MISSION.hookType = args.hookType; updatedMsg += `- 戰術切換為：${args.hookType}<br>`; }
                 if (args.contentLength) { MISSION.contentLength = args.contentLength; updatedMsg += `- 節奏改為：${args.contentLength}<br>`; }
                 
-                // 將 Agent 的操作記錄寫入畫面左下的對話 Log 中
                 await addLog("系統", "🤖", updatedMsg, true);
                 
-                // 嘗試刷新表單 (如果確認卡片存在)
                 const btnRender = document.getElementById('btnRender');
                 if (btnRender) {
                     const topicStrategyDisplay = `${MISSION.topic} (${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]})`;
@@ -137,7 +146,7 @@ export class AgentClient {
                     const btn = document.getElementById('btnRender');
                     if (btn) {
                         await addLog("系統", "🤖", "已接收指令，正在自動為您點擊【產出劇本】按鈕...", true);
-                        btn.click(); // 🪄 魔法發生的地方：自動按按鈕
+                        btn.click();
                     } else {
                         showError("目前畫面無法執行產出劇本，請確認流程是否正確。");
                     }
@@ -157,6 +166,32 @@ export class AgentClient {
                     } else {
                         showError("目前沒有可發佈的內容。");
                     }
+                }
+            } else if (call.name === 'revise_draft_text') {
+                // 🚀 新增：局部修改草稿內容
+                const { target, new_text } = call.args;
+                let updatedMsg = "";
+                
+                if (target === 'caption') {
+                    const captionEl = document.getElementById('editCaption');
+                    if (captionEl) {
+                        captionEl.value = new_text;
+                        updatedMsg = `✅ Agent 已為您重寫【社群內文】！`;
+                    }
+                } else if (target.startsWith('panel_')) {
+                    const panelIndex = parseInt(target.replace('panel_', '')) - 1;
+                    const panelInputs = document.querySelectorAll('.panel-dialogue');
+                    
+                    if (panelInputs && panelInputs[panelIndex]) {
+                        panelInputs[panelIndex].value = new_text;
+                        // 觸發 input 事件，讓右邊的「字數統計」跟著更新並檢查是否超字
+                        panelInputs[panelIndex].dispatchEvent(new Event('input'));
+                        updatedMsg = `✅ Agent 已為您重寫【第 ${panelIndex + 1} 格】的對白！`;
+                    }
+                }
+                
+                if (updatedMsg) {
+                    await addLog("系統", "🤖", updatedMsg, true);
                 }
             }
         }
