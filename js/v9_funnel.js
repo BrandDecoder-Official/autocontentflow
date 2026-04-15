@@ -380,7 +380,6 @@ window.FunnelActions = {
 
         if (!validatePoints(totalPts, "產出劇本")) return;
 
-        // 如果畫面上已經有卡片，把它作廢 (隱藏)
         const oldActive = document.getElementById('activeControlCard');
         if (oldActive) releaseUI(oldActive);
 
@@ -404,7 +403,7 @@ window.FunnelActions = {
                 await applyPointDeduction(totalPts, "產出草稿算力");
                 
                 MISSION.currentTaskId = response.taskId;
-                MISSION.currentDraft = response.draftContent; // 💾 儲存這份草稿，方便退回修改
+                MISSION.currentDraft = response.draftContent; 
 
                 const chatBar = document.getElementById('agentChatBar');
                 if(chatBar) chatBar.classList.remove('translate-y-full');
@@ -433,8 +432,8 @@ window.FunnelActions = {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 await applyPointDeduction(50, "影像合成算力");
                 
-                MISSION.currentCaption = editedCaption; // 💾 儲存修改過的內文
-                MISSION.currentPanels = editedPanels;   // 💾 儲存修改過的分鏡
+                MISSION.currentCaption = editedCaption; 
+                MISSION.currentPanels = editedPanels;   
                 
                 await renderFinalPublishCard(taskId, response.images, editedCaption);
             } else { throw new Error(response.message || "未能取得圖片。"); }
@@ -455,68 +454,147 @@ export async function triggerMissionSummary() {
     const isComic = MISSION.universe === 'COMIC';
     const isEnhance = MISSION.universe === 'ENHANCE';
 
+    // 生成登場角色頭像 HTML
+    let charsHtml = '';
+    if(MISSION.characters.length > 0) {
+        charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
+        MISSION.characters.forEach(c => {
+            const o = SYSTEM_DB.characters.find(mc => mc.name === c);
+            if(o && o.imageUrl) {
+                charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0" title="${c}">`;
+            } else {
+                charsHtml += `<span class="text-[10px] bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded border border-indigo-500/50">${c}</span>`;
+            }
+        });
+        charsHtml += '</div>';
+    } else {
+        charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
+    }
+
+    // 生成風格按鈕 HTML
+    const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
+    const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
+
     const ui = createSkillUI(`
         <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs">
             
             <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3">
                 <span class="text-xl">🤖</span>
                 <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">
-                    「目前人設為【${MISSION.persona}】，已為您準備好最佳配置。點擊下方選項可即時微調內容。」
+                    「目前人設為【${MISSION.persona}】，我已準備好最佳配置。點擊下方選項可即時微調內容。」
                 </p>
             </div>
 
             <div class="space-y-2">
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-topic">
-                        <span class="text-slate-400 font-bold">📝 任務主題與策略</span>
-                        <span class="text-white font-black dash-val-topic truncate max-w-[150px]">${MISSION.topic}</span>
+                        <span class="text-slate-400 font-bold">📝 任務主題</span>
+                        <span class="text-white font-black dash-val-topic truncate max-w-[200px] text-right">${MISSION.topic} ✎</span>
                     </button>
                     <div id="dash-topic" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
                         <textarea id="editDashTopic" class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-indigo-500 outline-none h-24">${MISSION.topic}</textarea>
-                        <div class="grid grid-cols-2 gap-2">
-                             <select id="editDashHook" class="bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                    </div>
+                </div>
+
+                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
+                        <span class="text-slate-400 font-bold">🎯 發文戰術</span>
+                        <span class="text-white font-black dash-val-strategy">${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎</span>
+                    </button>
+                    <div id="dash-strategy" class="hidden p-4 bg-black/20 grid grid-cols-2 gap-3 border-t border-white/5">
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-slate-500">開場勾子</label>
+                            <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
                                 <option value="痛點提問" ${MISSION.hookType==='痛點提問'?'selected':''}>❓ 痛點提問</option>
                                 <option value="反直覺爆點" ${MISSION.hookType==='反直覺爆點'?'selected':''}>💥 反直覺爆點</option>
                                 <option value="利益誘惑" ${MISSION.hookType==='利益誘惑'?'selected':''}>🎁 利益誘惑</option>
                                 <option value="爭議站隊" ${MISSION.hookType==='爭議站隊'?'selected':''}>⚔️ 爭議站隊</option>
-                             </select>
-                             <select id="editDashLen" class="bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快</option>
-                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文</option>
-                             </select>
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] text-slate-500">文案節奏</label>
+                            <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快 (IG/Threads)</option>
+                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文 (FB/Blog)</option>
+                            </select>
                         </div>
                     </div>
                 </div>
 
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-persona">
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-team">
                         <span class="text-slate-400 font-bold">🎭 人設與平台</span>
-                        <span class="text-white font-black dash-val-persona">${MISSION.persona} / ${MISSION.platforms.join(',')}</span>
+                        <span class="text-white font-black dash-val-team text-right">${MISSION.persona} / ${MISSION.platforms.join(',')} ✎</span>
                     </button>
-                    <div id="dash-persona" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
-                        <div class="flex flex-wrap gap-2">
-                            ${SYSTEM_DB.personas.map(p => `<button class="btn-dash-persona px-3 py-2 rounded-lg border ${MISSION.persona===p.name?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${p.name}">${p.name}</button>`).join('')}
+                    <div id="dash-team" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                        <div class="space-y-2">
+                            <label class="text-[10px] text-slate-500">指派人設角色</label>
+                            <div class="flex flex-wrap gap-2">
+                                ${SYSTEM_DB.personas.map(p => `<button class="btn-dash-persona px-3 py-2 rounded-lg border ${MISSION.persona===p.name?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${p.name}">${p.icon} ${p.name}</button>`).join('')}
+                            </div>
                         </div>
-                        <div class="flex gap-2 pt-2 border-t border-white/5">
-                            ${['FB','IG','THREADS'].map(plat => `<button class="btn-dash-plat px-3 py-2 rounded-lg border ${MISSION.platforms.includes(plat)?'border-blue-500 bg-blue-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${plat}">${plat}</button>`).join('')}
+                        <div class="space-y-2 pt-3 border-t border-white/5">
+                            <label class="text-[10px] text-slate-500">部署社群平台 (可多選)</label>
+                            <div class="flex flex-wrap gap-2">
+                                ${['FB','IG','THREADS'].map(plat => `<button class="btn-dash-plat px-3 py-2 rounded-lg border ${MISSION.platforms.includes(plat)?'border-blue-500 bg-blue-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${plat}">${plat}</button>`).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-visual">
-                        <span class="text-slate-400 font-bold">📐 視覺規格</span>
-                        <span class="text-white font-black dash-val-visual">${MISSION.universe} / ${isComic ? MISSION.panelCount + '格' : MISSION.ratio}</span>
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-characters">
+                        <span class="text-slate-400 font-bold">👥 登場角色基因</span>
+                        <div class="flex items-center gap-2 max-w-[150px] overflow-hidden">${charsHtml} ✎</div>
                     </button>
-                    <div id="dash-visual" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                    <div id="dash-characters" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div class="dash-val-characters-list">${charsHtml}</div>
+                        <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請對 Agent 說「我想更換角色」，或點擊下方重啟召喚儀式。</p>
+                        <button id="btnBackToChar" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all">✎ 重啟召喚儀式</button>
+                    </div>
+                </div>
+
+                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-universe-style">
+                        <span class="text-slate-400 font-bold">🌌 風格宇宙與色系</span>
+                        <span class="text-white font-black dash-val-universe-style text-right">${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
+                    </button>
+                    <div id="dash-universe-style" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                        <div class="space-y-2">
+                            <label class="text-[10px] text-slate-500">宇宙類型</label>
+                            <div class="grid grid-cols-3 gap-2">
+                                ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'},{v:'ENHANCE',i:'✨',n:'美化'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
+                            </div>
+                        </div>
+                        <div class="space-y-2 pt-3 border-t border-white/5">
+                            <label class="text-[10px] text-slate-500">視覺風格</label>
+                            <div class="flex flex-wrap gap-2">
+                                ${availableStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border ${MISSION.style===s.name?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${s.name}">${s.name}</button>`).join('')}
+                            </div>
+                        </div>
+                        <div class="space-y-2 pt-3 border-t border-white/5">
+                            <label class="text-[10px] text-slate-500">色系模式</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${[{v:'BW',i:'🏁',n:'經典黑白'},{v:'Color',i:'🌈',n:'現代全彩'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-visual-specs">
+                        <span class="text-slate-400 font-bold">📐 畫面規格</span>
+                        <span class="text-white font-black dash-val-visual-specs">${MISSION.ratio} / ${isComic ? MISSION.panelCount + '格' : ''} ✎</span>
+                    </button>
+                    <div id="dash-visual-specs" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
                         ${!isEnhance ? `
                         <div class="space-y-2">
-                            <label class="text-[10px] text-slate-500">格數設定</label>
+                            <label class="text-[10px] text-slate-500">漫畫格數</label>
                             <div class="grid grid-cols-4 gap-2">
                                 ${[1,2,3,4].map(n => `<button class="btn-dash-panel py-2 rounded-lg border ${MISSION.panelCount===n?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${n}">${n}格</button>`).join('')}
                             </div>
                         </div>` : ''}
-                        <div class="space-y-2">
+                        <div class="space-y-2 pt-3 border-t border-white/5">
                             <label class="text-[10px] text-slate-500">畫面比例</label>
                             <div class="grid grid-cols-3 gap-2">
                                 ${['9:16','16:9','1:1'].map(r => `<button class="btn-dash-ratio py-2 rounded-lg border ${MISSION.ratio===r?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${r}">${r}</button>`).join('')}
@@ -538,7 +616,6 @@ export async function triggerMissionSummary() {
             const targetId = trigger.dataset.target;
             const targetEl = ui.querySelector(`#${targetId}`);
             const isHidden = targetEl.classList.contains('hidden');
-            // 先關掉其他的
             ui.querySelectorAll('.dashboard-item > div:not(.hidden)').forEach(el => el.classList.add('hidden'));
             if (isHidden) targetEl.classList.remove('hidden');
         };
@@ -547,19 +624,24 @@ export async function triggerMissionSummary() {
     // --- 活化功能：原地即時同步 MISSION 變數 ---
     const updateDashDisplay = () => {
         ui.querySelector('.dash-val-topic').innerText = MISSION.topic;
-        ui.querySelector('.dash-val-persona').innerText = `${MISSION.persona} / ${MISSION.platforms.join(',')}`;
-        ui.querySelector('.dash-val-visual').innerText = `${MISSION.universe} / ${isComic ? MISSION.panelCount + '格' : MISSION.ratio}`;
+        ui.querySelector('.dash-val-strategy').innerText = `${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`;
+        ui.querySelector('.dash-val-team').innerText = `${MISSION.persona} / ${MISSION.platforms.join(',')}`;
+        const isComicNow = MISSION.universe === 'COMIC';
+        ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'}`;
+        ui.querySelector('.dash-val-visual-specs').innerText = `${MISSION.ratio} / ${isComicNow ? MISSION.panelCount + '格' : ''}`;
     };
 
     ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
-    ui.querySelector('#editDashHook').onchange = (e) => { MISSION.hookType = e.target.value; };
-    ui.querySelector('#editDashLen').onchange = (e) => { MISSION.contentLength = e.target.value; };
+    ui.querySelector('#editDashHook').onchange = (e) => { MISSION.hookType = e.target.value; updateDashDisplay(); };
+    ui.querySelector('#editDashLen').onchange = (e) => { MISSION.contentLength = e.target.value; updateDashDisplay(); };
 
     ui.querySelectorAll('.btn-dash-persona').forEach(btn => {
         btn.onclick = () => {
             MISSION.persona = btn.dataset.val;
-            ui.querySelectorAll('.btn-dash-persona').forEach(b => b.classList.replace('border-indigo-500', 'border-white/10'));
-            btn.classList.replace('border-white/10', 'border-indigo-500');
+            ui.querySelectorAll('.btn-dash-persona').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
+            ui.querySelectorAll('.btn-dash-persona').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
+            btn.classList.remove('border-white/10', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
             updateDashDisplay();
         };
     });
@@ -570,39 +652,116 @@ export async function triggerMissionSummary() {
             if (MISSION.platforms.includes(p)) {
                 if (MISSION.platforms.length > 1) MISSION.platforms = MISSION.platforms.filter(x => x!==p);
             } else { MISSION.platforms.push(p); }
-            btn.classList.toggle('border-blue-500');
+            btn.classList.toggle('border-blue-500'); btn.classList.toggle('bg-blue-500/20'); btn.classList.toggle('text-white'); btn.classList.toggle('border-white/10'); btn.classList.toggle('text-slate-400');
             updateDashDisplay();
         };
     });
 
-    ui.querySelectorAll('.btn-dash-panel').forEach(btn => {
+    // 退回召喚儀式 (重選角色)
+    ui.querySelector('#btnBackToChar').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerCharacterSkill(); };
+
+    // 宇宙 / 風格 / 色系 同步
+    ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
+        btn.onclick = async () => {
+            const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val;
+            if (oldUni !== MISSION.universe) {
+                // 如果換宇宙，重置風格和角色
+                MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = [];
+            }
+            releaseUI(ui); await triggerMissionSummary(); // 重跑 summary 以刷新風格選單和角色
+        };
+    });
+
+    ui.querySelectorAll('.btn-dash-style').forEach(btn => {
         btn.onclick = () => {
-            MISSION.panelCount = parseInt(btn.dataset.val);
-            ui.querySelectorAll('.btn-dash-panel').forEach(b => b.classList.replace('border-indigo-500', 'border-white/10'));
-            btn.classList.replace('border-white/10', 'border-indigo-500');
+            MISSION.style = btn.dataset.val;
+            ui.querySelectorAll('.btn-dash-style').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
+            ui.querySelectorAll('.btn-dash-style').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
+            btn.classList.remove('border-white/10', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
             updateDashDisplay();
         };
     });
 
-    // --- 最終動作：呼叫原有的生成邏輯 ---
+    ui.querySelectorAll('.btn-dash-color').forEach(btn => {
+        btn.onclick = () => {
+            MISSION.colorMode = btn.dataset.val;
+            ui.querySelectorAll('.btn-dash-color').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
+            ui.querySelectorAll('.btn-dash-color').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
+            btn.classList.remove('border-white/10', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+            updateDashDisplay();
+        };
+    });
+
+    // 格數與比例同步
+    if (!isEnhance && isComic) {
+        ui.querySelectorAll('.btn-dash-panel').forEach(btn => {
+            btn.onclick = () => {
+                MISSION.panelCount = parseInt(btn.dataset.val);
+                ui.querySelectorAll('.btn-dash-panel').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
+                ui.querySelectorAll('.btn-dash-panel').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
+                btn.classList.remove('border-white/10', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                updateDashDisplay();
+            };
+        });
+    }
+
+    ui.querySelectorAll('.btn-dash-ratio').forEach(btn => {
+        btn.onclick = () => {
+            MISSION.ratio = btn.dataset.val;
+            ui.querySelectorAll('.btn-dash-ratio').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
+            ui.querySelectorAll('.btn-dash-ratio').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
+            btn.classList.remove('border-white/10', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+            updateDashDisplay();
+        };
+    });
+
+
+    // --- 最終動作：呼叫全局函數產出劇本 ---
     ui.querySelector('#btnRender').onclick = async () => {
         await window.FunnelActions.generateDraft();
     };
 
-    // 🚀 關鍵：註冊全域 UI 刷新函數，讓 Agent 呼叫 Tool 時，這張卡片會動！
+    // 🚀 全域 UI 刷新函數 (Agent 呼叫用)
     window.refreshMissionDashboard = () => {
         updateDashDisplay();
-        // 如果手風琴沒開，提示 Agent 改了哪裡
-        ui.querySelector('#agentDashboardAdvice').innerHTML = `「已根據您的對話更新參數。${MISSION.persona} 正待命執行。」`;
-        // 重新同步卡片上的按鈕樣式
-        ui.querySelectorAll('.btn-dash-persona, .btn-dash-panel').forEach(btn => {
+        ui.querySelector('#agentDashboardAdvice').innerHTML = `「已根據指示更新參數。總編確認沒問題後，即可發包。」`;
+        
+        // 刷新所有按鈕的 active 狀態
+        ui.querySelectorAll('button[data-val]').forEach(btn => {
             const val = btn.dataset.val;
-            if (val == MISSION.persona || val == MISSION.panelCount) {
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20');
+            let isActive = false;
+            
+            // 處理多選平台
+            if (btn.classList.contains('btn-dash-plat')) {
+                isActive = MISSION.platforms.includes(val);
+                if (isActive) {
+                    btn.classList.add('border-blue-500', 'bg-blue-500/20', 'text-white');
+                    btn.classList.remove('border-white/10', 'text-slate-400');
+                } else {
+                    btn.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-white');
+                    btn.classList.add('border-white/10', 'text-slate-400');
+                }
+                return; 
+            }
+
+            // 處理單選項目
+            if (btn.classList.contains('btn-dash-persona')) isActive = (val === MISSION.persona);
+            else if (btn.classList.contains('btn-dash-uni')) isActive = (val === MISSION.universe);
+            else if (btn.classList.contains('btn-dash-style')) isActive = (val === MISSION.style);
+            else if (btn.classList.contains('btn-dash-color')) isActive = (val === MISSION.colorMode);
+            else if (btn.classList.contains('btn-dash-panel')) isActive = (parseInt(val) === MISSION.panelCount);
+            else if (btn.classList.contains('btn-dash-ratio')) isActive = (val === MISSION.ratio);
+
+            if (isActive) {
+                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
                 btn.classList.remove('border-white/10', 'text-slate-400');
             } else {
-                btn.classList.remove('border-indigo-500', 'bg-indigo-500/20');
-                btn.classList.add('border-white/10');
+                btn.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                btn.classList.add('border-white/10', 'text-slate-400');
             }
         });
     };
@@ -620,7 +779,11 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     if (isComic && activePanels) {
         const pCount = activePanels.length;
-        let wLimit = 9; if(pCount === 1) wLimit = 20; else if (pCount === 2) wLimit = 15; else if (pCount === 3) wLimit = 12;
+        // ⚖️ 【字數鐵律系統】：根據格數動態調整防呆上限
+        let wLimit = 9; // Yonkoma (4格) 為預設的 短平快 9 字鐵律
+        if(pCount === 1) wLimit = 20; // Single Panel (1格)
+        else if (pCount === 2) wLimit = 15; // 2-Panel
+        else if (pCount === 3) wLimit = 12; // Yonkoma - 1 (3格)
 
         activePanels.forEach((p, idx) => {
             panelsHtml += `
@@ -646,12 +809,14 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         </div>
     `);
 
+    // 活化字數檢測系統
     ui.querySelectorAll('.panel-dialogue').forEach(input => {
         const container = input.closest('.panel-container'); const counter = container.querySelector('.char-counter'); const limit = parseInt(counter.dataset.limit);
         const updateCounter = () => { const len = input.value.length; counter.innerText = `${len} / ${limit} 字`; if (len > limit) { counter.classList.remove('text-slate-500'); counter.classList.add('text-red-500'); input.classList.add('border-red-500', 'text-red-400'); } else { counter.classList.remove('text-red-500'); counter.classList.add('text-slate-500'); input.classList.remove('border-red-500', 'text-red-400'); } };
         input.addEventListener('input', updateCounter); updateCounter();
     });
 
+    // 🚀 發包影像合成
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         const editedCaption = ui.querySelector('#editCaption').value; 
         const editedPanels = []; 
@@ -692,16 +857,19 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         </div>
     `);
 
+    // 🚀 按鈕 B: 重新算圖 (呼叫全局函數，不改字，直接重新發包)
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         await window.FunnelActions.generateImages(taskId, MISSION.currentCaption, MISSION.currentPanels);
     };
 
+    // 🚀 按鈕 C: 退回總編室 (作廢目前卡片，叫出 DraftEditorCard)
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
         await addLog("系統", "🔙", "已退回草稿編輯模式。", true);
         await renderDraftEditorCard(taskId, MISSION.currentDraft, MISSION.universe === 'COMIC');
     };
 
+    // 🚀 按鈕 A: 發佈
     ui.querySelector('#btnDeploy').onclick = async () => {
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
