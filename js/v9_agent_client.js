@@ -24,13 +24,13 @@ export const AGENT_TOOLS_SCHEMA = [
     },
     {
         name: "execute_funnel_action",
-        description: "當使用者明確指示要『執行』、『發包』、『產出』或『進行下一步』時，呼叫此工具來觸發系統按鈕。",
+        description: "當使用者明確指示要『執行』、『發包』、『產出』或『進行下一步』時，呼叫此工具來觸發系統流程。",
         parameters: {
             type: "OBJECT",
             properties: {
                 action: { 
                     type: "STRING", 
-                    description: "要執行的動作代碼。'GENERATE_DRAFT': 產出劇本/草稿; 'GENERATE_IMAGES': 確認草稿並發包生圖; 'PUBLISH': 立即發佈至社群" 
+                    description: "要執行的動作代碼。'GENERATE_DRAFT': 產出全新劇本/草稿; 'GENERATE_IMAGES': 確認草稿並發包生圖; 'PUBLISH': 立即發佈至社群" 
                 }
             },
             required: ["action"]
@@ -83,14 +83,9 @@ export class AgentClient {
     // 2. 🚀 自然語言對話通道 (支援記憶體與 Function Calling)
     static async sendChatMessage(userMessage) {
         try {
-            // 將總編說的話寫入短期記憶
             this.chatMemory.push(`總編: ${userMessage}`);
-            // 為了不浪費太多 Token，我們只保留最近 6 句的對話紀錄
-            if (this.chatMemory.length > 6) {
-                this.chatMemory.shift();
-            }
+            if (this.chatMemory.length > 6) this.chatMemory.shift();
 
-            // 🌟 將記憶與指令打包，讓大腦擁有上下文！
             const contextMessage = `【前情提要(近期對話紀錄)】\n${this.chatMemory.join('\n')}\n\n【總編最新指令】\n${userMessage}\n\n(請根據前情提要判斷總編的意圖，若需執行介面修改，請精準調用工具)`;
 
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
@@ -99,7 +94,7 @@ export class AgentClient {
                 body: JSON.stringify({
                     tenantId: STATE.uid,
                     command: 'CHAT_MESSAGE',
-                    message: contextMessage, // 傳送帶有記憶的上下文
+                    message: contextMessage, 
                     taskId: MISSION.currentTaskId,
                     tools: AGENT_TOOLS_SCHEMA,
                     currentMissionState: MISSION
@@ -115,7 +110,6 @@ export class AgentClient {
                 applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力)`);
             }
 
-            // 將大腦的回覆也寫入記憶，這樣它才知道自己剛說了什麼
             const agentReplyText = data.agentState?.reply || '[執行了系統自動化操作]';
             this.chatMemory.push(`Agent: ${agentReplyText}`);
 
@@ -157,23 +151,41 @@ export class AgentClient {
                     if (labelTopic) labelTopic.innerText = topicStrategyDisplay;
                 }
 
+            // 🚀 [重點修改區]：改為呼叫全域函數，不再依賴畫面上的按鈕！
             } else if (call.name === 'execute_funnel_action') {
                 const action = call.args.action;
+                
                 if (action === 'GENERATE_DRAFT') {
-                    const btn = document.getElementById('btnRender');
-                    if (btn) {
-                        await addLog("系統", "🤖", "已接收指令，正在自動為您點擊【產出劇本】按鈕...", true);
-                        btn.click();
+                    if (window.FunnelActions && window.FunnelActions.generateDraft) {
+                        await window.FunnelActions.generateDraft();
                     } else {
-                        showError("目前畫面無法執行產出劇本，請確認流程是否正確。");
+                        showError("目前尚未進入參數確認階段，無法產出草稿。");
                     }
                 } else if (action === 'GENERATE_IMAGES') {
-                    const btn = document.getElementById('btnFinalGenerate');
-                    if (btn) {
-                        await addLog("系統", "🤖", "已接收指令，正在自動為您發包【影像合成】...", true);
-                        btn.click();
+                    if (window.FunnelActions && window.FunnelActions.generateImages) {
+                        // 抓取畫面上目前的文字，發包給全局函數
+                        const captionEl = document.getElementById('editCaption');
+                        const editedCaption = captionEl ? captionEl.value : (MISSION.currentCaption || "");
+                        const panelInputs = document.querySelectorAll('.panel-dialogue');
+                        const editedPanels = [];
+                        
+                        if (panelInputs.length > 0) {
+                            panelInputs.forEach((input, idx) => { 
+                                editedPanels.push({ 
+                                    panel_number: MISSION.currentDraft.panels[idx].panel_number, 
+                                    dialogue: input.value, 
+                                    action_zh: MISSION.currentDraft.panels[idx].action_zh, 
+                                    action_en: MISSION.currentDraft.panels[idx].action_en 
+                                }); 
+                            });
+                        } else if (MISSION.currentPanels) {
+                            // 如果退回總編室，畫面上沒有輸入框，就吃上次存好的
+                            Object.assign(editedPanels, MISSION.currentPanels);
+                        }
+                        
+                        await window.FunnelActions.generateImages(MISSION.currentTaskId, editedCaption, editedPanels);
                     } else {
-                        showError("請先確認草稿內容後，才能發包生圖。");
+                        showError("目前沒有草稿可供發包。");
                     }
                 } else if (action === 'PUBLISH') {
                     const btn = document.getElementById('btnDeploy');
@@ -184,6 +196,7 @@ export class AgentClient {
                         showError("目前沒有可發佈的內容。");
                     }
                 }
+
             } else if (call.name === 'revise_draft_text') {
                 const { target, new_text } = call.args;
                 let updatedMsg = "";
