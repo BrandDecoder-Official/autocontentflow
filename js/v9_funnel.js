@@ -285,10 +285,12 @@ async function triggerMissionSummary() {
     bindRetry('#retryPersona', triggerPersonaSkill); bindRetry('#retryPlat', triggerPlatformSkill); bindRetry('#retryTopic', triggerTopicSkill); bindRetry('#retryUni', triggerUniverseSkill); bindRetry('#retryChar', triggerCharacterSkill); bindRetry('#retryVis', triggerVisualSkill); bindRetry('#retrySch', triggerScheduleSkill); 
 
     ui.querySelector('#btnRender').onclick = async () => {
+        // 🚀 一行代碼，優雅阻斷！
+        if (!validatePoints(totalPts, "產出劇本")) return;
+
         releaseUI(ui); 
         const spinId = 'spin_draft_' + Date.now();
         await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在產出劇本...</span></div>`, true);
-
         const referenceImages = []; MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
 
         const rawPayload = { 
