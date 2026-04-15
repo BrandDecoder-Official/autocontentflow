@@ -2,7 +2,7 @@
 import { CONFIG, STATE } from './config.js';
 import { MISSION, SYSTEM_DB } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
-import { applyPointDeduction } from './v9_finance.js'; // 🚀 引入 UI 扣點特效引擎
+import { applyPointDeduction } from './v9_finance.js';
 
 // ==========================================
 // 🛠️ Agent 專屬武器庫 (Tools Schema)
@@ -38,12 +38,12 @@ export const AGENT_TOOLS_SCHEMA = [
     },
     {
         name: "revise_draft_text",
-        description: "當使用者在『草稿校稿』階段，要求修改、重寫或調整『特定分鏡對白』或『社群內文』時呼叫此工具。你要自行發揮創意寫出新內容，並將新內容填入。",
+        description: "當使用者在『草稿校稿』階段，要求修改『特定分鏡對白』或『社群內文』時呼叫此工具。【🚨鐵律】：如果是修改分鏡對白 (panel_X)，為了塞進漫畫對話框，字數絕對不可超過 15 個中文字！請精簡有力地輸出新內容。",
         parameters: {
             type: "OBJECT",
             properties: {
                 target: { type: "STRING", description: "要修改的目標。可選值：'caption' (社群內文), 'panel_1' (第一格對白), 'panel_2' (第二格對白), 以此類推。" },
-                new_text: { type: "STRING", description: "你重新撰寫的全新文字內容。" }
+                new_text: { type: "STRING", description: "你重新撰寫的全新文字內容 (分鏡對白請控制在15字內)。" }
             },
             required: ["target", "new_text"]
         }
@@ -55,7 +55,10 @@ export const AGENT_TOOLS_SCHEMA = [
 // ==========================================
 export class AgentClient {
     
-    // 1. 漏斗流程專用的指令通道 (維持 V9 原有架構)
+    // 🧠 幫 Agent 植入「短期記憶體 (海馬迴)」
+    static chatMemory = [];
+
+    // 1. 漏斗流程專用的指令通道
     static async sendCommand(commandType, payload, taskId = null) {
         try {
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
@@ -77,16 +80,26 @@ export class AgentClient {
         }
     }
 
-    // 2. 🚀 自然語言對話通道 (支援 Function Calling 與實時扣點)
+    // 2. 🚀 自然語言對話通道 (支援記憶體與 Function Calling)
     static async sendChatMessage(userMessage) {
         try {
+            // 將總編說的話寫入短期記憶
+            this.chatMemory.push(`總編: ${userMessage}`);
+            // 為了不浪費太多 Token，我們只保留最近 6 句的對話紀錄
+            if (this.chatMemory.length > 6) {
+                this.chatMemory.shift();
+            }
+
+            // 🌟 將記憶與指令打包，讓大腦擁有上下文！
+            const contextMessage = `【前情提要(近期對話紀錄)】\n${this.chatMemory.join('\n')}\n\n【總編最新指令】\n${userMessage}\n\n(請根據前情提要判斷總編的意圖，若需執行介面修改，請精準調用工具)`;
+
             const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
                 body: JSON.stringify({
                     tenantId: STATE.uid,
                     command: 'CHAT_MESSAGE',
-                    message: userMessage,
+                    message: contextMessage, // 傳送帶有記憶的上下文
                     taskId: MISSION.currentTaskId,
                     tools: AGENT_TOOLS_SCHEMA,
                     currentMissionState: MISSION
@@ -96,13 +109,17 @@ export class AgentClient {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
 
-            // 💸 【實時扣點視覺特效】
+            // 💸 實時扣點視覺特效
             if (data.tokensUsed && data.tokensUsed > 0) {
                 const deductedPoints = Math.ceil(data.tokensUsed / 100);
                 applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} Tokens)`);
             }
 
-            // 🤖 判斷大腦是否決定調用工具 (Function Call)
+            // 將大腦的回覆也寫入記憶，這樣它才知道自己剛說了什麼
+            const agentReplyText = data.agentState?.reply || '[執行了系統自動化操作]';
+            this.chatMemory.push(`Agent: ${agentReplyText}`);
+
+            // 🤖 判斷大腦是否決定調用工具
             if (data.agentState && data.agentState.functionCalls && data.agentState.functionCalls.length > 0) {
                 await this.executeToolCalls(data.agentState.functionCalls);
                 return { type: 'action', message: data.agentState.reply || '已為您執行介面自動化操作！' };
@@ -116,7 +133,7 @@ export class AgentClient {
         }
     }
 
-    // 3. ⚙️ 前端自動化引擎：執行大腦傳回的工具指令
+    // 3. ⚙️ 前端自動化引擎
     static async executeToolCalls(functionCalls) {
         for (const call of functionCalls) {
             console.log("⚡ 觸發 Agent 武器庫:", call.name, call.args);
@@ -168,7 +185,6 @@ export class AgentClient {
                     }
                 }
             } else if (call.name === 'revise_draft_text') {
-                // 🚀 新增：局部修改草稿內容
                 const { target, new_text } = call.args;
                 let updatedMsg = "";
                 
@@ -184,9 +200,8 @@ export class AgentClient {
                     
                     if (panelInputs && panelInputs[panelIndex]) {
                         panelInputs[panelIndex].value = new_text;
-                        // 觸發 input 事件，讓右邊的「字數統計」跟著更新並檢查是否超字
                         panelInputs[panelIndex].dispatchEvent(new Event('input'));
-                        updatedMsg = `✅ Agent 已為您重寫【第 ${panelIndex + 1} 格】的對白！`;
+                        updatedMsg = `✅ Agent 已為您將【第 ${panelIndex + 1} 格】重新撰寫為：\n"${new_text}"`;
                     }
                 }
                 
