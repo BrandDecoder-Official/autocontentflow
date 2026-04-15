@@ -14,8 +14,7 @@ export function initAgentChatBar(callbacks) {
     
     chatBar.innerHTML = `
         <div class="max-w-4xl w-full flex items-end gap-2">
-            <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="與 Agent 對話 (Shift+Enter 換行)..."></textarea>
-            <button id="btnSendChat" class="flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all h-[46px]">
+                <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="請透過對話讓 Agent 協助您修改 (例如：幫我把主題換成啦啦隊，Shift+Enter 換行)..."></textarea>            <button id="btnSendChat" class="flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all h-[46px]">
                 <span class="hidden sm:inline">送出指令</span>
                 <span class="sm:hidden text-xl">🚀</span>
             </button>
