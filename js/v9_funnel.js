@@ -5,365 +5,110 @@ import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from '.
 import { applyPointDeduction, validatePoints } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI, publishTaskAPI } from './api.js'; 
 
-// ==========================================
-// 🚀 漏斗進入點
-// ==========================================
-export async function startNewFunnel() {
-    await triggerPersonaSkill();
+// 🛡️ [新增] 安全防禦：HTML entity 解碼函數，消除奇怪字元 (&quot;)
+function decodeHTMLEntities(text) {
+    if(!text) return '';
+    const textArea = document.createElement('textarea');
+    textArea.innerHTML = text;
+    return textArea.value;
 }
 
-// ==========================================
-// 🧠 漏斗步驟 (Skills) - 負責收集參數
-// ==========================================
-async function triggerPersonaSkill() {
-    updateStepHeader("PERSONA SELECTION"); 
-    await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
-    
+export async function startNewFunnel() { await triggerPersonaSkill(); }
+
+async function triggerPersonaSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("PERSONA SELECTION"); await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
     let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
-    SYSTEM_DB.personas.forEach(p => { 
-        html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400">${p.desc}</span></button>`; 
-    }); 
+    SYSTEM_DB.personas.forEach(p => { html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400">${p.desc}</span></button>`; }); 
     html += `</div>`;
-    
     const ui = createSkillUI(html); 
-    ui.querySelectorAll('.persona-btn').forEach(btn => { 
-        btn.onclick = async () => { 
-            MISSION.persona = btn.dataset.val; 
-            releaseUI(ui); 
-            await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); 
-            if (IS_EDIT_MODE.value && isMissionComplete()) { 
-                await triggerMissionSummary(); 
-            } else { 
-                await triggerPlatformSkill(); 
-            } 
-        }; 
-    });
+    ui.querySelectorAll('.persona-btn').forEach(btn => { btn.onclick = async () => { MISSION.persona = btn.dataset.val; releaseUI(ui); await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerPlatformSkill(); } }; });
 }
 
-async function triggerPlatformSkill() {
-    updateStepHeader("PLATFORM SELECTION"); 
-    await addLog("社群總監", "🚀", "請決定投遞平台：", true);
-    
-    const plats = [
-        { id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white' }, 
-        { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white' }, 
-        { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white' }
-    ];
-    
-    let btnsHtml = ''; 
-    let tempPlats = [...MISSION.platforms];
-    
-    plats.forEach(p => { 
-        const isSelected = tempPlats.includes(p.id); 
-        const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400"; 
-        btnsHtml += `<button class="plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}" data-name="${p.name}">${isSelected ? p.name + ' ✓' : p.name}</button>`; 
-    });
-    
+async function triggerPlatformSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定投遞平台：", true);
+    const plats = [{ id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white' }, { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white' }, { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white' }];
+    let btnsHtml = ''; let tempPlats = [...MISSION.platforms];
+    plats.forEach(p => { const isSelected = tempPlats.includes(p.id); const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400"; btnsHtml += `<button class="plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}" data-name="${p.name}">${isSelected ? p.name + ' ✓' : p.name}</button>`; });
     const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 sm:flex sm:gap-3">${btnsHtml}<button id="btnConfirmPlat" class="bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg ml-auto active:scale-95 transition-all">確認鎖定</button></div>`);
-    
-    ui.querySelectorAll('.plat-btn').forEach(btn => { 
-        btn.onclick = () => { 
-            const val = btn.dataset.val; 
-            const activeClasses = btn.dataset.active.split(' '); 
-            if (tempPlats.includes(val)) { 
-                tempPlats = tempPlats.filter(p => p !== val); 
-                btn.classList.remove(...activeClasses); 
-                btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); 
-                btn.innerText = btn.dataset.name; 
-            } else { 
-                tempPlats.push(val); 
-                btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); 
-                btn.classList.add(...activeClasses); 
-                btn.innerText = `${btn.dataset.name} ✓`; 
-            } 
-        }; 
-    });
-    
-    ui.querySelector('#btnConfirmPlat').onclick = async () => { 
-        if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
-        MISSION.platforms = tempPlats; 
-        releaseUI(ui); 
-        await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerTopicSkill(); } 
-    };
+    ui.querySelectorAll('.plat-btn').forEach(btn => { btn.onclick = () => { const val = btn.dataset.val; const activeClasses = btn.dataset.active.split(' '); if (tempPlats.includes(val)) { tempPlats = tempPlats.filter(p => p !== val); btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.innerText = btn.dataset.name; } else { tempPlats.push(val); btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses); btn.innerText = `${btn.dataset.name} ✓`; } }; });
+    ui.querySelector('#btnConfirmPlat').onclick = async () => { if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); MISSION.platforms = tempPlats; releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerTopicSkill(); } };
 }
 
-async function triggerTopicSkill() {
-    updateStepHeader("TOPIC CAPTURE"); 
-    await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
-    
-    const strategyPanelHTML = `
-        <div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in">
-            <h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎯</span> 單次發文戰術配置</h4>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子 (Hook)</label>
-                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
-                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option>
-                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option>
-                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option>
-                        <option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label>
-                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
-                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads)</option>
-                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/LinkedIn)</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-    `;
-
-    const ui = createSkillUI(`
-        <div class="flex flex-col gap-3">
-            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${MISSION.topic}</textarea>
-            ${strategyPanelHTML}
-            <div class="flex justify-end mt-2">
-                <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button>
-            </div>
-        </div>
-    `);
-    
-    const inputEl = ui.querySelector('#inlineTopicInput'); 
-    setTimeout(() => { inputEl.focus(); }, 100);
-    
-    ui.querySelector('#btnConfirmTopic').onclick = async () => { 
-        const val = inputEl.value.trim(); 
-        if(!val) return showError('主題不能為空！'); 
-        MISSION.topic = val; 
-        MISSION.hookType = ui.querySelector('#selHookType').value; 
-        MISSION.contentLength = ui.querySelector('#selLength').value; 
-        inputEl.disabled = true; 
-        inputEl.classList.add('opacity-50', 'bg-slate-800'); 
-        ui.querySelector('#btnConfirmTopic').classList.add('hidden'); 
-        releaseUI(ui); 
-        await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } 
-    };
+async function triggerTopicSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
+    const strategyPanelHTML = `<div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in"><h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎯</span> 單次發文戰術配置</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子 (Hook)</label><select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option><option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option><option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option><option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊</option></select></div><div><label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label><select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (IG/Threads)</option><option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (FB/Blog)</option></select></div></div></div>`;
+    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${MISSION.topic}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button></div></div>`);
+    const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
+    ui.querySelector('#btnConfirmTopic').onclick = async () => { const val = inputEl.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; MISSION.hookType = ui.querySelector('#selHookType').value; MISSION.contentLength = ui.querySelector('#selLength').value; inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
 }
 
-async function triggerUniverseSkill() {
-    updateStepHeader("UNIVERSE SELECTION"); 
-    await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
-    
-    const ui = createSkillUI(`
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
-            <button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button>
-            <button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-yellow-500 hover:bg-yellow-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'ENHANCE' ? 'border-yellow-500 bg-yellow-600/20' : 'bg-slate-800'}" data-val="ENHANCE"><span class="text-3xl">✨</span><span class="font-black text-xs text-white">無損美化</span></button>
-        </div>
-    `);
-    
-    ui.querySelectorAll('.uni-btn').forEach(btn => { 
-        btn.onclick = async () => { 
-            const oldUni = MISSION.universe; 
-            MISSION.universe = btn.dataset.val; 
-            if (oldUni !== MISSION.universe) { 
-                MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = []; MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; 
-            } 
-            releaseUI(ui); 
-            await addLog("美術總監", "✅", `宇宙鎖定：${MISSION.universe}。`); 
-            await triggerStyleSkill(); 
-        }; 
-    });
+async function triggerUniverseSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
+    const ui = createSkillUI(`<div class="grid grid-cols-1 sm:grid-cols-3 gap-3"><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button><button class="uni-btn p-4 rounded-2xl border border-white/10 hover:border-yellow-500 hover:bg-yellow-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'ENHANCE' ? 'border-yellow-500 bg-yellow-600/20' : 'bg-slate-800'}" data-val="ENHANCE"><span class="text-3xl">✨</span><span class="font-black text-xs text-white">無損美化</span></button></div>`);
+    ui.querySelectorAll('.uni-btn').forEach(btn => { btn.onclick = async () => { const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val; if (oldUni !== MISSION.universe) { MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = []; MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; } releaseUI(ui); await addLog("美術總監", "✅", `宇宙鎖定：${MISSION.universe}。`); await triggerStyleSkill(); }; });
 }
 
-async function triggerStyleSkill() {
-    updateStepHeader("STYLE SELECTION"); 
-    const availableStyles = SYSTEM_DB.styles.length > 0 ? SYSTEM_DB.styles : [{id: 'MANGA_BW', name: '預設風格'}];
-    
-    let html = `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">`; 
-    availableStyles.forEach(s => { 
-        html += `<button class="style-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.name}"><span class="text-xl">${s.icon || '🎨'}</span><span class="font-bold text-xs text-white">${s.name}</span></button>`; 
-    }); 
-    html += `</div>`;
-    
-    const ui = createSkillUI(html); 
-    ui.querySelectorAll('.style-btn').forEach(btn => { 
-        btn.onclick = async () => { 
-            MISSION.style = btn.dataset.val; 
-            releaseUI(ui); 
-            await addLog("美術總監", "✅", `風格鎖定：${MISSION.style}。`); 
-            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerColorSkill(); }
-        };
-    });
+async function triggerStyleSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("STYLE SELECTION"); const availableStyles = SYSTEM_DB.styles.length > 0 ? SYSTEM_DB.styles : [{id: 'MANGA_BW', name: '預設風格'}];
+    let html = `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">`; availableStyles.forEach(s => { html += `<button class="style-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.name}"><span class="text-xl">${s.icon || '🎨'}</span><span class="font-bold text-xs text-white">${s.name}</span></button>`; }); html += `</div>`;
+    const ui = createSkillUI(html); ui.querySelectorAll('.style-btn').forEach(btn => { btn.onclick = async () => { MISSION.style = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `風格鎖定：${MISSION.style}。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerColorSkill(); } }; });
 }
 
-async function triggerColorSkill() {
-    updateStepHeader("COLOR MODE"); 
-    await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
-    
-    const ui = createSkillUI(`
-        <div class="grid grid-cols-2 gap-3 mb-4">
-            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400">懷舊網點質感</span></button>
-            <button class="color-btn p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-3xl mb-1">🌈</span><span class="font-bold text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400">飽滿現代動漫感</span></button>
-        </div>
-    `);
-    
-    ui.querySelectorAll('.color-btn').forEach(btn => { 
-        btn.onclick = async () => { 
-            MISSION.colorMode = btn.dataset.val; 
-            releaseUI(ui); 
-            await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); 
-            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else if (MISSION.universe === 'ENHANCE') { await triggerVisualSkill(); } else { await triggerCharacterSkill(); } 
-        }; 
-    });
+async function triggerColorSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("COLOR MODE"); await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
+    const ui = createSkillUI(`<div class="grid grid-cols-2 gap-3 mb-4"><button class="color-btn p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-3xl mb-1">🏁</span><span class="font-bold text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400">懷舊網點質感</span></button><button class="color-btn p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-3xl mb-1">🌈</span><span class="font-bold text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400">飽滿現代動漫感</span></button></div>`);
+    ui.querySelectorAll('.color-btn').forEach(btn => { btn.onclick = async () => { MISSION.colorMode = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else if (MISSION.universe === 'ENHANCE') { await triggerVisualSkill(); } else { await triggerCharacterSkill(); } }; });
 }
 
-async function triggerCharacterSkill() {
-    updateStepHeader("CHARACTER SUMMON"); 
-    await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
-    
+async function triggerCharacterSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     const available = SYSTEM_DB.characters.filter(c => c.type === MISSION.universe);
-    if(available.length === 0) { 
-        const ui = createSkillUI(`<div class="text-center p-4"><p class="text-slate-400 text-xs mb-4">您的基因庫目前沒有角色，將採用純場景模式。</p><button id="btnSkipChar" class="w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-bold active:scale-95 shadow-lg">⏭️ 確認並繼續</button></div>`); 
-        ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; 
-        return; 
-    }
-    
-    let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">`; 
-    let tempSelected = [...MISSION.characters];
-    
-    available.forEach(char => { 
-        const isSelected = tempSelected.includes(char.name); 
-        html += `<div class="char-select-card flex flex-col items-center gap-2 cursor-pointer transition-all p-3 rounded-xl bg-slate-800 relative ${isSelected ? 'border-2 border-blue-500 bg-blue-900/30' : 'border border-white/10 hover:border-slate-500'}" data-name="${char.name}"><div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-700 pointer-events-none"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-xs font-bold text-slate-200 pointer-events-none">${char.name}</span>${isSelected ? '<div class="absolute top-2 right-2 text-blue-400 font-black">✓</div>' : ''}</div>`; 
-    });
+    if(available.length === 0) { const ui = createSkillUI(`<div class="text-center p-4"><p class="text-slate-400 text-xs mb-4">您的基因庫目前沒有角色，將採用純場景模式。</p><button id="btnSkipChar" class="w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-bold active:scale-95 shadow-lg">⏭️ 確認並繼續</button></div>`); ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; return; }
+    let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">`; let tempSelected = [...MISSION.characters];
+    available.forEach(char => { const isSelected = tempSelected.includes(char.name); html += `<div class="char-select-card flex flex-col items-center gap-2 cursor-pointer transition-all p-3 rounded-xl bg-slate-800 relative ${isSelected ? 'border-2 border-blue-500 bg-blue-900/30' : 'border border-white/10 hover:border-slate-500'}" data-name="${char.name}"><div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-700 pointer-events-none"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><span class="text-xs font-bold text-slate-200 pointer-events-none">${char.name}</span>${isSelected ? '<div class="absolute top-2 right-2 text-blue-400 font-black">✓</div>' : ''}</div>`; });
     html += `</div><div class="flex gap-2"><button id="btnSkipChar" class="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all border border-white/10 hover:bg-slate-700">⏭️ 不召喚</button><button id="btnConfirmChar" class="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認召喚</button></div>`;
-    
     const ui = createSkillUI(html);
-    ui.querySelectorAll('.char-select-card').forEach(card => { 
-        card.onclick = () => { 
-            const name = card.dataset.name; 
-            if (tempSelected.includes(name)) { 
-                tempSelected = tempSelected.filter(n => n !== name); 
-                card.classList.remove('border-2', 'border-blue-500', 'bg-blue-900/30'); card.classList.add('border', 'border-white/10'); 
-                const check = card.querySelector('.absolute'); if(check) check.remove(); 
-            } else { 
-                if (tempSelected.length >= 4) return showError('最多 4 位。'); 
-                tempSelected.push(name); 
-                card.classList.remove('border', 'border-white/10'); card.classList.add('border-2', 'border-blue-500', 'bg-blue-900/30'); 
-                card.innerHTML += '<div class="absolute top-2 right-2 text-blue-400 font-black">✓</div>'; 
-            } 
-        }; 
-    });
-    
+    ui.querySelectorAll('.char-select-card').forEach(card => { card.onclick = () => { const name = card.dataset.name; if (tempSelected.includes(name)) { tempSelected = tempSelected.filter(n => n !== name); card.classList.remove('border-2', 'border-blue-500', 'bg-blue-900/30'); card.classList.add('border', 'border-white/10'); const check = card.querySelector('.absolute'); if(check) check.remove(); } else { if (tempSelected.length >= 4) return showError('最多 4 位。'); tempSelected.push(name); card.classList.remove('border', 'border-white/10'); card.classList.add('border-2', 'border-blue-500', 'bg-blue-900/30'); card.innerHTML += '<div class="absolute top-2 right-2 text-blue-400 font-black">✓</div>'; } }; });
     ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
     ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
 }
 
-async function triggerVisualSkill() {
-    updateStepHeader("VISUAL CONFIG"); 
-    const isEnhance = MISSION.universe === 'ENHANCE'; 
-    const isComic = MISSION.universe === 'COMIC';
+async function triggerVisualSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE'; const isComic = MISSION.universe === 'COMIC';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認畫面參數：", true);
-    
-    let currentRatio = MISSION.ratio; 
-    let currentRes = MISSION.resolution; 
-    let currentPanelCount = MISSION.panelCount || 4;
-    
-    const panelHtml = isComic ? `
-        <div class="space-y-3 pt-4 border-t border-white/10">
-            <label class="text-[10px] text-slate-500 font-black">🖼️ 漫畫格數</label>
-            <div class="grid grid-cols-4 gap-2">
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1">1格</button>
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2">2格</button>
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="3">3格</button>
-                <button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4">4格</button>
-            </div>
-        </div>` : '';
-        
-    const ui = createSkillUI(`
-        <div class="space-y-4 lg:space-y-6 flex flex-col relative mb-4">
-            <div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30">
-                <div class="grid grid-cols-2 gap-3">
-                    <button ${isEnhance ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
-                    <button id="btnEditRes" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button>
-                </div>
-            </div>
-            <div id="customPanel" class="hidden space-y-4 bg-slate-900/80 p-5 rounded-2xl border border-white/10 animate-fade-in">
-                ${isEnhance ? '' : `<div class="space-y-3"><label class="text-[10px] text-slate-500 font-black">📐 比例</label><div class="grid grid-cols-3 gap-2"><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="9:16">9:16</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="16:9">16:9</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1:1">1:1</button></div></div>`}
-                <div class="space-y-3 pt-4 border-t border-white/10">
-                    <label class="text-[10px] text-slate-500 font-black">✨ 解析度</label>
-                    <div class="grid grid-cols-3 gap-2"><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1K">1K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2K">2K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4K">4K</button></div>
-                </div>
-                ${panelHtml}
-            </div>
-            <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:border-slate-500 active:scale-95 transition-all"><span class="text-lg">📸</span> 點此上傳場景圖 (選填)</button>
-            <div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div>
-            <button id="btnAcceptVisual" class="w-full bg-blue-600 py-4 lg:py-5 rounded-xl font-black text-sm shadow-lg mt-auto active:scale-[0.98]">✅ 鎖定參數</button>
-        </div>
-    `);
-
+    let currentRatio = MISSION.ratio; let currentRes = MISSION.resolution; let currentPanelCount = MISSION.panelCount || 4;
+    const panelHtml = isComic ? `<div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">🖼️ 漫畫格數</label><div class="grid grid-cols-4 gap-2"><button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1">1格</button><button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2">2格</button><button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="3">3格</button><button class="panel-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4">4格</button></div></div>` : '';
+    const ui = createSkillUI(`<div class="space-y-4 lg:space-y-6 flex flex-col relative mb-4"><div class="bg-blue-600/10 p-4 lg:p-5 rounded-2xl border border-blue-500/30"><div class="grid grid-cols-2 gap-3"><button ${isEnhance ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : ''}"><span class="text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-lg font-black text-white tag-ratio">${currentRatio}</span></button><button id="btnEditRes" class="flex flex-col items-center justify-center bg-slate-800 p-3 rounded-xl border border-white/10 active:scale-95"><span class="text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-lg font-black text-white tag-res">${currentRes}</span></button></div></div><div id="customPanel" class="hidden space-y-4 bg-slate-900/80 p-5 rounded-2xl border border-white/10 animate-fade-in">${isEnhance ? '' : `<div class="space-y-3"><label class="text-[10px] text-slate-500 font-black">📐 比例</label><div class="grid grid-cols-3 gap-2"><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="9:16">9:16</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="16:9">16:9</button><button class="ratio-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1:1">1:1</button></div></div>`}<div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">✨ 解析度</label><div class="grid grid-cols-3 gap-2"><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1K">1K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2K">2K</button><button class="res-btn py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4K">4K</button></div></div>${panelHtml}</div><button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 hover:border-slate-500 active:scale-95 transition-all"><span class="text-lg">📸</span> 點此上傳場景圖 (選填)</button><div id="dynamicAssetsArea" class="space-y-3 empty:hidden w-full"></div><button id="btnAcceptVisual" class="w-full bg-blue-600 py-4 lg:py-5 rounded-xl font-black text-sm shadow-lg mt-auto active:scale-[0.98]">✅ 鎖定參數</button></div>`);
     const openPanel = () => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
     if(ui.querySelector('#btnEditRatio')) ui.querySelector('#btnEditRatio').onclick = openPanel;
     if(ui.querySelector('#btnEditRes')) ui.querySelector('#btnEditRes').onclick = openPanel;
-    
-    if (!isEnhance) { 
-        ui.querySelectorAll('.ratio-btn').forEach(btn => { 
-            if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); 
-            btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; 
-        }); 
-    }
-    
-    ui.querySelectorAll('.res-btn').forEach(btn => { 
-        if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); 
-        btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; 
-    });
-    
-    if (isComic) { 
-        ui.querySelectorAll('.panel-btn').forEach(btn => { 
-            if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); 
-            btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; 
-        }); 
-    }
-    
+    if (!isEnhance) { ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; }); }
+    ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
+    if (isComic) { ui.querySelectorAll('.panel-btn').forEach(btn => { if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; }); }
     ui.querySelector('#btnUploadScene').onclick = () => { let i = document.createElement('input'); i.type='file'; i.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; i.click(); };
     ui.querySelector('#btnAcceptVisual').onclick = async () => { MISSION.ratio = currentRatio; MISSION.resolution = currentRes; MISSION.panelCount = currentPanelCount; if (!isMissionComplete()) return showError('請完成設定！'); releaseUI(ui); await addLog("美術總監", "✅", `畫面參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。`); await triggerScheduleSkill(); };
 }
 
-async function handleAssetUpload(file, container) {
+async function handleAssetUpload(file, container) { /* ... 保持原樣 ... */ 
     if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove(); 
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-fade-in'; 
     const dataUrl = await compressImage(file, 800); MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化並載入圖資。`); 
 }
 
-async function triggerScheduleSkill() {
-    updateStepHeader("PUBLISH SCHEDULE"); 
-    await addLog("社群總監", "📅", "最後一步，請指派部署時間（留空為立即發佈）：", true);
-    
-    const ui = createSkillUI(`
-        <div class="flex flex-col gap-3 mb-4">
-            <div class="grid grid-cols-2 gap-3 relative">
-                <input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="📅 選擇日期 (選填)">
-                <div class="relative w-full" id="timePickerWrapper">
-                    <input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="⏰ 選擇時間 (選填)">
-                </div>
-            </div>
-            <button id="btnConfirmSchedule" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認時間</button>
-        </div>
-    `);
-    
+async function triggerScheduleSkill() { /* ... 保持原樣 ... */ 
+    updateStepHeader("PUBLISH SCHEDULE"); await addLog("社群總監", "📅", "最後一步，請指派部署時間（留空為立即發佈）：", true);
+    const ui = createSkillUI(`<div class="flex flex-col gap-3 mb-4"><div class="grid grid-cols-2 gap-3 relative"><input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="📅 選擇日期 (選填)"><div class="relative w-full" id="timePickerWrapper"><input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-indigo-500" placeholder="⏰ 選擇時間 (選填)"></div></div><button id="btnConfirmSchedule" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認時間</button></div>`);
     const fpConfig = { dateFormat: "Y-m-d", minDate: "today", time_24hr: true, defaultDate: MISSION.scheduledAt ? new Date(MISSION.scheduledAt) : null };
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
     const timeWrapper = ui.querySelector('#timePickerWrapper');
     timeWrapper.innerHTML += `<button id="btnClearTime" class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded transition-colors z-10">清除</button>`;
-    
     ui.querySelector('#btnClearTime').onclick = (e) => { e.preventDefault(); ui.querySelector('#timePickerInput').value = ""; if(fp) fp.clear(); ui.querySelector('#datePicker').value = ""; };
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
         const dateStr = fp ? fp.input.value : ui.querySelector('#datePicker').value; const timeStr = ui.querySelector('#timePickerInput').value; if(fp) fp.destroy(); 
-        if (dateStr && timeStr) { 
-            const dtStr = `${dateStr}T${timeStr}:00+08:00`; const schDate = new Date(dtStr); 
-            if (schDate < new Date()) { showError("部署時間不能小於當前時間！"); await triggerScheduleSkill(); return; } 
-            MISSION.scheduledAt = schDate.toISOString(); releaseUI(ui); 
-            const displaySch = schDate.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); 
-            await addLog("社群總監", "✅", `部署時間已寫入排程：<b>${displaySch}</b>。`); 
-        } else { 
-            MISSION.scheduledAt = null; releaseUI(ui); await addLog("社群總監", "⚡", `已選擇<b>「立即部署」</b>模式。`); 
-        }
+        if (dateStr && timeStr) { const dtStr = `${dateStr}T${timeStr}:00+08:00`; const schDate = new Date(dtStr); if (schDate < new Date()) { showError("部署時間不能小於當前時間！"); await triggerScheduleSkill(); return; } MISSION.scheduledAt = schDate.toISOString(); releaseUI(ui); const displaySch = schDate.toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); await addLog("社群總監", "✅", `部署時間已寫入排程：<b>${displaySch}</b>。`); } 
+        else { MISSION.scheduledAt = null; releaseUI(ui); await addLog("社群總監", "⚡", `已選擇<b>「立即部署」</b>模式。`); }
         await triggerMissionSummary();
     };
 }
@@ -454,7 +199,7 @@ export async function triggerMissionSummary() {
     const isComic = MISSION.universe === 'COMIC';
     const isEnhance = MISSION.universe === 'ENHANCE';
 
-    // 生成登場角色頭像 HTML
+    // 🧬 生成登場角色頭像 HTML (補回！)
     let charsHtml = '';
     if(MISSION.characters.length > 0) {
         charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
@@ -471,7 +216,7 @@ export async function triggerMissionSummary() {
         charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
     }
 
-    // 生成風格按鈕 HTML
+    // 🎨 生成風格按鈕 HTML (補回！)
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
@@ -514,8 +259,8 @@ export async function triggerMissionSummary() {
                         <div class="space-y-1">
                             <label class="text-[10px] text-slate-500">文案節奏</label>
                             <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快 (IG/Threads)</option>
-                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文 (FB/Blog)</option>
+                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快</option>
+                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文</option>
                             </select>
                         </div>
                     </div>
@@ -575,7 +320,7 @@ export async function triggerMissionSummary() {
                         <div class="space-y-2 pt-3 border-t border-white/5">
                             <label class="text-[10px] text-slate-500">色系模式</label>
                             <div class="grid grid-cols-2 gap-2">
-                                ${[{v:'BW',i:'🏁',n:'經典黑白'},{v:'Color',i:'🌈',n:'現代全彩'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
+                                ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
                             </div>
                         </div>
                     </div>
@@ -668,7 +413,7 @@ export async function triggerMissionSummary() {
                 // 如果換宇宙，重置風格和角色
                 MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = [];
             }
-            releaseUI(ui); await triggerMissionSummary(); // 重跑 summary 以刷新風格選單和角色
+            releaseUI(ui); await triggerMissionSummary(); // 重跑 summary 刷新選項
         };
     });
 
