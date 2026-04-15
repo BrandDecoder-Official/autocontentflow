@@ -10,7 +10,7 @@ import { applyPointDeduction } from './v9_finance.js';
 export const AGENT_TOOLS_SCHEMA = [
     {
         name: "update_mission_params",
-        description: "當使用者想要修改貼文主題、發布平台、品牌人設、語氣、長度等參數時，呼叫此工具。可以一次修改多個參數。",
+        description: "當使用者想要修改貼文主題、發布平台、品牌人設、語氣、長度、格數等參數時，呼叫此工具。可以一次修改多個參數。",
         parameters: {
             type: "OBJECT",
             properties: {
@@ -18,7 +18,8 @@ export const AGENT_TOOLS_SCHEMA = [
                 persona: { type: "STRING", description: "品牌人設名稱 (例如: 專業顧問, 毒舌教官, 溫暖知心, 迷因小編，或使用者自訂的人設)" },
                 platforms: { type: "ARRAY", items: { type: "STRING" }, description: "發布平台，可選值包含: FB, IG, THREADS" },
                 hookType: { type: "STRING", description: "開場勾子戰術，可選值包含: 痛點提問, 反直覺爆點, 利益誘惑, 爭議站隊" },
-                contentLength: { type: "STRING", description: "文案長度節奏，可選值包含: 短平快 (約150字), 深度文 (約300字)" }
+                contentLength: { type: "STRING", description: "文案長度節奏，可選值包含: 短平快 (約150字), 深度文 (約300字)" },
+                panelCount: { type: "NUMBER", description: "漫畫格數，可選值為 1, 2, 3, 4" }
             }
         }
     },
@@ -104,7 +105,7 @@ export class AgentClient {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
 
-            // 💸 實時扣點視覺特效
+            // 💸 實時扣點視覺特效 (已改為「算力」)
             if (data.tokensUsed && data.tokensUsed > 0) {
                 const deductedPoints = Math.ceil(data.tokensUsed / 100);
                 applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力)`);
@@ -141,21 +142,20 @@ export class AgentClient {
                 if (args.platforms && args.platforms.length > 0) { MISSION.platforms = args.platforms; updatedMsg += `- 平台鎖定為：${args.platforms.join(', ')}<br>`; }
                 if (args.hookType) { MISSION.hookType = args.hookType; updatedMsg += `- 戰術切換為：${args.hookType}<br>`; }
                 if (args.contentLength) { MISSION.contentLength = args.contentLength; updatedMsg += `- 節奏改為：${args.contentLength}<br>`; }
+                if (args.panelCount) { MISSION.panelCount = args.panelCount; updatedMsg += `- 格數切換為：${args.panelCount}格<br>`; }
                 
                 await addLog("系統", "🤖", updatedMsg, true);
                 
-                const btnRender = document.getElementById('btnRender');
-                if (btnRender) {
-                    const topicStrategyDisplay = `${MISSION.topic} (${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]})`;
-                    const labelTopic = document.getElementById('label_mission_topic');
-                    if (labelTopic) labelTopic.innerText = topicStrategyDisplay;
+                // 🚀 關鍵同步：如果上帝卡片在畫面上，強制刷新卡片 UI！
+                if (typeof window.refreshMissionDashboard === 'function') {
+                    window.refreshMissionDashboard();
                 }
 
-            // 🚀 [重點修改區]：改為呼叫全域函數，不再依賴畫面上的按鈕！
             } else if (call.name === 'execute_funnel_action') {
                 const action = call.args.action;
                 
                 if (action === 'GENERATE_DRAFT') {
+                    // Agent 直接呼叫全局函數產出草稿
                     if (window.FunnelActions && window.FunnelActions.generateDraft) {
                         await window.FunnelActions.generateDraft();
                     } else {
@@ -163,7 +163,6 @@ export class AgentClient {
                     }
                 } else if (action === 'GENERATE_IMAGES') {
                     if (window.FunnelActions && window.FunnelActions.generateImages) {
-                        // 抓取畫面上目前的文字，發包給全局函數
                         const captionEl = document.getElementById('editCaption');
                         const editedCaption = captionEl ? captionEl.value : (MISSION.currentCaption || "");
                         const panelInputs = document.querySelectorAll('.panel-dialogue');
@@ -179,7 +178,6 @@ export class AgentClient {
                                 }); 
                             });
                         } else if (MISSION.currentPanels) {
-                            // 如果退回總編室，畫面上沒有輸入框，就吃上次存好的
                             Object.assign(editedPanels, MISSION.currentPanels);
                         }
                         
