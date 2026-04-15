@@ -1,36 +1,160 @@
 // js/v9_agent_client.js
-import { STATE, CONFIG } from './config.js';
+import { CONFIG, STATE } from './config.js';
+import { MISSION, SYSTEM_DB } from './v9_state.js';
+import { addLog, showError } from './v9_ui.js';
 
-export const AgentClient = {
-    get API_URL() {
-        return `${CONFIG.CLOUD_RUN_URL.replace(/\/$/, '')}/api/agent/orchestrate`;
-    },
-    async sendCommand(action, payload = {}, existingTaskId = null) {
-        try {
-            const response = await fetch(this.API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: STATE.uid || 'user_chief_001',
-                    taskId: existingTaskId || ('task_agent_' + Date.now()),
-                    action: action,
-                    payload: payload
-                })
-            });
-
-            if (!response.ok) {
-                const errText = await response.text();
-                let errMsg = errText;
-                try { errMsg = JSON.parse(errText).message; } catch(e) {}
-                throw new Error(errMsg || `伺服器回應錯誤碼: ${response.status}`);
+// ==========================================
+// 🛠️ Agent 專屬武器庫 (Tools Schema)
+// ==========================================
+// 這是餵給 Gemini 大腦的「操作說明書」，讓它知道自己可以控制哪些 UI 變數
+export const AGENT_TOOLS_SCHEMA = [
+    {
+        name: "update_mission_params",
+        description: "當使用者想要修改貼文主題、發布平台、品牌人設、語氣、長度等參數時，呼叫此工具。可以一次修改多個參數。",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                topic: { type: "STRING", description: "貼文的主題或核心內容" },
+                persona: { type: "STRING", description: "品牌人設名稱 (例如: 專業顧問, 毒舌教官, 溫暖知心, 迷因小編，或使用者自訂的人設)" },
+                platforms: { type: "ARRAY", items: { type: "STRING" }, description: "發布平台，可選值包含: FB, IG, THREADS" },
+                hookType: { type: "STRING", description: "開場勾子戰術，可選值包含: 痛點提問, 反直覺爆點, 利益誘惑, 爭議站隊" },
+                contentLength: { type: "STRING", description: "文案長度節奏，可選值包含: 短平快 (約150字), 深度文 (約300字)" }
             }
-
-            const result = await response.json();
-            if (!result.success) throw new Error(result.message);
-            return result.state; 
-        } catch (error) {
-            console.error('[Agent Client Error]', error);
-            throw error; 
+        }
+    },
+    {
+        name: "execute_funnel_action",
+        description: "當使用者明確指示要『執行』、『發包』、『產出』或『進行下一步』時，呼叫此工具來觸發系統按鈕。",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                action: { 
+                    type: "STRING", 
+                    description: "要執行的動作代碼。'GENERATE_DRAFT': 產出劇本/草稿; 'GENERATE_IMAGES': 確認草稿並發包生圖; 'PUBLISH': 立即發佈至社群" 
+                }
+            },
+            required: ["action"]
         }
     }
-};
+];
+
+// ==========================================
+// 🧠 Agent 終端機 (負責與大腦連線並執行指令)
+// ==========================================
+export class AgentClient {
+    
+    // 1. 漏斗流程專用的指令通道 (維持 V9 原有架構)
+    static async sendCommand(commandType, payload, taskId = null) {
+        try {
+            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+                body: JSON.stringify({ 
+                    tenantId: STATE.uid, 
+                    command: commandType, 
+                    payload: payload, 
+                    taskId: taskId 
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || '大腦神經元連線失敗');
+            return data.agentState;
+        } catch (error) {
+            console.error("Agent 執行失敗:", error);
+            throw error;
+        }
+    }
+
+    // 2. 🚀 新增：自然語言對話通道 (支援 Function Calling)
+    static async sendChatMessage(userMessage) {
+        try {
+            // 這裡我們會將 Tools Schema 一併打包送給後端或 Gemini
+            const res = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/orchestrate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
+                body: JSON.stringify({
+                    tenantId: STATE.uid,
+                    command: 'CHAT_MESSAGE',
+                    message: userMessage,
+                    taskId: MISSION.currentTaskId,
+                    tools: AGENT_TOOLS_SCHEMA, // ⚡️ 注入武器庫！
+                    currentMissionState: MISSION // 把當前畫面的狀態也給大腦參考
+                })
+            });
+            
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
+
+            // 🤖 判斷大腦是否決定調用工具 (Function Call)
+            if (data.agentState && data.agentState.functionCalls && data.agentState.functionCalls.length > 0) {
+                await this.executeToolCalls(data.agentState.functionCalls);
+                return { type: 'action', message: '已為您執行介面自動化操作！' };
+            } else {
+                // 如果只是純聊天
+                return { type: 'text', message: data.agentState?.reply || '我聽懂了，但目前沒有對應的操作。' };
+            }
+            
+        } catch (error) {
+            showError(`對話失敗：${error.message}`);
+            return { type: 'error', message: error.message };
+        }
+    }
+
+    // 3. ⚙️ 前端自動化引擎：執行大腦傳回的工具指令
+    static async executeToolCalls(functionCalls) {
+        for (const call of functionCalls) {
+            console.log("⚡ 觸發 Agent 武器庫:", call.name, call.args);
+            
+            if (call.name === 'update_mission_params') {
+                const args = call.args;
+                let updatedMsg = "✅ Agent 已自動更新參數：<br>";
+                
+                if (args.topic) { MISSION.topic = args.topic; updatedMsg += `- 主題更新為：${args.topic}<br>`; }
+                if (args.persona) { MISSION.persona = args.persona; updatedMsg += `- 人設切換為：${args.persona}<br>`; }
+                if (args.platforms && args.platforms.length > 0) { MISSION.platforms = args.platforms; updatedMsg += `- 平台鎖定為：${args.platforms.join(', ')}<br>`; }
+                if (args.hookType) { MISSION.hookType = args.hookType; updatedMsg += `- 戰術切換為：${args.hookType}<br>`; }
+                if (args.contentLength) { MISSION.contentLength = args.contentLength; updatedMsg += `- 節奏改為：${args.contentLength}<br>`; }
+                
+                // 為了讓畫面立即反映，模擬點擊「重新載入最後確認卡片」
+                // (透過觸發全域事件或重新呼叫 UI 函數)
+                await addLog("系統", "🤖", updatedMsg, true);
+                
+                // 嘗試刷新表單 (如果確認卡片存在)
+                const btnRender = document.getElementById('btnRender');
+                if (btnRender) {
+                    const topicStrategyDisplay = `${MISSION.topic} (${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]})`;
+                    // 這裡可以透過直接操作 DOM 快速反映，或重新呼叫 triggerMissionSummary
+                    // 為了極致流暢，我們依賴使用者接下來的確認動作，或觸發重繪
+                }
+
+            } else if (call.name === 'execute_funnel_action') {
+                const action = call.args.action;
+                if (action === 'GENERATE_DRAFT') {
+                    const btn = document.getElementById('btnRender');
+                    if (btn) {
+                        await addLog("系統", "🤖", "已接收指令，正在自動為您點擊【產出劇本】按鈕...", true);
+                        btn.click(); // 🪄 魔法發生的地方：JS 幫你按按鈕
+                    } else {
+                        showError("目前畫面無法執行產出劇本，請確認流程是否正確。");
+                    }
+                } else if (action === 'GENERATE_IMAGES') {
+                    const btn = document.getElementById('btnFinalGenerate');
+                    if (btn) {
+                        await addLog("系統", "🤖", "已接收指令，正在自動為您發包【影像合成】...", true);
+                        btn.click();
+                    } else {
+                        showError("請先確認草稿內容後，才能發包生圖。");
+                    }
+                } else if (action === 'PUBLISH') {
+                    const btn = document.getElementById('btnDeploy');
+                    if (btn) {
+                        await addLog("系統", "🤖", "已接收指令，正在自動為您【發佈貼文】...", true);
+                        btn.click();
+                    } else {
+                        showError("目前沒有可發佈的內容。");
+                    }
+                }
+            }
+        }
+    }
+}
