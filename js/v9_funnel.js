@@ -13,8 +13,14 @@ function decodeHTMLEntities(text) {
     return textArea.value;
 }
 
+// ==========================================
+// 🚀 漏斗進入點
+// ==========================================
 export async function startNewFunnel() { await triggerPersonaSkill(); }
 
+// ==========================================
+// 🧠 漏斗步驟 (Skills) - 負責收集參數
+// ==========================================
 async function triggerPersonaSkill() { /* ... 保持原樣 ... */ 
     updateStepHeader("PERSONA SELECTION"); await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
     let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
@@ -37,7 +43,7 @@ async function triggerPlatformSkill() { /* ... 保持原樣 ... */
 async function triggerTopicSkill() { /* ... 保持原樣 ... */ 
     updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
     const strategyPanelHTML = `<div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in"><h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎯</span> 單次發文戰術配置</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子 (Hook)</label><select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option><option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option><option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option><option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊</option></select></div><div><label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label><select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (IG/Threads)</option><option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (FB/Blog)</option></select></div></div></div>`;
-    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${MISSION.topic}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button></div></div>`);
+    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${decodeHTMLEntities(MISSION.topic)}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button></div></div>`);
     const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
     ui.querySelector('#btnConfirmTopic').onclick = async () => { const val = inputEl.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; MISSION.hookType = ui.querySelector('#selHookType').value; MISSION.contentLength = ui.querySelector('#selLength').value; inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
 }
@@ -149,6 +155,8 @@ window.FunnelActions = {
                 
                 MISSION.currentTaskId = response.taskId;
                 MISSION.currentDraft = response.draftContent; 
+                // 🚀 抓取後端自動生成的 hashtags 放入 MISSION 狀態
+                MISSION.currentHashtags = response.draftContent.hashtags || []; 
 
                 const chatBar = document.getElementById('agentChatBar');
                 if(chatBar) chatBar.classList.remove('translate-y-full');
@@ -180,7 +188,11 @@ window.FunnelActions = {
                 MISSION.currentCaption = editedCaption; 
                 MISSION.currentPanels = editedPanels;   
                 
-                await renderFinalPublishCard(taskId, response.images, editedCaption);
+                // 將編輯好的 hashtag 和內文組合起來，丟給最後一張卡片顯示
+                const tagsString = MISSION.currentHashtags.length > 0 ? '\n\n' + MISSION.currentHashtags.map(t => '#' + t.replace(/^#/, '')).join(' ') : '';
+                const finalFullCaption = editedCaption + tagsString;
+                
+                await renderFinalPublishCard(taskId, response.images, finalFullCaption);
             } else { throw new Error(response.message || "未能取得圖片。"); }
         } catch (e) { 
             const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "合成失敗"; }
@@ -198,25 +210,22 @@ export async function triggerMissionSummary() {
 
     const isComic = MISSION.universe === 'COMIC';
     const isEnhance = MISSION.universe === 'ENHANCE';
+    // 🛡️ 實體解碼防禦
+    const decodedTopic = decodeHTMLEntities(MISSION.topic);
 
-    // 🧬 生成登場角色頭像 HTML (補回！)
     let charsHtml = '';
     if(MISSION.characters.length > 0) {
         charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
         MISSION.characters.forEach(c => {
             const o = SYSTEM_DB.characters.find(mc => mc.name === c);
-            if(o && o.imageUrl) {
-                charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0" title="${c}">`;
-            } else {
-                charsHtml += `<span class="text-[10px] bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded border border-indigo-500/50">${c}</span>`;
-            }
+            if(o && o.imageUrl) charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0" title="${c}">`;
+            else charsHtml += `<span class="text-[10px] bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded border border-indigo-500/50">${c}</span>`;
         });
         charsHtml += '</div>';
     } else {
         charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
     }
 
-    // 🎨 生成風格按鈕 HTML (補回！)
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
@@ -234,17 +243,18 @@ export async function triggerMissionSummary() {
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-topic">
                         <span class="text-slate-400 font-bold">📝 任務主題</span>
-                        <span class="text-white font-black dash-val-topic truncate max-w-[200px] text-right">${MISSION.topic} ✎</span>
+                        <span class="text-white font-black dash-val-topic truncate max-w-[200px] text-right transition-opacity duration-200">${decodedTopic} ✎</span>
                     </button>
                     <div id="dash-topic" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
-                        <textarea id="editDashTopic" class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-indigo-500 outline-none h-24">${MISSION.topic}</textarea>
+                        <p class="text-[10px] text-slate-400 mb-1">請在此編輯完整主題或補充細節：</p>
+                        <textarea id="editDashTopic" class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-indigo-500 outline-none h-32 resize-y">${decodedTopic}</textarea>
                     </div>
                 </div>
 
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
                         <span class="text-slate-400 font-bold">🎯 發文戰術</span>
-                        <span class="text-white font-black dash-val-strategy">${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎</span>
+                        <span class="text-white font-black dash-val-strategy transition-opacity duration-200">${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎</span>
                     </button>
                     <div id="dash-strategy" class="hidden p-4 bg-black/20 grid grid-cols-2 gap-3 border-t border-white/5">
                         <div class="space-y-1">
@@ -259,8 +269,8 @@ export async function triggerMissionSummary() {
                         <div class="space-y-1">
                             <label class="text-[10px] text-slate-500">文案節奏</label>
                             <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快</option>
-                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文</option>
+                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快 (IG/Threads)</option>
+                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文 (FB/Blog)</option>
                             </select>
                         </div>
                     </div>
@@ -269,7 +279,7 @@ export async function triggerMissionSummary() {
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-team">
                         <span class="text-slate-400 font-bold">🎭 人設與平台</span>
-                        <span class="text-white font-black dash-val-team text-right">${MISSION.persona} / ${MISSION.platforms.join(',')} ✎</span>
+                        <span class="text-white font-black dash-val-team text-right transition-opacity duration-200">${MISSION.persona} / ${MISSION.platforms.join(',')} ✎</span>
                     </button>
                     <div id="dash-team" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
                         <div class="space-y-2">
@@ -290,7 +300,7 @@ export async function triggerMissionSummary() {
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-characters">
                         <span class="text-slate-400 font-bold">👥 登場角色基因</span>
-                        <div class="flex items-center gap-2 max-w-[150px] overflow-hidden">${charsHtml} ✎</div>
+                        <div class="flex items-center gap-2 max-w-[150px] overflow-hidden dash-val-characters transition-opacity duration-200">${charsHtml} ✎</div>
                     </button>
                     <div id="dash-characters" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
                         <div class="dash-val-characters-list">${charsHtml}</div>
@@ -302,7 +312,7 @@ export async function triggerMissionSummary() {
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-universe-style">
                         <span class="text-slate-400 font-bold">🌌 風格宇宙與色系</span>
-                        <span class="text-white font-black dash-val-universe-style text-right">${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
+                        <span class="text-white font-black dash-val-universe-style text-right transition-opacity duration-200">${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
                     </button>
                     <div id="dash-universe-style" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
                         <div class="space-y-2">
@@ -329,7 +339,7 @@ export async function triggerMissionSummary() {
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-visual-specs">
                         <span class="text-slate-400 font-bold">📐 畫面規格</span>
-                        <span class="text-white font-black dash-val-visual-specs">${MISSION.ratio} / ${isComic ? MISSION.panelCount + '格' : ''} ✎</span>
+                        <span class="text-white font-black dash-val-visual-specs transition-opacity duration-200">${MISSION.ratio} / ${isComic ? MISSION.panelCount + '格' : ''} ✎</span>
                     </button>
                     <div id="dash-visual-specs" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
                         ${!isEnhance ? `
@@ -355,25 +365,32 @@ export async function triggerMissionSummary() {
         </div>
     `);
 
-    // --- 活化功能：手風琴開關 ---
+    // --- 手風琴開關邏輯 (含預覽隱藏機制) ---
     ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
         trigger.onclick = () => {
             const targetId = trigger.dataset.target;
             const targetEl = ui.querySelector(`#${targetId}`);
             const isHidden = targetEl.classList.contains('hidden');
+            
+            // 先關閉所有區塊，並把所有被隱藏的 preview 顯示回來
             ui.querySelectorAll('.dashboard-item > div:not(.hidden)').forEach(el => el.classList.add('hidden'));
-            if (isHidden) targetEl.classList.remove('hidden');
+            ui.querySelectorAll('.accordion-trigger > span:nth-child(2)').forEach(span => span.classList.remove('opacity-0'));
+
+            if (isHidden) {
+                targetEl.classList.remove('hidden');
+                // 將點擊展開的這一個 preview 變透明隱藏，保持版面乾淨
+                trigger.querySelector('span:nth-child(2)').classList.add('opacity-0');
+            }
         };
     });
 
-    // --- 活化功能：原地即時同步 MISSION 變數 ---
     const updateDashDisplay = () => {
-        ui.querySelector('.dash-val-topic').innerText = MISSION.topic;
-        ui.querySelector('.dash-val-strategy').innerText = `${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`;
-        ui.querySelector('.dash-val-team').innerText = `${MISSION.persona} / ${MISSION.platforms.join(',')}`;
+        ui.querySelector('.dash-val-topic').innerText = decodeHTMLEntities(MISSION.topic) + ' ✎';
+        ui.querySelector('.dash-val-strategy').innerText = `${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎`;
+        ui.querySelector('.dash-val-team').innerText = `${MISSION.persona} / ${MISSION.platforms.join(',')} ✎`;
         const isComicNow = MISSION.universe === 'COMIC';
-        ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'}`;
-        ui.querySelector('.dash-val-visual-specs').innerText = `${MISSION.ratio} / ${isComicNow ? MISSION.panelCount + '格' : ''}`;
+        ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
+        ui.querySelector('.dash-val-visual-specs').innerText = `${MISSION.ratio} / ${isComicNow ? MISSION.panelCount + '格' : ''} ✎`;
     };
 
     ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
@@ -402,18 +419,15 @@ export async function triggerMissionSummary() {
         };
     });
 
-    // 退回召喚儀式 (重選角色)
     ui.querySelector('#btnBackToChar').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerCharacterSkill(); };
 
-    // 宇宙 / 風格 / 色系 同步
     ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
         btn.onclick = async () => {
             const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val;
             if (oldUni !== MISSION.universe) {
-                // 如果換宇宙，重置風格和角色
                 MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = [];
             }
-            releaseUI(ui); await triggerMissionSummary(); // 重跑 summary 刷新選項
+            releaseUI(ui); await triggerMissionSummary(); 
         };
     });
 
@@ -439,7 +453,6 @@ export async function triggerMissionSummary() {
         };
     });
 
-    // 格數與比例同步
     if (!isEnhance && isComic) {
         ui.querySelectorAll('.btn-dash-panel').forEach(btn => {
             btn.onclick = () => {
@@ -464,23 +477,18 @@ export async function triggerMissionSummary() {
         };
     });
 
-
-    // --- 最終動作：呼叫全局函數產出劇本 ---
     ui.querySelector('#btnRender').onclick = async () => {
         await window.FunnelActions.generateDraft();
     };
 
-    // 🚀 全域 UI 刷新函數 (Agent 呼叫用)
     window.refreshMissionDashboard = () => {
         updateDashDisplay();
         ui.querySelector('#agentDashboardAdvice').innerHTML = `「已根據指示更新參數。總編確認沒問題後，即可發包。」`;
         
-        // 刷新所有按鈕的 active 狀態
         ui.querySelectorAll('button[data-val]').forEach(btn => {
             const val = btn.dataset.val;
             let isActive = false;
             
-            // 處理多選平台
             if (btn.classList.contains('btn-dash-plat')) {
                 isActive = MISSION.platforms.includes(val);
                 if (isActive) {
@@ -493,7 +501,6 @@ export async function triggerMissionSummary() {
                 return; 
             }
 
-            // 處理單選項目
             if (btn.classList.contains('btn-dash-persona')) isActive = (val === MISSION.persona);
             else if (btn.classList.contains('btn-dash-uni')) isActive = (val === MISSION.universe);
             else if (btn.classList.contains('btn-dash-style')) isActive = (val === MISSION.style);
@@ -513,7 +520,7 @@ export async function triggerMissionSummary() {
 }
 
 // ==========================================
-// 🎨 卡片渲染器 (負責草稿)
+// 🎨 卡片渲染器 (負責草稿與 Hashtag 拖曳)
 // ==========================================
 export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
@@ -524,11 +531,10 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     if (isComic && activePanels) {
         const pCount = activePanels.length;
-        // ⚖️ 【字數鐵律系統】：根據格數動態調整防呆上限
-        let wLimit = 9; // Yonkoma (4格) 為預設的 短平快 9 字鐵律
-        if(pCount === 1) wLimit = 20; // Single Panel (1格)
-        else if (pCount === 2) wLimit = 15; // 2-Panel
-        else if (pCount === 3) wLimit = 12; // Yonkoma - 1 (3格)
+        let wLimit = 9; 
+        if(pCount === 1) wLimit = 20; 
+        else if (pCount === 2) wLimit = 15; 
+        else if (pCount === 3) wLimit = 12; 
 
         activePanels.forEach((p, idx) => {
             panelsHtml += `
@@ -544,24 +550,79 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         <div class="space-y-4 mb-4 animate-fade-in">
             <div class="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
                 <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">📝 貼文校稿總編室</h3>
+                
                 <div class="space-y-1">
                     <label class="text-[9px] text-slate-500 font-bold">社群內文 (Caption)</label>
                     <textarea id="editCaption" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[100px] focus:border-blue-500 focus:outline-none resize-none">${activeCaption}</textarea>
                 </div>
-                <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1">${panelsHtml}</div>
+                
+                <div class="space-y-1 pt-3 border-t border-white/10">
+                    <label class="text-[9px] text-slate-500 font-bold flex items-center gap-1">🏷️ 貼文標籤 (可滑鼠拖曳排序)</label>
+                    <div id="hashtagContainer" class="flex flex-wrap gap-2 items-center min-h-[30px] pb-2"></div>
+                    <input type="text" id="hashtagInput" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-slate-200 focus:border-blue-500 outline-none" placeholder="輸入標籤後按 Enter 新增 (不需打 #)...">
+                </div>
+
+                <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1 pt-3 border-t border-white/10">${panelsHtml}</div>
             </div>
             <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本與對白，發包生圖</button>
         </div>
     `);
 
-    // 活化字數檢測系統
+    // 🏷️ 活化 Hashtag 拖曳與新增邏輯
+    const renderHashtags = () => {
+        const container = ui.querySelector('#hashtagContainer');
+        container.innerHTML = '';
+        MISSION.currentHashtags.forEach((tag, idx) => {
+            const cleanTag = tag.replace(/^#/, ''); 
+            const pill = document.createElement('div');
+            pill.className = 'flex items-center gap-1 bg-indigo-600/30 border border-indigo-500 text-indigo-300 px-2 py-1 rounded-full text-[10px] font-bold cursor-move select-none shadow-sm hover:bg-indigo-600/50 transition-colors';
+            pill.draggable = true;
+            pill.dataset.idx = idx;
+            pill.innerHTML = `<span>#${cleanTag}</span><button class="hover:text-white ml-1 delete-tag-btn font-black" data-idx="${idx}">×</button>`;
+            
+            // 拖曳事件
+            pill.ondragstart = (e) => { e.dataTransfer.setData('text/plain', idx); pill.classList.add('opacity-50', 'scale-105'); };
+            pill.ondragend = () => pill.classList.remove('opacity-50', 'scale-105');
+            pill.ondragover = (e) => e.preventDefault();
+            pill.ondrop = (e) => {
+                e.preventDefault();
+                const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                if (fromIdx === idx) return;
+                const moved = MISSION.currentHashtags.splice(fromIdx, 1)[0];
+                MISSION.currentHashtags.splice(idx, 0, moved);
+                renderHashtags();
+            };
+            container.appendChild(pill);
+        });
+        
+        ui.querySelectorAll('.delete-tag-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation(); 
+                MISSION.currentHashtags.splice(btn.dataset.idx, 1);
+                renderHashtags();
+            };
+        });
+    };
+    renderHashtags();
+
+    ui.querySelector('#hashtagInput').onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const val = e.target.value.trim().replace(/^#/, '');
+            if (val && !MISSION.currentHashtags.includes(val)) {
+                MISSION.currentHashtags.push(val);
+                renderHashtags();
+            }
+            e.target.value = '';
+        }
+    };
+
     ui.querySelectorAll('.panel-dialogue').forEach(input => {
         const container = input.closest('.panel-container'); const counter = container.querySelector('.char-counter'); const limit = parseInt(counter.dataset.limit);
         const updateCounter = () => { const len = input.value.length; counter.innerText = `${len} / ${limit} 字`; if (len > limit) { counter.classList.remove('text-slate-500'); counter.classList.add('text-red-500'); input.classList.add('border-red-500', 'text-red-400'); } else { counter.classList.remove('text-red-500'); counter.classList.add('text-slate-500'); input.classList.remove('border-red-500', 'text-red-400'); } };
         input.addEventListener('input', updateCounter); updateCounter();
     });
 
-    // 🚀 發包影像合成
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         const editedCaption = ui.querySelector('#editCaption').value; 
         const editedPanels = []; 
@@ -602,19 +663,16 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         </div>
     `);
 
-    // 🚀 按鈕 B: 重新算圖 (呼叫全局函數，不改字，直接重新發包)
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         await window.FunnelActions.generateImages(taskId, MISSION.currentCaption, MISSION.currentPanels);
     };
 
-    // 🚀 按鈕 C: 退回總編室 (作廢目前卡片，叫出 DraftEditorCard)
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
         await addLog("系統", "🔙", "已退回草稿編輯模式。", true);
         await renderDraftEditorCard(taskId, MISSION.currentDraft, MISSION.universe === 'COMIC');
     };
 
-    // 🚀 按鈕 A: 發佈
     ui.querySelector('#btnDeploy').onclick = async () => {
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
