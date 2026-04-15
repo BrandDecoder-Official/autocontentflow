@@ -1,5 +1,4 @@
 // js/api.js
-
 import { CONFIG, STATE } from './config.js'; 
 
 // 🌟 1. 取得系統選項 (包含專屬角色與人設)
@@ -76,12 +75,12 @@ export async function verifyLoginAPI(credential) {
 }
 
 // ==========================================
-// 🚀 漏斗流程專屬 API (V9 新增)
+// 🚀 漏斗流程專屬 API (精準對接 backend content 路由)
 // ==========================================
 
 // ✍️ 8. 產生劇本草稿 API
 export async function generateDraftAPI(payload) {
-    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/draft`, {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/draft`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
         body: JSON.stringify(payload)
@@ -93,7 +92,7 @@ export async function generateDraftAPI(payload) {
 
 // 🎨 9. 發包影像合成 API
 export async function generateImageFromDraftAPI(payload) {
-    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/image`, {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
         body: JSON.stringify(payload)
@@ -105,7 +104,7 @@ export async function generateImageFromDraftAPI(payload) {
 
 // 📤 10. 一鍵發佈與排程 API
 export async function publishTaskAPI(payload) {
-    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/task/publish`, {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/publish`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` },
         body: JSON.stringify(payload)
