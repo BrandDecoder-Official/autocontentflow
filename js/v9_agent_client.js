@@ -105,10 +105,20 @@ export class AgentClient {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
 
-            // 💸 實時扣點視覺特效 (已改為「算力」)
+            // js/v9_agent_client.js (局部修改 sendChatMessage 函數內的扣點邏輯)
+
+            // 💸 V10 真實算力扣點特效 (TALK 模型: gemini-3.1-flash-lite)
+            // 成本：輸入 $0.00025/1K, 輸出 $0.0015/1K | 匯率: 32 | 毛利: 4倍 | 1台幣=100點
             if (data.tokensUsed && data.tokensUsed > 0) {
-                const deductedPoints = Math.ceil(data.tokensUsed / 100);
-                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力)`);
+                // 假設沒有區分輸入輸出，我們用一個平均保守加權值 (假設 80%是輸入, 20%是輸出)
+                const inTokens = data.promptTokens || (data.tokensUsed * 0.8);
+                const outTokens = data.completionTokens || (data.tokensUsed * 0.2);
+                
+                const costUsd = (inTokens / 1000 * 0.00025) + (outTokens / 1000 * 0.0015);
+                const costTwd = costUsd * 32 * 4; // 32匯率, 4倍毛利
+                const deductedPoints = Math.max(1, Math.ceil(costTwd * 100)); // 至少扣 1 點
+                
+                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力點)`);
             }
 
             const agentReplyText = data.agentState?.reply || '[執行了系統自動化操作]';
