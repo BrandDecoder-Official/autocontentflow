@@ -366,7 +366,10 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     });
 
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
-        const editedCaption = ui.querySelector('#editCaption').value; const editedPanels = []; ui.querySelectorAll('.panel-dialogue').forEach(input => { const idx = input.dataset.idx; editedPanels.push({ panel_number: draftContent.panels[idx].panel_number, dialogue: input.value, action_zh: draftContent.panels[idx].action_zh, action_en: draftContent.panels[idx].action_en }); });
+        // 🚀 假設影像合成固定扣 50 點 (您可依需求調整)
+        if (!validatePoints(50, "影像合成")) return;
+        const editedCaption = ui.querySelector('#editCaption').value; 
+        const editedPanels = []; ui.querySelectorAll('.panel-dialogue').forEach(input => { const idx = input.dataset.idx; editedPanels.push({ panel_number: draftContent.panels[idx].panel_number, dialogue: input.value, action_zh: draftContent.panels[idx].action_zh, action_en: draftContent.panels[idx].action_en }); });
         releaseUI(ui); 
         const spinId = 'spin_img_' + Date.now();
         await addLog("視覺工程師", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在進行影像合成 (預估需 20~30 秒)...</span></div>`, true);
