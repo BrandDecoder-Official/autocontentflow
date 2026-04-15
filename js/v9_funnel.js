@@ -2,7 +2,7 @@
 import { APP_VERSION, MISSION, IS_EDIT_MODE, SYSTEM_DB, isMissionComplete, compressImage } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { AgentClient } from './v9_agent_client.js';
-import { applyPointDeduction } from './v9_finance.js';
+import { applyPointDeduction, validatePoints } from './v9_finance.js';
 
 // ==========================================
 // 🚀 漏斗進入點
