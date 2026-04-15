@@ -1,7 +1,17 @@
 // js/v9_finance.js
 import { STATE } from './config.js';
-import { addLog } from './v9_ui.js';
+import { addLog, showError } from './v9_ui.js'; // 🚀 記得補上 showError
 
+// 🚀 [新增] 共用的算力檢查閘門
+export function validatePoints(requiredPoints, actionName = "此操作") {
+    if (STATE.userPoints < requiredPoints) {
+        showError(`⚠️ 算力不足！${actionName}需要 ${requiredPoints} PTS，您目前剩餘 ${STATE.userPoints} PTS。請前往儲值。`);
+        return false; // 餘額不足，回傳 false 阻斷流程
+    }
+    return true; // 餘額充足，放行
+}
+
+// (以下為您原本的代碼，完全不變)
 export async function applyPointDeduction(deducted, reason = "") {
     if (deducted <= 0) return;
 
