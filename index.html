@@ -226,27 +226,25 @@
     <script type="module">
         import { CONFIG, STATE } from './js/config.js';
         import * as API from './js/api.js';
-        import { initAgentFunnel, bootSystemData } from './js/agent_v9_core.js';
+        import { initAgentFunnel } from './js/agent_v9_core.js';
         
-        // 🆕 V10 匯入 MISSION 以便綁定側欄資料
-        import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './js/v9_state.js';
+        // 🆕 V10 匯入狀態機
+        import { MISSION, bootSystemData } from './js/v9_state.js'; // 💡 確保 bootSystemData 從這裡引入
 
-        // 綁定 Telegram 設定欄位事件 (當使用者打字時，直接寫入 MISSION)
-        document.addEventListener('DOMContentLoaded', () => {
-            const tgTokenInput = document.getElementById('sidebarTgToken');
-            const tgIdInput = document.getElementById('sidebarTgId');
-            
-            if(tgTokenInput) {
-                tgTokenInput.addEventListener('input', (e) => {
-                    MISSION.tgConfig.botToken = e.target.value.trim();
-                });
-            }
-            if(tgIdInput) {
-                tgIdInput.addEventListener('input', (e) => {
-                    MISSION.tgConfig.chatId = e.target.value.trim();
-                });
-            }
-        });
+        // 🌟 拔除 DOMContentLoaded 陷阱，直接綁定 Telegram 設定欄位事件！
+        const tgTokenInput = document.getElementById('sidebarTgToken');
+        const tgIdInput = document.getElementById('sidebarTgId');
+        
+        if (tgTokenInput) {
+            tgTokenInput.addEventListener('input', (e) => {
+                MISSION.tgConfig.botToken = e.target.value.trim();
+            });
+        }
+        if (tgIdInput) {
+            tgIdInput.addEventListener('input', (e) => {
+                MISSION.tgConfig.chatId = e.target.value.trim();
+            });
+        }
 
         // JWT 解碼
         function parseJwt(token) {
@@ -268,7 +266,7 @@
 
             statusArea.innerHTML = `<div class="text-sm font-bold text-green-400">✅ 驗證成功，正在同步雲端資料庫...</div>`;
             
-            await bootSystemData();
+            await bootSystemData(); // 呼叫狀態機的資料初始化
             
             setTimeout(() => { document.getElementById('loginGate').classList.add('gate-hidden'); initAgentFunnel(); }, 600);
         }
@@ -301,5 +299,7 @@
         };
         window.closeSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
     </script>
+</body>
+</html>
 </body>
 </html>
