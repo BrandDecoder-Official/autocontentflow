@@ -3,11 +3,45 @@
 import { STATE } from './config.js';
 import * as API from './api.js';
 
-export const APP_VERSION = "V9.0.1";
+export const APP_VERSION = "V10.0.1";
 
 export const MISSION = {
-    currentTaskId: null, topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', panelCount: 4, characters: [], sceneFiles: [], scheduledAt: null,
-    persona: '', hookType: '痛點提問', contentLength: '深度文 (約300字)'
+    // 原有核心參數
+    currentTaskId: null, 
+    topic: '', 
+    universe: '', 
+    style: '', 
+    colorMode: '', 
+    ratio: '9:16', 
+    resolution: '1K', 
+    panelCount: 4, 
+    characters: [], 
+    sceneFiles: [], 
+    scheduledAt: null,
+    persona: '', 
+    hookType: '痛點提問', 
+    contentLength: '深度文 (約300字)',
+    platforms: [], // 用戶選擇發布的平台，例如 ['FB', 'IG']
+
+    // 🆕 V10 新增：平台獨立發文開關 (true: 平台適配, false: 統一內容)
+    isIndependentPost: false, 
+    
+    // 🆕 V10 新增：多租戶 Telegram 設定 (供側欄綁定用)
+    tgConfig: {
+        botToken: '',
+        chatId: ''
+    },
+
+    // 🆕 V10 結構升級：支援多平台的內容與標籤儲存
+    // 若為「統一內容(isIndependentPost=false)」，預設都會寫在 'UNIFIED' 欄位；
+    // 若為「平台適配(isIndependentPost=true)」，則會分別寫入 FB / IG / THREADS
+    currentCaptions: { UNIFIED: '', FB: '', IG: '', THREADS: '' },
+    currentHashtags: { UNIFIED: [], FB: [], IG: [], THREADS: [] },
+    
+    // (保留舊有欄位名稱以向下相容，但未來主力使用上面的 currentCaptions/currentHashtags)
+    currentCaption: '',
+    currentHashtagsArray: [],
+    currentPanels: null
 };
 
 export const IS_EDIT_MODE = { value: false };
@@ -20,7 +54,7 @@ export function isMissionComplete() {
     return true;
 }
 
-// 🚀 修復：正確解析後端傳來的 res.data
+// 🚀 正確解析後端傳來的 res.data
 export async function bootSystemData() {
     // 預先準備好四大經典預設人設
     const defaultPersonas = [
@@ -33,7 +67,7 @@ export async function bootSystemData() {
     try {
         const res = await API.fetchSystemOptionsAPI(STATE.uid);
         if (res && res.success) {
-            // 🐛 蟲子在這裡被捏死了：資料是包在 res.data 裡面的！
+            // 🐛 資料是包在 res.data 裡面的
             const dbData = res.data || {};
             
             SYSTEM_DB.characters = dbData.characters || [];
