@@ -90,16 +90,6 @@ export async function triggerMissionSummary() {
 
             <div class="space-y-2">
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                    <div class="p-4 flex justify-between items-center">
-                        <span class="text-slate-400 font-bold">📢 貼文內容策略</span>
-                        <div class="flex bg-slate-800 rounded-lg p-1 border border-white/10">
-                            <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">統一內容</button>
-                            <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">平台適配</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-topic">
                         <span class="text-slate-400 font-bold">📝 任務主題</span>
                         <span class="text-white font-black dash-val-topic truncate max-w-[200px] text-right">${decodedTopic} ✎</span>
@@ -111,8 +101,17 @@ export async function triggerMissionSummary() {
                 </div>
 
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
-                        <span class="text-slate-400 font-bold">🎯 發文戰術與字數</span>
+                    <div class="w-full p-4 flex justify-between items-center bg-transparent border-b border-white/5">
+                         <div class="flex items-center gap-2">
+                             <span class="text-slate-400 font-bold">🎯 發文戰術與字數</span>
+                         </div>
+                         <div class="flex bg-slate-800 rounded-lg p-1 border border-white/10">
+                             <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">統一內容</button>
+                             <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">平台適配</button>
+                         </div>
+                    </div>
+                    <button class="w-full px-4 py-3 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
+                        <span class="text-[10px] text-slate-500">目前配置</span>
                         <span class="text-white font-black dash-val-strategy">${MISSION.isIndependentPost ? '獨立配置' : MISSION.hookType + ' / ' + MISSION.contentLength} ✎</span>
                     </button>
                     <div id="dash-strategy" class="hidden p-4 bg-black/20 border-t border-white/5">
@@ -239,6 +238,8 @@ export async function triggerMissionSummary() {
             ui.querySelector('#btnModeIndie').classList.remove('text-white', 'shadow-lg');
             ui.querySelector('#agentDashboardAdvice').innerHTML = `「目前文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
             refreshStrategyPanelUI(); 
+            // 若為統一內容模式，強制展開以便查看設定
+            ui.querySelector('#dash-strategy').classList.remove('hidden');
         }
     };
     ui.querySelector('#btnModeIndie').onclick = () => { 
@@ -250,6 +251,8 @@ export async function triggerMissionSummary() {
             ui.querySelector('#btnModeUnified').classList.remove('text-white', 'shadow-lg');
             ui.querySelector('#agentDashboardAdvice').innerHTML = `「總編，已開啟【平台適配模式】！請在下方分別設定各平台的專屬字數與開場戰術。」`;
             refreshStrategyPanelUI(); 
+            // 若為適配模式，強制展開以便查看設定
+            ui.querySelector('#dash-strategy').classList.remove('hidden');
         }
     };
 
