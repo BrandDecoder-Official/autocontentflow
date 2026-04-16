@@ -26,6 +26,13 @@ export const MISSION = {
     // 🆕 V10 新增：平台獨立發文開關 (true: 平台適配, false: 統一內容)
     isIndependentPost: false, 
     
+    // 🆕 V10 新增：各平台獨立的發文戰術 (字數與勾子)
+    platformStrategies: {
+        FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
+        IG: { hookType: '視覺誘惑', contentLength: '短平快 (約150字)' },
+        THREADS: { hookType: '反直覺爆點', contentLength: '極短篇 (約50字)' }
+    },
+
     // 🆕 V10 新增：多租戶 Telegram 設定 (供側欄綁定用)
     tgConfig: {
         botToken: '',
@@ -38,11 +45,7 @@ export const MISSION = {
     currentCaptions: { UNIFIED: '', FB: '', IG: '', THREADS: '' },
     currentHashtags: { UNIFIED: [], FB: [], IG: [], THREADS: [] },
     
-    // (保留舊有欄位名稱以向下相容，但未來主力使用上面的 currentCaptions/currentHashtags)
-    currentCaption: '',
-    currentHashtagsArray: [],
-    currentPanels: null
-};
+    // (保留舊有欄位名稱以向下相容，但未來主力使用上面的 currentCaptions
 
 export const IS_EDIT_MODE = { value: false };
 
