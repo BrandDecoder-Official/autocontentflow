@@ -213,7 +213,7 @@ window.deletePersona = async function(personaId) {
 
 
 // ==========================================
-// 📜 算力歷史紀錄邏輯
+// 📜 算力歷史紀錄邏輯 (V10 引擎相容版)
 // ==========================================
 window.refreshAuditLogs = async function() { 
     const container = document.getElementById('auditLogsContainer'); 
@@ -223,14 +223,35 @@ window.refreshAuditLogs = async function() {
         if(res.success && res.logs.length > 0) { 
             container.innerHTML = ''; 
             res.logs.forEach(log => { 
-                const action = (log.actionType || 'SYSTEM_LOG'); 
-                const isDeduct = action.includes('GENERATE') || action.includes('PUBLISH') || action.includes('UPLOAD'); 
+                // 💡 1. 抓取動作類型：支援新版 type 與舊版 actionType
+                const action = log.type || log.actionType || 'SYSTEM_LOG'; 
+                
+                // 💡 2. 判斷是否為扣款 (新版一定是扣款，舊版才需要判斷字眼)
+                const isDeduct = !!log.amount || action.includes('GENERATE') || action.includes('PUBLISH') || action.includes('UPLOAD') || action.includes('TOKEN'); 
                 const ptClass = isDeduct ? 'text-red-400' : 'text-green-400'; 
                 const sign = isDeduct ? '-' : '+'; 
-                const pts = log.pointsDeducted || Math.abs(log.pointsChanged || 0); 
+                
+                // 💡 3. 抓取扣款點數：支援新版 amount 與舊版欄位
+                const pts = log.amount || log.pointsDeducted || Math.abs(log.pointsChanged || 0); 
+                
+                // 💡 4. 抓取詳細描述：有描述就顯示，沒描述就顯示動作類型
+                const desc = log.description || action;
+
                 const dateTaipei = new Date(log.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); 
-                container.innerHTML += `<div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2 border border-white/5 shadow-inner"><div><p class="text-white font-bold">${action}</p><p class="text-slate-500 text-[10px]">${dateTaipei}</p></div><span class="${ptClass} font-black text-xs">${sign} ${pts.toLocaleString()} PTS</span></div>`; 
+                
+                container.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2 border border-white/5 shadow-inner">
+                        <div class="w-2/3">
+                            <p class="text-white font-bold truncate" title="${desc}">${desc}</p>
+                            <p class="text-slate-500 text-[10px]">${dateTaipei}</p>
+                        </div>
+                        <span class="${ptClass} font-black text-xs text-right">${sign} ${pts.toLocaleString()} PTS</span>
+                    </div>`; 
             }); 
-        } else { container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">目前尚無算力紀錄，立即開啟新任務！</div>'; } 
-    } catch(e) { container.innerHTML = `<div class="text-center text-xs text-red-400 py-4">讀取失敗 (髒資料跳過)</div>`; } 
+        } else { 
+            container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">目前尚無算力紀錄，立即開啟新任務！</div>'; 
+        } 
+    } catch(e) { 
+        container.innerHTML = `<div class="text-center text-xs text-red-400 py-4">讀取失敗 (髒資料跳過)</div>`; 
+    } 
 };
