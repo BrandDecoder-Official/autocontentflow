@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>BrandDecoder V9 | V0.26 數據貫通版</title>
+    <title>BrandDecoder V10 | 商業多租戶架構版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -47,7 +47,7 @@
             <div class="absolute -top-20 -right-20 w-40 h-40 bg-blue-500 rounded-full blur-[80px] opacity-30"></div>
             <div class="absolute -bottom-20 -left-20 w-40 h-40 bg-purple-500 rounded-full blur-[80px] opacity-30"></div>
             <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-3xl shadow-lg mb-6 z-10">BD</div>
-            <h1 class="text-2xl font-black text-white mb-2 z-10">BrandDecoder V9</h1>
+            <h1 class="text-2xl font-black text-white mb-2 z-10">BrandDecoder V10</h1>
             <p class="text-sm text-slate-400 mb-8 z-10">企業級自動發文與視覺編撰系統</p>
             <div id="loginStatusArea" class="w-full min-h-[50px] mb-6 z-10 flex flex-col items-center justify-center"><div id="google-btn-container"></div></div>
         </div>
@@ -61,10 +61,22 @@
                     <div class="lg:opacity-0 lg:group-hover:opacity-100 transition-opacity overflow-hidden whitespace-nowrap"><p class="text-xs font-black text-white">BrandDecoder 官方</p><p class="text-[10px] text-blue-400">目前運作工作區</p></div>
                 </div>
             </div>
-            <nav class="px-3 py-4 space-y-2">
+            <nav class="px-3 py-4 flex flex-col gap-2">
                 <button onclick="window.openSystemSettings()" class="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-white/5 transition-all text-slate-400 hover:text-white group/btn">
                     <span class="text-2xl group-hover/btn:scale-110 transition-transform">⚙️</span><span class="lg:opacity-0 lg:group-hover:opacity-100 font-bold whitespace-nowrap">系統與營運中樞</span>
                 </button>
+
+                <div class="pt-4 mt-2 border-t border-white/5 lg:opacity-0 lg:invisible lg:group-hover:opacity-100 lg:group-hover:visible transition-all duration-300">
+                    <div class="flex items-center gap-3 px-3 mb-3">
+                        <span class="text-xl">✈️</span>
+                        <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">TG 推播綁定</span>
+                    </div>
+                    <div class="px-3 space-y-2">
+                        <input type="password" id="sidebarTgToken" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-white focus:border-indigo-500 outline-none transition-colors" placeholder="Bot Token (1234:ABC...)">
+                        <input type="text" id="sidebarTgId" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-white focus:border-indigo-500 outline-none transition-colors" placeholder="Chat ID (-100123...)">
+                        <p class="text-[8px] text-slate-500 leading-tight">綁定後，Agent 將自動為您推播任務進度與通知。</p>
+                    </div>
+                </div>
             </nav>
         </div>
         <div class="p-4 border-t border-white/5 bg-slate-900/80">
@@ -215,6 +227,26 @@
         import { CONFIG, STATE } from './js/config.js';
         import * as API from './js/api.js';
         import { initAgentFunnel, bootSystemData } from './js/agent_v9_core.js';
+        
+        // 🆕 V10 匯入 MISSION 以便綁定側欄資料
+        import { MISSION } from './js/v9_state.js';
+
+        // 綁定 Telegram 設定欄位事件 (當使用者打字時，直接寫入 MISSION)
+        document.addEventListener('DOMContentLoaded', () => {
+            const tgTokenInput = document.getElementById('sidebarTgToken');
+            const tgIdInput = document.getElementById('sidebarTgId');
+            
+            if(tgTokenInput) {
+                tgTokenInput.addEventListener('input', (e) => {
+                    MISSION.tgConfig.botToken = e.target.value.trim();
+                });
+            }
+            if(tgIdInput) {
+                tgIdInput.addEventListener('input', (e) => {
+                    MISSION.tgConfig.chatId = e.target.value.trim();
+                });
+            }
+        });
 
         // JWT 解碼
         function parseJwt(token) {
