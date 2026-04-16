@@ -7,10 +7,30 @@ import { publishTaskAPI } from './api.js';
 export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
 
+    // 初始化 V10 資料結構 (確保相容舊 API 回傳格式)
+    if (!MISSION.currentCaptions) MISSION.currentCaptions = { UNIFIED: '', FB: '', IG: '', THREADS: '' };
+    if (!MISSION.currentHashtags) MISSION.currentHashtags = { UNIFIED: [], FB: [], IG: [], THREADS: [] };
+
+    // 將後端回傳的草稿填入狀態機 (這裡假設後端未來會傳回 captions 物件，如果目前只有一個，就先當作 UNIFIED)
+    if (draftContent.captions) {
+        MISSION.currentCaptions = { ...MISSION.currentCaptions, ...draftContent.captions };
+        MISSION.currentHashtags = { ...MISSION.currentHashtags, ...draftContent.hashtags };
+    } else {
+        const defaultCap = MISSION.currentCaption || draftContent.post_caption || '';
+        const defaultTags = MISSION.currentHashtagsArray || draftContent.hashtags || [];
+        // 幫每個選擇的平台都先塞一份預設值 (未來由 AI 分開寫)
+        ['UNIFIED', 'FB', 'IG', 'THREADS'].forEach(p => {
+            if (!MISSION.currentCaptions[p]) MISSION.currentCaptions[p] = defaultCap;
+            if (MISSION.currentHashtags[p].length === 0) MISSION.currentHashtags[p] = [...defaultTags];
+        });
+    }
+
+    // 決定目前要顯示哪個平台的 Tab
+    let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+    
+    // 生成漫畫分鏡 HTML (所有平台共用同一組圖，所以 panel 邏輯不變)
     let panelsHtml = '';
     const activePanels = MISSION.currentPanels || draftContent.panels;
-    const activeCaption = MISSION.currentCaption || draftContent.post_caption;
-
     if (isComic && activePanels) {
         const pCount = activePanels.length;
         let wLimit = 9; 
@@ -28,14 +48,32 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         });
     }
 
+    // 準備 Tab 切換 UI
+    let tabsHtml = '';
+    if (MISSION.isIndependentPost && MISSION.platforms.length > 1) {
+        tabsHtml = `
+        <div class="flex gap-2 p-1 bg-slate-900 rounded-xl border border-white/10 mb-3">
+            ${MISSION.platforms.map(p => `
+                <button class="plat-tab-btn flex-1 py-2 rounded-lg text-[10px] font-bold transition-all ${currentTab === p ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}" data-plat="${p}">
+                    ${p === 'FB' ? 'Facebook' : p === 'IG' ? 'Instagram' : 'Threads'}
+                </button>
+            `).join('')}
+        </div>`;
+    }
+
     const ui = createSkillUI(`
         <div class="space-y-4 mb-4 animate-fade-in">
             <div class="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
-                <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">📝 貼文校稿總編室</h3>
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">📝 貼文校稿總編室</h3>
+                    ${MISSION.isIndependentPost ? `<span class="text-[9px] bg-indigo-600/30 text-indigo-300 px-2 py-1 rounded-full border border-indigo-500/50">平台適配模式</span>` : `<span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-1 rounded-full">統一內容模式</span>`}
+                </div>
+                
+                ${tabsHtml}
                 
                 <div class="space-y-1">
-                    <label class="text-[9px] text-slate-500 font-bold">社群內文 (Caption)</label>
-                    <textarea id="editCaption" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[100px] focus:border-blue-500 focus:outline-none resize-none">${activeCaption}</textarea>
+                    <label class="text-[9px] text-slate-500 font-bold" id="captionLabel">社群內文 (${currentTab === 'UNIFIED' ? '全平台共用' : currentTab + ' 專屬'})</label>
+                    <textarea id="editCaption" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[100px] focus:border-blue-500 focus:outline-none resize-none">${MISSION.currentCaptions[currentTab]}</textarea>
                 </div>
                 
                 <div class="space-y-1 pt-3 border-t border-white/10">
@@ -50,10 +88,13 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         </div>
     `);
 
+    // 🏷️ Hashtag 渲染邏輯 (綁定到 currentTab)
     const renderHashtags = () => {
         const container = ui.querySelector('#hashtagContainer');
         container.innerHTML = '';
-        MISSION.currentHashtags.forEach((tag, idx) => {
+        const tags = MISSION.currentHashtags[currentTab] || [];
+        
+        tags.forEach((tag, idx) => {
             const cleanTag = tag.replace(/^#/, ''); 
             const pill = document.createElement('div');
             pill.className = 'flex items-center gap-1 bg-indigo-600/30 border border-indigo-500 text-indigo-300 px-2 py-1 rounded-full text-[10px] font-bold cursor-move select-none shadow-sm hover:bg-indigo-600/50 transition-colors';
@@ -68,8 +109,8 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
                 e.preventDefault();
                 const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
                 if (fromIdx === idx) return;
-                const moved = MISSION.currentHashtags.splice(fromIdx, 1)[0];
-                MISSION.currentHashtags.splice(idx, 0, moved);
+                const moved = MISSION.currentHashtags[currentTab].splice(fromIdx, 1)[0];
+                MISSION.currentHashtags[currentTab].splice(idx, 0, moved);
                 renderHashtags();
             };
             container.appendChild(pill);
@@ -78,24 +119,55 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         ui.querySelectorAll('.delete-tag-btn').forEach(btn => {
             btn.onclick = (e) => {
                 e.stopPropagation(); 
-                MISSION.currentHashtags.splice(btn.dataset.idx, 1);
+                MISSION.currentHashtags[currentTab].splice(btn.dataset.idx, 1);
                 renderHashtags();
             };
         });
     };
     renderHashtags();
 
+    // 輸入新 Hashtag
     ui.querySelector('#hashtagInput').onkeydown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             const val = e.target.value.trim().replace(/^#/, '');
-            if (val && !MISSION.currentHashtags.includes(val)) {
-                MISSION.currentHashtags.push(val);
+            if (val && !MISSION.currentHashtags[currentTab].includes(val)) {
+                MISSION.currentHashtags[currentTab].push(val);
                 renderHashtags();
             }
             e.target.value = '';
         }
     };
+
+    // 儲存目前輸入框的內容到狀態機
+    const saveCurrentCaption = () => {
+        MISSION.currentCaptions[currentTab] = ui.querySelector('#editCaption').value;
+    };
+    ui.querySelector('#editCaption').oninput = saveCurrentCaption;
+
+    // 🔄 Tab 切換邏輯
+    ui.querySelectorAll('.plat-tab-btn').forEach(btn => {
+        btn.onclick = () => {
+            // 1. 先把舊的存起來
+            saveCurrentCaption();
+            
+            // 2. 切換 Tab
+            currentTab = btn.dataset.plat;
+            
+            // 3. 更新按鈕樣式
+            ui.querySelectorAll('.plat-tab-btn').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
+                b.classList.add('text-slate-500', 'hover:text-slate-300');
+            });
+            btn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
+            btn.classList.remove('text-slate-500', 'hover:text-slate-300');
+            
+            // 4. 更新畫面內容
+            ui.querySelector('#captionLabel').innerText = `社群內文 (${currentTab} 專屬)`;
+            ui.querySelector('#editCaption').value = MISSION.currentCaptions[currentTab];
+            renderHashtags();
+        };
+    });
 
     ui.querySelectorAll('.panel-dialogue').forEach(input => {
         const container = input.closest('.panel-container'); const counter = container.querySelector('.char-counter'); const limit = parseInt(counter.dataset.limit);
@@ -104,12 +176,17 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     });
 
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
-        const editedCaption = ui.querySelector('#editCaption').value; 
+        saveCurrentCaption(); // 發包前最後存一次
+        
+        // 將編輯器內的資料準備好傳給發包模組 (這裡保留向下相容)
+        const editedCaption = MISSION.currentCaptions[currentTab]; 
+        
         const editedPanels = []; 
         ui.querySelectorAll('.panel-dialogue').forEach(input => { 
             const idx = input.dataset.idx; 
             editedPanels.push({ panel_number: activePanels[idx].panel_number, dialogue: input.value, action_zh: activePanels[idx].action_zh, action_en: activePanels[idx].action_en }); 
         });
+        
         await window.FunnelActions.generateImages(taskId, editedCaption, editedPanels);
     };
 }
@@ -134,20 +211,25 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             </div>
             <button id="btnDeploy" class="w-full bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">${btnText}</button>
             <div class="flex gap-2">
-                <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重新算圖 (扣50點)</button>
+                <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重新算圖 (預計扣 500 算力點)</button>
                 <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 退回總編室 (改字)</button>
             </div>
         </div>
     `);
 
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
-        await window.FunnelActions.generateImages(taskId, MISSION.currentCaption, MISSION.currentPanels);
+        // 取出目前的平台標籤與內文發包
+        let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+        await window.FunnelActions.generateImages(taskId, MISSION.currentCaptions[currentTab], MISSION.currentPanels);
     };
 
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
         await addLog("系統", "🔙", "已退回草稿編輯模式。", true);
-        await renderDraftEditorCard(taskId, MISSION.currentDraft, MISSION.universe === 'COMIC');
+        
+        // 這裡需要傳遞一個假的 draftContent 讓編輯器重新吃狀態機裡的資料
+        const pseudoDraft = { panels: MISSION.currentPanels };
+        await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC');
     };
 
     ui.querySelector('#btnDeploy').onclick = async () => {
