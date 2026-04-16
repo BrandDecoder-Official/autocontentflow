@@ -6,7 +6,7 @@ import { triggerCharacterSkill } from './v9_funnel_skills.js';
 
 export async function triggerMissionSummary() {
     updateStepHeader("MISSION CONTROL");
-    await addLog("專案總監", "📋", "總編，這是目前的任務總表。您可以點擊各項進行微調，或透過對話讓 Agent 協助您。", true);
+    await addLog("專案總監", "📋", "總編，這是目前的任務總表。您可以自由點開各項進行微調，操作將會即時同步。", true);
 
     const isComic = MISSION.universe === 'COMIC';
     const isEnhance = MISSION.universe === 'ENHANCE';
@@ -16,7 +16,7 @@ export async function triggerMissionSummary() {
     if (!MISSION.platformStrategies) {
         MISSION.platformStrategies = {
             FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
-            IG: { hookType: '痛點提問', contentLength: '短平快 (約150字)' },
+            IG: { hookType: '視覺誘惑', contentLength: '短平快 (約150字)' },
             THREADS: { hookType: '反直覺爆點', contentLength: '極短篇 (約50字)' }
         };
     }
@@ -37,56 +37,55 @@ export async function triggerMissionSummary() {
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
-    const adviceText = MISSION.isIndependentPost 
-        ? `「總編，已開啟【平台適配模式】！請在下方分別設定 ${MISSION.platforms.join('、')} 的專屬字數與開場戰術。」`
-        : `「目前人設為【${MISSION.persona}】，文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
-
-    // 🎯 動態生成「發文戰術」面板
     const hookOptions = ['❓ 痛點提問', '💥 反直覺爆點', '🎁 利益誘惑', '⚔️ 爭議站隊', '💖 情境共鳴'];
     const lenOptions = ['⚡ 極短篇 (約50字)', '📝 短平快 (約150字)', '📖 深度文 (約300字)', '📜 長篇連載 (約800字)'];
-    
-    let strategyHtml = '';
-    if (MISSION.isIndependentPost && MISSION.platforms.length > 0) {
-        // 多平台獨立設定
-        strategyHtml = MISSION.platforms.map(p => `
-            <div class="mb-3 border border-white/10 p-3 rounded-xl bg-slate-900/50">
-                <div class="text-[10px] font-bold text-indigo-400 mb-2 flex items-center gap-1">📍 ${p} 專屬戰術</div>
-                <div class="grid grid-cols-2 gap-2">
-                    <select class="indie-hook w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
-                        ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                    <select class="indie-len w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
-                        ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
+
+    // 🎯 提取出局部渲染「戰術面板」的函數，避免全局刷新
+    const getStrategyHtml = () => {
+        if (MISSION.isIndependentPost && MISSION.platforms.length > 0) {
+            return MISSION.platforms.map(p => `
+                <div class="mb-3 border border-white/10 p-3 rounded-xl bg-slate-900/50 animate-fade-in">
+                    <div class="text-[10px] font-bold text-indigo-400 mb-2 flex items-center gap-1">📍 ${p} 專屬戰術</div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <select class="indie-hook w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                            ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                        <select class="indie-len w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                            ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-            </div>
-        `).join('');
-    } else {
-        // 統一設定
-        strategyHtml = `
-            <div class="grid grid-cols-2 gap-3">
-                <div class="space-y-1">
-                    <label class="text-[10px] text-slate-500">全平台統一勾子</label>
-                    <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                        ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
+            `).join('');
+        } else {
+            return `
+                <div class="grid grid-cols-2 gap-3 animate-fade-in">
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-500">全平台統一勾子</label>
+                        <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                            ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="text-[10px] text-slate-500">全平台統一節奏</label>
+                        <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                            ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] text-slate-500">全平台統一節奏</label>
-                    <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                        ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
-                    </select>
-                </div>
-            </div>
-        `;
-    }
+            `;
+        }
+    };
 
     const ui = createSkillUI(`
         <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs">
             
             <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3">
                 <span class="text-xl">🤖</span>
-                <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">${adviceText}</p>
+                <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">
+                    ${MISSION.isIndependentPost 
+                        ? `「總編，已開啟【平台適配模式】！請在下方分別設定各平台的專屬字數與開場戰術。」`
+                        : `「目前文案將採用【統一內容】發布。點擊下方選項可即時微調。」`}
+                </p>
             </div>
 
             <div class="space-y-2">
@@ -117,7 +116,7 @@ export async function triggerMissionSummary() {
                         <span class="text-white font-black dash-val-strategy">${MISSION.isIndependentPost ? '獨立配置' : MISSION.hookType + ' / ' + MISSION.contentLength} ✎</span>
                     </button>
                     <div id="dash-strategy" class="hidden p-4 bg-black/20 border-t border-white/5">
-                        ${strategyHtml}
+                        ${getStrategyHtml()}
                     </div>
                 </div>
 
@@ -149,7 +148,7 @@ export async function triggerMissionSummary() {
                     </button>
                     <div id="dash-characters" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
                         <div class="dash-val-characters-list">${charsHtml}</div>
-                        <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請對 Agent 說「我想更換角色」，或點擊下方重啟召喚儀式。</p>
+                        <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請點擊下方重啟召喚儀式。</p>
                         <button id="btnBackToChar" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all">✎ 重啟召喚儀式</button>
                     </div>
                 </div>
@@ -210,24 +209,65 @@ export async function triggerMissionSummary() {
         </div>
     `);
 
-    // 模式切換邏輯
-    ui.querySelector('#btnModeUnified').onclick = () => { 
-        if(MISSION.isIndependentPost) { MISSION.isIndependentPost = false; releaseUI(ui); triggerMissionSummary(); }
+    // 🔧 綁定戰術面板的下拉選單事件
+    const bindStrategyEvents = () => {
+        if (MISSION.isIndependentPost) {
+            ui.querySelectorAll('.indie-hook').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].hookType = e.target.value; });
+            ui.querySelectorAll('.indie-len').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].contentLength = e.target.value; });
+        } else {
+            const hEl = ui.querySelector('#editDashHook'); if(hEl) hEl.onchange = (e) => { MISSION.hookType = e.target.value; updateDashDisplay(); };
+            const lEl = ui.querySelector('#editDashLen'); if(lEl) lEl.onchange = (e) => { MISSION.contentLength = e.target.value; updateDashDisplay(); };
+        }
     };
-    ui.querySelector('#btnModeIndie').onclick = () => { 
-        if(!MISSION.isIndependentPost) { MISSION.isIndependentPost = true; releaseUI(ui); triggerMissionSummary(); }
+    bindStrategyEvents();
+
+    // 🔧 更新戰術面板的 UI (局部更新)
+    const refreshStrategyPanelUI = () => {
+        const strategyContainer = ui.querySelector('#dash-strategy');
+        strategyContainer.innerHTML = getStrategyHtml();
+        bindStrategyEvents();
+        updateDashDisplay();
     };
 
+    // 🔄 模式切換邏輯 (局部更新，不再全局重繪)
+    ui.querySelector('#btnModeUnified').onclick = () => { 
+        if(MISSION.isIndependentPost) { 
+            MISSION.isIndependentPost = false; 
+            ui.querySelector('#btnModeUnified').classList.replace('text-slate-500', 'bg-indigo-600');
+            ui.querySelector('#btnModeUnified').classList.add('text-white', 'shadow-lg');
+            ui.querySelector('#btnModeIndie').classList.replace('bg-indigo-600', 'text-slate-500');
+            ui.querySelector('#btnModeIndie').classList.remove('text-white', 'shadow-lg');
+            ui.querySelector('#agentDashboardAdvice').innerHTML = `「目前文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
+            refreshStrategyPanelUI(); 
+        }
+    };
+    ui.querySelector('#btnModeIndie').onclick = () => { 
+        if(!MISSION.isIndependentPost) { 
+            MISSION.isIndependentPost = true; 
+            ui.querySelector('#btnModeIndie').classList.replace('text-slate-500', 'bg-indigo-600');
+            ui.querySelector('#btnModeIndie').classList.add('text-white', 'shadow-lg');
+            ui.querySelector('#btnModeUnified').classList.replace('bg-indigo-600', 'text-slate-500');
+            ui.querySelector('#btnModeUnified').classList.remove('text-white', 'shadow-lg');
+            ui.querySelector('#agentDashboardAdvice').innerHTML = `「總編，已開啟【平台適配模式】！請在下方分別設定各平台的專屬字數與開場戰術。」`;
+            refreshStrategyPanelUI(); 
+        }
+    };
+
+    // 🔓 解除手風琴自動互斥關閉的限制 (允許使用者同時開多個)
     ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
         trigger.onclick = () => {
             const targetId = trigger.dataset.target;
             const targetEl = ui.querySelector(`#${targetId}`);
             const isHidden = targetEl.classList.contains('hidden');
             
-            ui.querySelectorAll('.dashboard-item > div:not(.hidden)').forEach(el => el.classList.add('hidden'));
-            ui.querySelectorAll('.accordion-trigger > span:nth-child(2)').forEach(span => span.style.display = 'block');
-
-            if (isHidden) { targetEl.classList.remove('hidden'); trigger.querySelector('span:nth-child(2)').style.display = 'none'; }
+            // 只要切換自己就好，不去動別人
+            if (isHidden) { 
+                targetEl.classList.remove('hidden'); 
+                trigger.querySelector('span:nth-child(2)').style.display = 'none'; 
+            } else {
+                targetEl.classList.add('hidden'); 
+                trigger.querySelector('span:nth-child(2)').style.display = 'block'; 
+            }
         };
     });
 
@@ -241,15 +281,6 @@ export async function triggerMissionSummary() {
     };
 
     ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
-    
-    // 獨立設定資料綁定
-    if (MISSION.isIndependentPost) {
-        ui.querySelectorAll('.indie-hook').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].hookType = e.target.value; });
-        ui.querySelectorAll('.indie-len').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].contentLength = e.target.value; });
-    } else {
-        const hEl = ui.querySelector('#editDashHook'); if(hEl) hEl.onchange = (e) => { MISSION.hookType = e.target.value; updateDashDisplay(); };
-        const lEl = ui.querySelector('#editDashLen'); if(lEl) lEl.onchange = (e) => { MISSION.contentLength = e.target.value; updateDashDisplay(); };
-    }
 
     ui.querySelectorAll('.btn-dash-persona').forEach(btn => {
         btn.onclick = () => {
@@ -262,13 +293,28 @@ export async function triggerMissionSummary() {
         };
     });
 
+    // 🔧 平台選擇邏輯 (局部更新，不再全局重繪)
     ui.querySelectorAll('.btn-dash-plat').forEach(btn => {
         btn.onclick = () => {
             const p = btn.dataset.val;
             if (MISSION.platforms.includes(p)) {
-                if (MISSION.platforms.length > 1) MISSION.platforms = MISSION.platforms.filter(x => x!==p);
-            } else { MISSION.platforms.push(p); }
-            releaseUI(ui); triggerMissionSummary();
+                if (MISSION.platforms.length > 1) {
+                    MISSION.platforms = MISSION.platforms.filter(x => x!==p);
+                    btn.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-white');
+                    btn.classList.add('border-white/10', 'text-slate-400');
+                }
+            } else { 
+                MISSION.platforms.push(p); 
+                btn.classList.add('border-blue-500', 'bg-blue-500/20', 'text-white');
+                btn.classList.remove('border-white/10', 'text-slate-400');
+            }
+            
+            // 如果是在平台適配模式下，平台增減必須動態更新戰術面板
+            if (MISSION.isIndependentPost) {
+                refreshStrategyPanelUI();
+            } else {
+                updateDashDisplay(); // 更新上方文字預覽
+            }
         };
     });
 
