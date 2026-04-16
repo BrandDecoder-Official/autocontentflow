@@ -12,6 +12,15 @@ export async function triggerMissionSummary() {
     const isEnhance = MISSION.universe === 'ENHANCE';
     const decodedTopic = decodeHTMLEntities(MISSION.topic);
 
+    // 確保平台戰術物件存在
+    if (!MISSION.platformStrategies) {
+        MISSION.platformStrategies = {
+            FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
+            IG: { hookType: '痛點提問', contentLength: '短平快 (約150字)' },
+            THREADS: { hookType: '反直覺爆點', contentLength: '極短篇 (約50字)' }
+        };
+    }
+
     let charsHtml = '';
     if(MISSION.characters.length > 0) {
         charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
@@ -28,10 +37,49 @@ export async function triggerMissionSummary() {
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
-    // 🤖 Agent 提示語動態變化
     const adviceText = MISSION.isIndependentPost 
-        ? `「總編，已開啟【平台適配模式】！稍後產出劇本時，我會自動為 ${MISSION.platforms.join('、')} 撰寫專屬風格的文案與 Hashtag。」`
+        ? `「總編，已開啟【平台適配模式】！請在下方分別設定 ${MISSION.platforms.join('、')} 的專屬字數與開場戰術。」`
         : `「目前人設為【${MISSION.persona}】，文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
+
+    // 🎯 動態生成「發文戰術」面板
+    const hookOptions = ['❓ 痛點提問', '💥 反直覺爆點', '🎁 利益誘惑', '⚔️ 爭議站隊', '💖 情境共鳴'];
+    const lenOptions = ['⚡ 極短篇 (約50字)', '📝 短平快 (約150字)', '📖 深度文 (約300字)', '📜 長篇連載 (約800字)'];
+    
+    let strategyHtml = '';
+    if (MISSION.isIndependentPost && MISSION.platforms.length > 0) {
+        // 多平台獨立設定
+        strategyHtml = MISSION.platforms.map(p => `
+            <div class="mb-3 border border-white/10 p-3 rounded-xl bg-slate-900/50">
+                <div class="text-[10px] font-bold text-indigo-400 mb-2 flex items-center gap-1">📍 ${p} 專屬戰術</div>
+                <div class="grid grid-cols-2 gap-2">
+                    <select class="indie-hook w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                        ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                    <select class="indie-len w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                        ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        // 統一設定
+        strategyHtml = `
+            <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-1">
+                    <label class="text-[10px] text-slate-500">全平台統一勾子</label>
+                    <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                        ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="space-y-1">
+                    <label class="text-[10px] text-slate-500">全平台統一節奏</label>
+                    <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                        ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+        `;
+    }
 
     const ui = createSkillUI(`
         <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs">
@@ -65,26 +113,11 @@ export async function triggerMissionSummary() {
 
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
-                        <span class="text-slate-400 font-bold">🎯 發文戰術</span>
-                        <span class="text-white font-black dash-val-strategy">${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎</span>
+                        <span class="text-slate-400 font-bold">🎯 發文戰術與字數</span>
+                        <span class="text-white font-black dash-val-strategy">${MISSION.isIndependentPost ? '獨立配置' : MISSION.hookType + ' / ' + MISSION.contentLength} ✎</span>
                     </button>
-                    <div id="dash-strategy" class="hidden p-4 bg-black/20 grid grid-cols-2 gap-3 border-t border-white/5">
-                        <div class="space-y-1">
-                            <label class="text-[10px] text-slate-500">開場勾子</label>
-                            <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                                <option value="痛點提問" ${MISSION.hookType==='痛點提問'?'selected':''}>❓ 痛點提問</option>
-                                <option value="反直覺爆點" ${MISSION.hookType==='反直覺爆點'?'selected':''}>💥 反直覺爆點</option>
-                                <option value="利益誘惑" ${MISSION.hookType==='利益誘惑'?'selected':''}>🎁 利益誘惑</option>
-                                <option value="爭議站隊" ${MISSION.hookType==='爭議站隊'?'selected':''}>⚔️ 爭議站隊</option>
-                            </select>
-                        </div>
-                        <div class="space-y-1">
-                            <label class="text-[10px] text-slate-500">文案節奏</label>
-                            <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
-                                <option value="短平快 (約150字)" ${MISSION.contentLength.includes('短平快')?'selected':''}>⚡ 短平快 (IG/Threads)</option>
-                                <option value="深度文 (約300字)" ${MISSION.contentLength.includes('深度文')?'selected':''}>📖 深度文 (FB/Blog)</option>
-                            </select>
-                        </div>
+                    <div id="dash-strategy" class="hidden p-4 bg-black/20 border-t border-white/5">
+                        ${strategyHtml}
                     </div>
                 </div>
 
@@ -177,20 +210,12 @@ export async function triggerMissionSummary() {
         </div>
     `);
 
-    // 🆕 綁定「貼文內容策略」按鈕事件
+    // 模式切換邏輯
     ui.querySelector('#btnModeUnified').onclick = () => { 
-        if(MISSION.isIndependentPost) {
-            MISSION.isIndependentPost = false; 
-            releaseUI(ui);
-            triggerMissionSummary(); 
-        }
+        if(MISSION.isIndependentPost) { MISSION.isIndependentPost = false; releaseUI(ui); triggerMissionSummary(); }
     };
     ui.querySelector('#btnModeIndie').onclick = () => { 
-        if(!MISSION.isIndependentPost) {
-            MISSION.isIndependentPost = true; 
-            releaseUI(ui);
-            triggerMissionSummary(); 
-        }
+        if(!MISSION.isIndependentPost) { MISSION.isIndependentPost = true; releaseUI(ui); triggerMissionSummary(); }
     };
 
     ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
@@ -202,16 +227,13 @@ export async function triggerMissionSummary() {
             ui.querySelectorAll('.dashboard-item > div:not(.hidden)').forEach(el => el.classList.add('hidden'));
             ui.querySelectorAll('.accordion-trigger > span:nth-child(2)').forEach(span => span.style.display = 'block');
 
-            if (isHidden) {
-                targetEl.classList.remove('hidden');
-                trigger.querySelector('span:nth-child(2)').style.display = 'none';
-            }
+            if (isHidden) { targetEl.classList.remove('hidden'); trigger.querySelector('span:nth-child(2)').style.display = 'none'; }
         };
     });
 
     const updateDashDisplay = () => {
         ui.querySelector('.dash-val-topic').innerText = decodeHTMLEntities(MISSION.topic) + ' ✎';
-        ui.querySelector('.dash-val-strategy').innerText = `${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]} ✎`;
+        ui.querySelector('.dash-val-strategy').innerText = MISSION.isIndependentPost ? '獨立配置 ✎' : `${MISSION.hookType} / ${MISSION.contentLength} ✎`;
         ui.querySelector('.dash-val-team').innerText = `${MISSION.persona} / ${MISSION.platforms.join(',')} ✎`;
         const isComicNow = MISSION.universe === 'COMIC';
         ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe} / ${MISSION.style} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
@@ -219,8 +241,15 @@ export async function triggerMissionSummary() {
     };
 
     ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
-    ui.querySelector('#editDashHook').onchange = (e) => { MISSION.hookType = e.target.value; updateDashDisplay(); };
-    ui.querySelector('#editDashLen').onchange = (e) => { MISSION.contentLength = e.target.value; updateDashDisplay(); };
+    
+    // 獨立設定資料綁定
+    if (MISSION.isIndependentPost) {
+        ui.querySelectorAll('.indie-hook').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].hookType = e.target.value; });
+        ui.querySelectorAll('.indie-len').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].contentLength = e.target.value; });
+    } else {
+        const hEl = ui.querySelector('#editDashHook'); if(hEl) hEl.onchange = (e) => { MISSION.hookType = e.target.value; updateDashDisplay(); };
+        const lEl = ui.querySelector('#editDashLen'); if(lEl) lEl.onchange = (e) => { MISSION.contentLength = e.target.value; updateDashDisplay(); };
+    }
 
     ui.querySelectorAll('.btn-dash-persona').forEach(btn => {
         btn.onclick = () => {
@@ -239,11 +268,7 @@ export async function triggerMissionSummary() {
             if (MISSION.platforms.includes(p)) {
                 if (MISSION.platforms.length > 1) MISSION.platforms = MISSION.platforms.filter(x => x!==p);
             } else { MISSION.platforms.push(p); }
-            btn.classList.toggle('border-blue-500'); btn.classList.toggle('bg-blue-500/20'); btn.classList.toggle('text-white'); btn.classList.toggle('border-white/10'); btn.classList.toggle('text-slate-400');
-            
-            // 重新刷新 UI 以更新上方提示文案
-            releaseUI(ui);
-            triggerMissionSummary();
+            releaseUI(ui); triggerMissionSummary();
         };
     });
 
@@ -252,9 +277,7 @@ export async function triggerMissionSummary() {
     ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
         btn.onclick = async () => {
             const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val;
-            if (oldUni !== MISSION.universe) {
-                MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = [];
-            }
+            if (oldUni !== MISSION.universe) { MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = []; }
             releaseUI(ui); await triggerMissionSummary(); 
         };
     });
@@ -309,40 +332,5 @@ export async function triggerMissionSummary() {
         await window.FunnelActions.generateDraft();
     };
 
-    window.refreshMissionDashboard = () => {
-        updateDashDisplay();
-        ui.querySelector('#agentDashboardAdvice').innerHTML = `「已根據指示更新參數。總編確認沒問題後，即可發包。」`;
-        
-        ui.querySelectorAll('button[data-val]').forEach(btn => {
-            const val = btn.dataset.val;
-            let isActive = false;
-            
-            if (btn.classList.contains('btn-dash-plat')) {
-                isActive = MISSION.platforms.includes(val);
-                if (isActive) {
-                    btn.classList.add('border-blue-500', 'bg-blue-500/20', 'text-white');
-                    btn.classList.remove('border-white/10', 'text-slate-400');
-                } else {
-                    btn.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-white');
-                    btn.classList.add('border-white/10', 'text-slate-400');
-                }
-                return; 
-            }
-
-            if (btn.classList.contains('btn-dash-persona')) isActive = (val === MISSION.persona);
-            else if (btn.classList.contains('btn-dash-uni')) isActive = (val === MISSION.universe);
-            else if (btn.classList.contains('btn-dash-style')) isActive = (val === MISSION.style);
-            else if (btn.classList.contains('btn-dash-color')) isActive = (val === MISSION.colorMode);
-            else if (btn.classList.contains('btn-dash-panel')) isActive = (parseInt(val) === MISSION.panelCount);
-            else if (btn.classList.contains('btn-dash-ratio')) isActive = (val === MISSION.ratio);
-
-            if (isActive) {
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
-                btn.classList.remove('border-white/10', 'text-slate-400');
-            } else {
-                btn.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white');
-                btn.classList.add('border-white/10', 'text-slate-400');
-            }
-        });
-    };
+    window.refreshMissionDashboard = () => { updateDashDisplay(); };
 }
