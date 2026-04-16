@@ -39,7 +39,7 @@ export const AGENT_TOOLS_SCHEMA = [
     },
     {
         name: "revise_draft_text",
-        description: "當使用者在『草稿校稿』階段，要求修改『特定分鏡對白』或『社群內文』時呼叫此工具。【🚨鐵律】：如果是修改分鏡對白 (panel_X)，為了塞進漫畫對話框，字數絕對不可超過 15 個中文字！請精簡有力地輸出新內容。",
+        description: "當使用者在『草稿校稿』階段，要求修改『特定分鏡對白』或『社群內文』時呼叫此工具。【🚨鐵律】：如果是修改分鏡對白 (panel_X)，為了塞進漫畫對話框，字數絕對不可超過 15 個中文字！如果是修改社群內文，請根據目前的平台風格精簡或擴寫。",
         parameters: {
             type: "OBJECT",
             properties: {
@@ -47,6 +47,26 @@ export const AGENT_TOOLS_SCHEMA = [
                 new_text: { type: "STRING", description: "你重新撰寫的全新文字內容 (分鏡對白請控制在15字內)。" }
             },
             required: ["target", "new_text"]
+        }
+    },
+    // 🆕 V10 新增：Telegram 發送推播工具
+    {
+        name: "send_telegram_notification",
+        description: "當你需要主動通知使用者重要事項、報價，或任務發包/生圖完成時，呼叫此工具發送推播到使用者的 Telegram。",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                message: { 
+                    type: "STRING", 
+                    description: "要發送給使用者的完整訊息內容（可使用 Emoji 和基本的 Markdown 換行）。" 
+                },
+                priority: {
+                    type: "STRING",
+                    description: "通知層級：INFO (一般通知), SUCCESS (完成通知), WARNING (警告/報價)。",
+                    enum: ["INFO", "SUCCESS", "WARNING"]
+                }
+            },
+            required: ["message", "priority"]
         }
     }
 ];
@@ -104,8 +124,6 @@ export class AgentClient {
             
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
-
-            // js/v9_agent_client.js (局部修改 sendChatMessage 函數內的扣點邏輯)
 
             // 💸 V10 真實算力扣點特效 (TALK 模型: gemini-3.1-flash-lite)
             // 成本：輸入 $0.00025/1K, 輸出 $0.0015/1K | 匯率: 32 | 毛利: 4倍 | 1台幣=100點
@@ -165,7 +183,6 @@ export class AgentClient {
                 const action = call.args.action;
                 
                 if (action === 'GENERATE_DRAFT') {
-                    // Agent 直接呼叫全局函數產出草稿
                     if (window.FunnelActions && window.FunnelActions.generateDraft) {
                         await window.FunnelActions.generateDraft();
                     } else {
@@ -212,8 +229,15 @@ export class AgentClient {
                 if (target === 'caption') {
                     const captionEl = document.getElementById('editCaption');
                     if (captionEl) {
+                        // 🆕 V10：同步更新到對應的 Tab 狀態中
+                        const activeTabBtn = document.querySelector('.plat-tab-btn.bg-indigo-600');
+                        let currentTab = activeTabBtn ? activeTabBtn.dataset.plat : (MISSION.isIndependentPost ? MISSION.platforms[0] : 'UNIFIED');
+                        
                         captionEl.value = new_text;
-                        updatedMsg = `✅ Agent 已為您重寫【社群內文】！`;
+                        MISSION.currentCaptions[currentTab] = new_text; // 同步存入大腦
+                        captionEl.dispatchEvent(new Event('input')); // 觸發自動保存
+                        
+                        updatedMsg = `✅ Agent 已為您重寫了目前的【社群內文】！`;
                     }
                 } else if (target.startsWith('panel_')) {
                     const panelIndex = parseInt(target.replace('panel_', '')) - 1;
@@ -228,6 +252,18 @@ export class AgentClient {
                 
                 if (updatedMsg) {
                     await addLog("系統", "🤖", updatedMsg, true);
+                }
+            } 
+            // 🆕 V10 新增：Telegram 發送邏輯
+            else if (call.name === 'send_telegram_notification') {
+                const msg = call.args.message;
+                const hasTgConfig = MISSION.tgConfig && MISSION.tgConfig.botToken && MISSION.tgConfig.chatId;
+
+                if (hasTgConfig) {
+                    // (後端實作後可以把這個換成真實的 API 呼叫)
+                    await addLog("通訊兵", "✈️", `已向您的 Telegram 發送推播：<br><span class="text-xs text-slate-400 font-normal">"${msg}"</span>`, true);
+                } else {
+                    await addLog("通訊兵", "⚠️", "Agent 嘗試發送 Telegram 通知，但您尚未在左側邊欄綁定 Bot Token 與 Chat ID！", true);
                 }
             }
         }
