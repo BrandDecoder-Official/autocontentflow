@@ -2,7 +2,8 @@
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
-import { triggerCharacterSkill } from './v9_funnel_skills.js';
+// 💡 新增匯入 triggerVisualSkill 以支援重選圖片
+import { triggerCharacterSkill, triggerVisualSkill } from './v9_funnel_skills.js';
 
 export async function triggerMissionSummary() {
     updateStepHeader("MISSION CONTROL");
@@ -34,13 +35,29 @@ export async function triggerMissionSummary() {
         charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
     }
 
+    // 💡 新增場景圖預覽 HTML 生成邏輯
+    let scenesHtml = '';
+    let sceneStatus = '無 ✎';
+    if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
+        sceneStatus = `已上傳 ${MISSION.sceneFiles.length} 張 ✎`;
+        scenesHtml = '<div class="flex items-center gap-2 flex-wrap">';
+        MISSION.sceneFiles.forEach((file, idx) => {
+             scenesHtml += `
+                <div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20 group">
+                    <img src="${file.dataUrl}" class="w-full h-full object-cover">
+                </div>`;
+        });
+        scenesHtml += '</div>';
+    } else {
+        scenesHtml = `<span class="text-[10px] text-slate-500">未上傳任何參考圖片</span>`;
+    }
+
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
     const hookOptions = ['❓ 痛點提問', '💥 反直覺爆點', '🎁 利益誘惑', '⚔️ 爭議站隊', '💖 情境共鳴'];
     const lenOptions = ['⚡ 極短篇 (約50字)', '📝 短平快 (約150字)', '📖 深度文 (約300字)', '📜 長篇連載 (約800字)'];
 
-    // 🎯 提取出局部渲染「戰術面板」的函數，避免全局刷新
     const getStrategyHtml = () => {
         if (MISSION.isIndependentPost && MISSION.platforms.length > 0) {
             return MISSION.platforms.map(p => `
@@ -148,7 +165,19 @@ export async function triggerMissionSummary() {
                     <div id="dash-characters" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
                         <div class="dash-val-characters-list">${charsHtml}</div>
                         <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請點擊下方重啟召喚儀式。</p>
-                        <button id="btnBackToChar" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all">✎ 重啟召喚儀式</button>
+                        <button id="btnBackToChar" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重啟召喚儀式</button>
+                    </div>
+                </div>
+
+                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-scenes">
+                        <span class="text-slate-400 font-bold">🖼️ 參考場景與圖檔</span>
+                        <span class="text-white font-black dash-val-scenes">${sceneStatus}</span>
+                    </button>
+                    <div id="dash-scenes" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div class="dash-val-scenes-list">${scenesHtml}</div>
+                        <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需新增或更換圖檔，請點擊下方返回設定畫面。</p>
+                        <button id="btnBackToVisual" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重新上傳 / 更改圖檔</button>
                     </div>
                 </div>
 
@@ -208,7 +237,6 @@ export async function triggerMissionSummary() {
         </div>
     `);
 
-    // 🔧 綁定戰術面板的下拉選單事件
     const bindStrategyEvents = () => {
         if (MISSION.isIndependentPost) {
             ui.querySelectorAll('.indie-hook').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].hookType = e.target.value; });
@@ -220,7 +248,6 @@ export async function triggerMissionSummary() {
     };
     bindStrategyEvents();
 
-    // 🔧 更新戰術面板的 UI (局部更新)
     const refreshStrategyPanelUI = () => {
         const strategyContainer = ui.querySelector('#dash-strategy');
         strategyContainer.innerHTML = getStrategyHtml();
@@ -228,7 +255,6 @@ export async function triggerMissionSummary() {
         updateDashDisplay();
     };
 
-    // 🔄 模式切換邏輯 (局部更新，不再全局重繪)
     ui.querySelector('#btnModeUnified').onclick = () => { 
         if(MISSION.isIndependentPost) { 
             MISSION.isIndependentPost = false; 
@@ -238,7 +264,6 @@ export async function triggerMissionSummary() {
             ui.querySelector('#btnModeIndie').classList.remove('text-white', 'shadow-lg');
             ui.querySelector('#agentDashboardAdvice').innerHTML = `「目前文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
             refreshStrategyPanelUI(); 
-            // 若為統一內容模式，強制展開以便查看設定
             ui.querySelector('#dash-strategy').classList.remove('hidden');
         }
     };
@@ -251,19 +276,15 @@ export async function triggerMissionSummary() {
             ui.querySelector('#btnModeUnified').classList.remove('text-white', 'shadow-lg');
             ui.querySelector('#agentDashboardAdvice').innerHTML = `「總編，已開啟【平台適配模式】！請在下方分別設定各平台的專屬字數與開場戰術。」`;
             refreshStrategyPanelUI(); 
-            // 若為適配模式，強制展開以便查看設定
             ui.querySelector('#dash-strategy').classList.remove('hidden');
         }
     };
 
-    // 🔓 解除手風琴自動互斥關閉的限制 (允許使用者同時開多個)
     ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
         trigger.onclick = () => {
             const targetId = trigger.dataset.target;
             const targetEl = ui.querySelector(`#${targetId}`);
             const isHidden = targetEl.classList.contains('hidden');
-            
-            // 只要切換自己就好，不去動別人
             if (isHidden) { 
                 targetEl.classList.remove('hidden'); 
                 trigger.querySelector('span:nth-child(2)').style.display = 'none'; 
@@ -296,7 +317,6 @@ export async function triggerMissionSummary() {
         };
     });
 
-    // 🔧 平台選擇邏輯 (局部更新，不再全局重繪)
     ui.querySelectorAll('.btn-dash-plat').forEach(btn => {
         btn.onclick = () => {
             const p = btn.dataset.val;
@@ -311,17 +331,18 @@ export async function triggerMissionSummary() {
                 btn.classList.add('border-blue-500', 'bg-blue-500/20', 'text-white');
                 btn.classList.remove('border-white/10', 'text-slate-400');
             }
-            
-            // 如果是在平台適配模式下，平台增減必須動態更新戰術面板
             if (MISSION.isIndependentPost) {
                 refreshStrategyPanelUI();
             } else {
-                updateDashDisplay(); // 更新上方文字預覽
+                updateDashDisplay();
             }
         };
     });
 
     ui.querySelector('#btnBackToChar').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerCharacterSkill(); };
+
+    // 💡 新增：退回上傳圖片階段的按鈕事件
+    ui.querySelector('#btnBackToVisual').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerVisualSkill(); };
 
     ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
         btn.onclick = async () => {
