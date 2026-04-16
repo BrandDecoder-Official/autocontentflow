@@ -42,8 +42,10 @@ window.FunnelActions = {
             panelCount: MISSION.panelCount, 
             scheduledAt: MISSION.scheduledAt, 
             
-            // 🆕 多平台分軌開關
+            // 🆕 多平台分軌開關與戰術
             isIndependentPost: MISSION.isIndependentPost,
+            platformStrategies: MISSION.platformStrategies, // 讓後端讀取各平台的字數與勾子
+            
             // 🆕 Telegram 多租戶設定
             tgConfig: MISSION.tgConfig,
 
