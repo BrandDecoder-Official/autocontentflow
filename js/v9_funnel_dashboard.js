@@ -28,17 +28,30 @@ export async function triggerMissionSummary() {
     const stylePrefix = isEnhance ? 'REALISTIC' : MISSION.universe;
     const availableStyles = SYSTEM_DB.styles.filter(s => s.type === stylePrefix);
 
+    // 🤖 Agent 提示語動態變化
+    const adviceText = MISSION.isIndependentPost 
+        ? `「總編，已開啟【平台適配模式】！稍後產出劇本時，我會自動為 ${MISSION.platforms.join('、')} 撰寫專屬風格的文案與 Hashtag。」`
+        : `「目前人設為【${MISSION.persona}】，文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
+
     const ui = createSkillUI(`
         <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs">
             
             <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3">
                 <span class="text-xl">🤖</span>
-                <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">
-                    「目前人設為【${MISSION.persona}】，我已準備好最佳配置。點擊下方選項可即時微調內容。」
-                </p>
+                <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">${adviceText}</p>
             </div>
 
             <div class="space-y-2">
+                <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <div class="p-4 flex justify-between items-center">
+                        <span class="text-slate-400 font-bold">📢 貼文內容策略</span>
+                        <div class="flex bg-slate-800 rounded-lg p-1 border border-white/10">
+                            <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">統一內容</button>
+                            <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">平台適配</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                     <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-topic">
                         <span class="text-slate-400 font-bold">📝 任務主題</span>
@@ -164,6 +177,22 @@ export async function triggerMissionSummary() {
         </div>
     `);
 
+    // 🆕 綁定「貼文內容策略」按鈕事件
+    ui.querySelector('#btnModeUnified').onclick = () => { 
+        if(MISSION.isIndependentPost) {
+            MISSION.isIndependentPost = false; 
+            releaseUI(ui);
+            triggerMissionSummary(); 
+        }
+    };
+    ui.querySelector('#btnModeIndie').onclick = () => { 
+        if(!MISSION.isIndependentPost) {
+            MISSION.isIndependentPost = true; 
+            releaseUI(ui);
+            triggerMissionSummary(); 
+        }
+    };
+
     ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
         trigger.onclick = () => {
             const targetId = trigger.dataset.target;
@@ -211,7 +240,10 @@ export async function triggerMissionSummary() {
                 if (MISSION.platforms.length > 1) MISSION.platforms = MISSION.platforms.filter(x => x!==p);
             } else { MISSION.platforms.push(p); }
             btn.classList.toggle('border-blue-500'); btn.classList.toggle('bg-blue-500/20'); btn.classList.toggle('text-white'); btn.classList.toggle('border-white/10'); btn.classList.toggle('text-slate-400');
-            updateDashDisplay();
+            
+            // 重新刷新 UI 以更新上方提示文案
+            releaseUI(ui);
+            triggerMissionSummary();
         };
     });
 
