@@ -48,3 +48,45 @@ export async function showError(msg) {
     if (activeCard) log.insertBefore(div, activeCard); else log.appendChild(div);
     scrollDown();
 }
+
+export function updatePointsDisplay(newPoints) {
+    const ptsEl = document.getElementById('userPoints');
+    if (!ptsEl) return;
+
+    // 取得目前畫面上的數字 (處理包含逗號或預設的 '---')
+    const currentStr = ptsEl.innerText.replace(/,/g, '').replace(/---/g, '0');
+    const currentPts = parseInt(currentStr, 10) || 0;
+    const targetPts = parseInt(newPoints, 10) || 0;
+
+    if (currentPts === targetPts) {
+        ptsEl.innerText = targetPts.toLocaleString();
+        return;
+    }
+
+    // 🎰 拉霸動畫參數
+    const duration = 1000; // 總時長 1 秒
+    const frameRate = 30;  // 每秒 30 幀
+    const totalFrames = Math.round(duration / (1000 / frameRate));
+    let frame = 0;
+
+    const counter = setInterval(() => {
+        frame++;
+        // ease-out 減速效果：一開始跑很快，快到時變慢
+        const progress = frame / totalFrames;
+        const easeOutProgress = 1 - Math.pow(1 - progress, 3); 
+        
+        const currentAnimatedPts = Math.round(currentPts + (targetPts - currentPts) * easeOutProgress);
+        ptsEl.innerText = currentAnimatedPts.toLocaleString();
+
+        if (frame >= totalFrames) {
+            clearInterval(counter);
+            ptsEl.innerText = targetPts.toLocaleString(); // 確保最終數字無誤差
+            
+            // 💡 動畫結束時，加上文字發光放大的特效，0.3秒後恢復
+            ptsEl.classList.add('text-white', 'scale-125', 'drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]');
+            setTimeout(() => {
+                ptsEl.classList.remove('text-white', 'scale-125', 'drop-shadow-[0_0_8px_rgba(255,255,255,0.8)]');
+            }, 300);
+        }
+    }, 1000 / frameRate);
+}
