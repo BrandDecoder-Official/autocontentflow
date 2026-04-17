@@ -16,7 +16,7 @@ export async function triggerTopicSkill() {
     await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3 mb-4">
-            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[120px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒...">${decodeHTMLEntities(MISSION.topic)}</textarea>
+            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[120px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒...">${decodeHTMLEntities(MISSION.topic || '')}</textarea>
             <div class="flex justify-end mt-2">
                 <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認戰略方向</button>
             </div>
@@ -88,7 +88,6 @@ export async function triggerPlatformSkill() {
             const box = card.querySelector('.icon-box');
             const icon = card.querySelector('.icon-color');
             const text = card.querySelector('.title-text');
-            
             if (tempPlats.includes(val)) { 
                 tempPlats = tempPlats.filter(p => p !== val); 
                 box.classList.remove(...activeClasses); box.classList.add(...inactiveClasses); 
@@ -107,10 +106,8 @@ export async function triggerPlatformSkill() {
     ui.querySelector('#btnConfirmPlat').onclick = async () => { 
         if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
         MISSION.platforms = tempPlats; 
-        
         releaseUI(ui); 
         await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
-        
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
         else { await triggerPersonaSkill(); } 
     };
@@ -127,14 +124,11 @@ export async function triggerPersonaSkill() {
         html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400 leading-relaxed">${p.desc}</span></button>`; 
     }); 
     html += `</div>`;
-    
     const ui = createSkillUI(html); 
     ui.querySelectorAll('.persona-btn').forEach(btn => { 
         btn.onclick = async () => { 
-            MISSION.persona = btn.dataset.val; 
-            releaseUI(ui); 
+            MISSION.persona = btn.dataset.val; releaseUI(ui); 
             await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); 
-            
             if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
             else { await triggerHookSkill(); } 
         }; 
@@ -147,7 +141,6 @@ export async function triggerPersonaSkill() {
 export async function triggerHookSkill() { 
     updateStepHeader("STEP 4: TACTICS (HOOK & LENGTH)"); 
     await addLog("社群總監", "🎣", "人設鎖定！那麼開頭的第一句，我們打算怎麼抓住眼球？", true);
-    
     const strategyPanelHTML = `
         <div class="p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left mb-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -215,9 +208,6 @@ export async function triggerCharacterSkill() {
     ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
 }
 
-// ==========================================
-// 📍 Step 9: 視覺參數 (🚀 修復：改完直接回儀表板)
-// ==========================================
 export async function triggerVisualSkill() { 
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE'; const isComic = MISSION.universe === 'COMIC';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認畫面參數：", true);
@@ -236,13 +226,7 @@ export async function triggerVisualSkill() {
         if (!isMissionComplete()) return showError('請完成設定！'); 
         releaseUI(ui); 
         await addLog("美術總監", "✅", `畫面參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。`); 
-        
-        // 🚀 UX 修復：如果是從儀表板回來編輯的，直接回儀表板！
-        if (IS_EDIT_MODE.value && isMissionComplete()) { 
-            await triggerMissionSummary(); 
-        } else { 
-            await triggerScheduleSkill(); 
-        }
+        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerScheduleSkill(); }
     };
 }
 
@@ -254,37 +238,85 @@ export async function handleAssetUpload(file, container) {
 }
 
 // ==========================================
-// 📍 Step 10: 排程 (🚀 修復：Flatpickr 陣列當機)
+// 📍 Step 10: 排程 (🚀 實裝預設緩衝與嚴格校驗)
 // ==========================================
 export async function triggerScheduleSkill() { 
-    updateStepHeader("PUBLISH SCHEDULE"); await addLog("社群總監", "📅", "最後一步，請指派部署時間：", true);
-    const ui = createSkillUI(`<div class="flex flex-col gap-3 mb-4"><div class="grid grid-cols-2 gap-3 relative"><input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" placeholder="📅 選擇日期"><div class="relative w-full" id="timePickerWrapper"><input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none"></div></div><button id="btnConfirmSchedule" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認時間</button></div>`);
-    const fpConfig = { dateFormat: "Y-m-d", minDate: "today", time_24hr: true, defaultDate: MISSION.scheduledAt ? new Date(MISSION.scheduledAt) : null };
-    if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
+    updateStepHeader("PUBLISH SCHEDULE"); 
+    await addLog("社群總監", "📅", "最後一步，請指派部署時間（排程需大於目前時間 1 小時）：", true);
     
-    // 初始化 Flatpickr
+    // 💡 計算預設時間：目前時間 + 1 小時又 5 分鐘 (給予總編填寫的緩衝)
+    const defaultDateObj = new Date();
+    if (MISSION.scheduledAt) {
+        // 若使用者已經設過，帶回原本的設定值
+        defaultDateObj.setTime(new Date(MISSION.scheduledAt).getTime());
+    } else {
+        // 第一次進入，自動加上安全緩衝
+        defaultDateObj.setHours(defaultDateObj.getHours() + 1);
+        defaultDateObj.setMinutes(defaultDateObj.getMinutes() + 5);
+    }
+
+    // 格式化為 HTML input 能吃的值
+    const year = defaultDateObj.getFullYear();
+    const month = String(defaultDateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(defaultDateObj.getDate()).padStart(2, '0');
+    const defDate = `${year}-${month}-${day}`;
+    const defTime = defaultDateObj.toTimeString().slice(0,5); // HH:MM
+
+    const ui = createSkillUI(`
+        <div class="flex flex-col gap-3 mb-4">
+            <div class="grid grid-cols-2 gap-3 relative">
+                <input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" placeholder="📅 選擇日期" value="${defDate}">
+                <div class="relative w-full" id="timePickerWrapper">
+                    <input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" value="${defTime}">
+                </div>
+            </div>
+            <div class="flex gap-2 mt-2">
+                <button id="btnImmediate" class="flex-1 bg-slate-800 text-slate-300 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all border border-white/10 hover:bg-slate-700">⚡ 立即部署</button>
+                <button id="btnConfirmSchedule" class="flex-[2] bg-blue-600 text-white py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">📅 確認排程時間</button>
+            </div>
+        </div>
+    `);
+    
+    const fpConfig = { 
+        dateFormat: "Y-m-d", 
+        minDate: "today", 
+        defaultDate: defDate,
+        disableMobile: "true" // 避免手機原生 UI 覆蓋導致抓值異常
+    };
+    if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
     
+    // ⚡ 立即部署按鈕 (無視欄位，直接清空時間)
+    ui.querySelector('#btnImmediate').onclick = async () => {
+        if (fp) { if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } else if (typeof fp.destroy === 'function') { fp.destroy(); } }
+        MISSION.scheduledAt = null; 
+        releaseUI(ui); 
+        await addLog("社群總監", "⚡", `已選擇「立即部署」。`);
+        await triggerMissionSummary();
+    };
+
+    // 📅 確認排程按鈕 (需通過嚴格驗證)
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
-        // 🚀 Bug 修復：不依賴 fp.input.value (避免陣列錯誤)，直接抓取 HTML input 的值
         const dateStr = ui.querySelector('#datePicker').value; 
         const timeStr = ui.querySelector('#timePickerInput').value; 
-        
-        // 安全銷毀日曆實體
-        if (fp) {
-            if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } 
-            else if (typeof fp.destroy === 'function') { fp.destroy(); }
+
+        // 💡 防呆 1：確保沒有空值
+        if (!dateStr || !timeStr) {
+            return showError("日期與時間必須同時設定完整！");
         }
-        
-        if (dateStr && timeStr) { 
-            MISSION.scheduledAt = new Date(`${dateStr}T${timeStr}:00+08:00`).toISOString(); 
-            releaseUI(ui); 
-            await addLog("社群總監", "✅", `已排程。`); 
-        } else { 
-            MISSION.scheduledAt = null; 
-            releaseUI(ui); 
-            await addLog("社群總監", "⚡", `立即部署。`); 
+
+        const schDate = new Date(`${dateStr}T${timeStr}:00+08:00`);
+        const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
+
+        // 💡 防呆 2：時間必須大於目前時間至少 1 小時
+        if (schDate < oneHourLater) {
+            return showError("排程設定的時間需大於目前時間 1 個小時，請重新設定或點選「立即部署」。");
         }
+
+        MISSION.scheduledAt = schDate.toISOString(); 
+        if (fp) { if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } else if (typeof fp.destroy === 'function') { fp.destroy(); } }
+        releaseUI(ui); 
+        await addLog("社群總監", "✅", `已排程於 ${schDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`); 
         await triggerMissionSummary();
     };
 }
