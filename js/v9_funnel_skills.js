@@ -3,7 +3,8 @@ import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage } fr
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
-import { CONFIG, STATE } from './config.js'; // 引入 CONFIG 與 STATE 以利 API 呼叫
+import { CONFIG, STATE } from './config.js'; 
+import * as API from './api.js'; // 🌟 引入統一的 API 模組
 
 // 🌟 V10 全新入口：從「主題」開始
 export async function startNewFunnel() { await triggerTopicSkill(); }
@@ -47,7 +48,6 @@ export async function triggerPlatformSkill() {
     updateStepHeader("STEP 2: BATTLEFIELD (PLATFORMS)"); 
     await addLog("社群總監", "🚀", "這波戰役，我們打算空投到哪些平台？這會決定大腦輸出的格式。", true);
     
-    // 🎨 插入我們剛才設計的高級平台矩陣 UI
     const ui = createSkillUI(`
         <div class="mb-4">
             <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6" id="platformMatrix">
@@ -100,20 +100,20 @@ export async function triggerPlatformSkill() {
                 tempPlats = tempPlats.filter(p => p !== val); 
                 box.classList.remove(...activeClasses); 
                 box.classList.add(...inactiveClasses); 
-                icon.classList.replace(`text-${activeClasses[0].split('-')[1]}-500`, 'text-slate-500'); // 移除顏色
+                icon.classList.replace(`text-${activeClasses[0].split('-')[1]}-500`, 'text-slate-500'); 
                 text.classList.replace('text-white', 'text-slate-400');
             } else { 
                 tempPlats.push(val); 
                 box.classList.remove(...inactiveClasses); 
                 box.classList.add(...activeClasses); 
-                icon.classList.replace('text-slate-500', `text-${activeClasses[0].split('-')[1]}-500`); // 加上顏色
+                icon.classList.replace('text-slate-500', `text-${activeClasses[0].split('-')[1]}-500`); 
                 if(val === 'THREADS') icon.classList.replace('text-slate-500', 'text-white');
                 text.classList.replace('text-slate-400', 'text-white');
             } 
         }; 
     });
 
-    // 🌟 確認送出 & 建立任務 API
+    // 🌟 確認送出 & 透過 API.js 建立任務
     ui.querySelector('#btnConfirmPlat').onclick = async () => { 
         if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
         MISSION.platforms = tempPlats; 
@@ -123,27 +123,18 @@ export async function triggerPlatformSkill() {
         btn.disabled = true;
 
         try {
-            // 🚀 呼叫 API，正式將這筆任務（帶著 Topic 和 Platform）寫入資料庫
-            const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
-            const tenantId = STATE.uid || 'user_chief_001';
-            
-            // 這裡假設後端有一支 POST /api/agent/tasks 的 API 可以建立空任務
-            const res = await fetch(`${baseUrl}/api/agent/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tenantId: tenantId,
-                    missionContext: {
-                        topic: MISSION.topic,
-                        platforms: MISSION.platforms
-                    },
-                    currentStatus: 'DRAFTING' // 標記為草稿生成中
-                })
-            });
-            const data = await res.json();
-            
-            if (!data.success) throw new Error(data.message);
-            MISSION.currentTaskId = data.taskId; // 取得正式身分證
+            // 🚀 透過封裝好的 API 模組呼叫後端，自動帶入 Token 與 TenantId
+            const payload = {
+                tenantId: STATE.uid || 'user_chief_001',
+                missionContext: {
+                    topic: MISSION.topic,
+                    platforms: MISSION.platforms
+                },
+                currentStatus: 'DRAFTING'
+            };
+
+            const data = await API.createAgentTaskAPI(payload);
+            MISSION.currentTaskId = data.taskId; // 取得後端核發的正式身分證
 
             releaseUI(ui); 
             await addLog("系統", "💾", `任務已建立。追蹤代碼：<span class="text-xs font-mono text-slate-500">${MISSION.currentTaskId}</span>`);
@@ -154,7 +145,7 @@ export async function triggerPlatformSkill() {
 
         } catch (error) {
             showError(`任務建檔失敗：${error.message}`);
-            btn.innerHTML = '重試';
+            btn.innerHTML = '重試鎖定戰場';
             btn.disabled = false;
         }
     };
@@ -236,8 +227,6 @@ export async function triggerHookSkill() {
         await triggerMissionSummary();
     };
 }
-
-// ============== 下半部的 triggerUniverseSkill 及其餘保持不變 ==============
 
 export async function triggerUniverseSkill() { 
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
