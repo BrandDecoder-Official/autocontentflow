@@ -36,7 +36,7 @@ export async function triggerTopicSkill() {
 }
 
 // ==========================================
-// 📍 Step 2: 選擇戰場 (🚀 修正：移除建檔 API，改為延後建檔)
+// 📍 Step 2: 選擇戰場
 // ==========================================
 export async function triggerPlatformSkill() { 
     updateStepHeader("STEP 2: BATTLEFIELD (PLATFORMS)"); 
@@ -88,6 +88,7 @@ export async function triggerPlatformSkill() {
             const box = card.querySelector('.icon-box');
             const icon = card.querySelector('.icon-color');
             const text = card.querySelector('.title-text');
+            
             if (tempPlats.includes(val)) { 
                 tempPlats = tempPlats.filter(p => p !== val); 
                 box.classList.remove(...activeClasses); box.classList.add(...inactiveClasses); 
@@ -107,7 +108,6 @@ export async function triggerPlatformSkill() {
         if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
         MISSION.platforms = tempPlats; 
         
-        // 🚀 移除耗時 API 呼叫，直接進入下一步，維持流暢體驗
         releaseUI(ui); 
         await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
         
@@ -122,45 +122,49 @@ export async function triggerPlatformSkill() {
 export async function triggerPersonaSkill() { 
     updateStepHeader("STEP 3: SOUL (PERSONA)"); 
     await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
-    let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
+    let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">`; 
     SYSTEM_DB.personas.forEach(p => { 
-        html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400">${p.desc}</span></button>`; 
+        html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400 leading-relaxed">${p.desc}</span></button>`; 
     }); 
     html += `</div>`;
+    
     const ui = createSkillUI(html); 
     ui.querySelectorAll('.persona-btn').forEach(btn => { 
         btn.onclick = async () => { 
-            MISSION.persona = btn.dataset.val; releaseUI(ui); 
-            await addLog("專案總監", "✅", `已掛載人設：<b>${MISSION.persona}</b>。`); 
+            MISSION.persona = btn.dataset.val; 
+            releaseUI(ui); 
+            await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); 
+            
             if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-            else { await triggerHookSkill(); }
+            else { await triggerHookSkill(); } 
         }; 
     });
 }
 
 // ==========================================
-// 📍 Step 4: 戰術配置 
+// 📍 Step 4: 戰術配置
 // ==========================================
 export async function triggerHookSkill() { 
-    updateStepHeader("STEP 4: TACTICS"); 
-    await addLog("社群總監", "🎣", "打算怎麼抓住眼球？", true);
-    const ui = createSkillUI(`
-        <div class="p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl text-left mb-4">
+    updateStepHeader("STEP 4: TACTICS (HOOK & LENGTH)"); 
+    await addLog("社群總監", "🎣", "人設鎖定！那麼開頭的第一句，我們打算怎麼抓住眼球？", true);
+    
+    const strategyPanelHTML = `
+        <div class="p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left mb-4">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-2">🎣 開場勾子</label>
-                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none">
-                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option>
-                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option>
-                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option>
-                        <option value="溫情故事" ${MISSION.hookType === '溫情故事' ? 'selected' : ''}>📖 溫情故事</option>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">🎣 開場勾子 (Hook)</label>
+                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer shadow-lg">
+                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (引發共鳴)</option>
+                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破認知)</option>
+                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (直接給好處)</option>
+                        <option value="溫情故事" ${MISSION.hookType === '溫情故事' ? 'selected' : ''}>📖 溫情故事 (感性訴求)</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-[10px] font-bold text-slate-400 mb-2">📏 文案長度</label>
-                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none">
-                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (約150字)</option>
-                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (約300字)</option>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">📏 文案長度節奏</label>
+                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer shadow-lg">
+                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads)</option>
+                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/Blog)</option>
                     </select>
                 </div>
             </div>
@@ -168,9 +172,11 @@ export async function triggerHookSkill() {
                 <button id="btnConfirmHook" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all w-full sm:w-auto">🧠 鎖定戰術，進入宇宙設定</button>
             </div>
         </div>
-    `);
+    `;
+    const ui = createSkillUI(strategyPanelHTML);
     ui.querySelector('#btnConfirmHook').onclick = async () => { 
-        MISSION.hookType = ui.querySelector('#selHookType').value; MISSION.contentLength = ui.querySelector('#selLength').value; 
+        MISSION.hookType = ui.querySelector('#selHookType').value; 
+        MISSION.contentLength = ui.querySelector('#selLength').value; 
         releaseUI(ui); 
         await addLog("社群總監", "✅", `戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
@@ -209,6 +215,9 @@ export async function triggerCharacterSkill() {
     ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
 }
 
+// ==========================================
+// 📍 Step 9: 視覺參數 (🚀 修復：改完直接回儀表板)
+// ==========================================
 export async function triggerVisualSkill() { 
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE'; const isComic = MISSION.universe === 'COMIC';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認畫面參數：", true);
@@ -227,7 +236,13 @@ export async function triggerVisualSkill() {
         if (!isMissionComplete()) return showError('請完成設定！'); 
         releaseUI(ui); 
         await addLog("美術總監", "✅", `畫面參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。`); 
-        await triggerScheduleSkill(); 
+        
+        // 🚀 UX 修復：如果是從儀表板回來編輯的，直接回儀表板！
+        if (IS_EDIT_MODE.value && isMissionComplete()) { 
+            await triggerMissionSummary(); 
+        } else { 
+            await triggerScheduleSkill(); 
+        }
     };
 }
 
@@ -238,16 +253,38 @@ export async function handleAssetUpload(file, container) {
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化。`); 
 }
 
+// ==========================================
+// 📍 Step 10: 排程 (🚀 修復：Flatpickr 陣列當機)
+// ==========================================
 export async function triggerScheduleSkill() { 
     updateStepHeader("PUBLISH SCHEDULE"); await addLog("社群總監", "📅", "最後一步，請指派部署時間：", true);
     const ui = createSkillUI(`<div class="flex flex-col gap-3 mb-4"><div class="grid grid-cols-2 gap-3 relative"><input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" placeholder="📅 選擇日期"><div class="relative w-full" id="timePickerWrapper"><input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none"></div></div><button id="btnConfirmSchedule" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認時間</button></div>`);
     const fpConfig = { dateFormat: "Y-m-d", minDate: "today", time_24hr: true, defaultDate: MISSION.scheduledAt ? new Date(MISSION.scheduledAt) : null };
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
+    
+    // 初始化 Flatpickr
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
+    
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
-        const dateStr = fp ? fp.input.value : ui.querySelector('#datePicker').value; const timeStr = ui.querySelector('#timePickerInput').value; if(fp) fp.destroy(); 
-        if (dateStr && timeStr) { MISSION.scheduledAt = new Date(`${dateStr}T${timeStr}:00+08:00`).toISOString(); releaseUI(ui); await addLog("社群總監", "✅", `已排程。`); } 
-        else { MISSION.scheduledAt = null; releaseUI(ui); await addLog("社群總監", "⚡", `立即部署。`); }
+        // 🚀 Bug 修復：不依賴 fp.input.value (避免陣列錯誤)，直接抓取 HTML input 的值
+        const dateStr = ui.querySelector('#datePicker').value; 
+        const timeStr = ui.querySelector('#timePickerInput').value; 
+        
+        // 安全銷毀日曆實體
+        if (fp) {
+            if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } 
+            else if (typeof fp.destroy === 'function') { fp.destroy(); }
+        }
+        
+        if (dateStr && timeStr) { 
+            MISSION.scheduledAt = new Date(`${dateStr}T${timeStr}:00+08:00`).toISOString(); 
+            releaseUI(ui); 
+            await addLog("社群總監", "✅", `已排程。`); 
+        } else { 
+            MISSION.scheduledAt = null; 
+            releaseUI(ui); 
+            await addLog("社群總監", "⚡", `立即部署。`); 
+        }
         await triggerMissionSummary();
     };
 }
