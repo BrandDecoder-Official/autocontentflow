@@ -3,35 +3,241 @@ import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage } fr
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
+import { CONFIG, STATE } from './config.js'; // 引入 CONFIG 與 STATE 以利 API 呼叫
 
-export async function startNewFunnel() { await triggerPersonaSkill(); }
+// 🌟 V10 全新入口：從「主題」開始
+export async function startNewFunnel() { await triggerTopicSkill(); }
 
-export async function triggerPersonaSkill() { 
-    updateStepHeader("PERSONA SELECTION"); await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
-    let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">`; 
-    SYSTEM_DB.personas.forEach(p => { html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}"><span class="text-2xl mb-1">${p.icon}</span><span class="font-bold text-sm text-white">${p.name}</span><span class="text-[10px] text-slate-400">${p.desc}</span></button>`; }); 
-    html += `</div>`;
-    const ui = createSkillUI(html); 
-    ui.querySelectorAll('.persona-btn').forEach(btn => { btn.onclick = async () => { MISSION.persona = btn.dataset.val; releaseUI(ui); await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerPlatformSkill(); } }; });
-}
-
-export async function triggerPlatformSkill() { 
-    updateStepHeader("PLATFORM SELECTION"); await addLog("社群總監", "🚀", "請決定投遞平台：", true);
-    const plats = [{ id: 'FB', name: 'Facebook', activeColor: 'bg-blue-600 border-blue-500 text-white' }, { id: 'IG', name: 'Instagram', activeColor: 'bg-gradient-to-r from-purple-600 to-pink-600 border-pink-500 text-white' }, { id: 'THREADS', name: 'Threads', activeColor: 'bg-black border-slate-500 text-white' }];
-    let btnsHtml = ''; let tempPlats = [...MISSION.platforms];
-    plats.forEach(p => { const isSelected = tempPlats.includes(p.id); const stateClass = isSelected ? p.activeColor : "bg-slate-800 border-white/10 text-slate-400"; btnsHtml += `<button class="plat-btn px-4 py-3 rounded-xl text-xs font-bold transition-all border ${stateClass}" data-val="${p.id}" data-active="${p.activeColor}" data-name="${p.name}">${isSelected ? p.name + ' ✓' : p.name}</button>`; });
-    const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 sm:flex sm:gap-3">${btnsHtml}<button id="btnConfirmPlat" class="bg-blue-500 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg ml-auto active:scale-95 transition-all">確認鎖定</button></div>`);
-    ui.querySelectorAll('.plat-btn').forEach(btn => { btn.onclick = () => { const val = btn.dataset.val; const activeClasses = btn.dataset.active.split(' '); if (tempPlats.includes(val)) { tempPlats = tempPlats.filter(p => p !== val); btn.classList.remove(...activeClasses); btn.classList.add('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.innerText = btn.dataset.name; } else { tempPlats.push(val); btn.classList.remove('bg-slate-800', 'border-white/10', 'text-slate-400'); btn.classList.add(...activeClasses); btn.innerText = `${btn.dataset.name} ✓`; } }; });
-    ui.querySelector('#btnConfirmPlat').onclick = async () => { if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); MISSION.platforms = tempPlats; releaseUI(ui); await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerTopicSkill(); } };
-}
-
+// ==========================================
+// 📍 Step 1: 確立主題 (The Topic)
+// ==========================================
 export async function triggerTopicSkill() { 
-    updateStepHeader("TOPIC CAPTURE"); await addLog("專案總監", "📝", "請在下方填寫本次貼文的主題與要求：", true);
-    const strategyPanelHTML = `<div class="mt-4 p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left animate-fade-in"><h4 class="text-xs font-black text-indigo-300 mb-3 flex items-center gap-2"><span>🎯</span> 單次發文戰術配置</h4><div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div><label class="block text-[10px] font-bold text-slate-400 mb-1">開場勾子 (Hook)</label><select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option><option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option><option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option><option value="爭議站隊" ${MISSION.hookType === '爭議站隊' ? 'selected' : ''}>⚔️ 爭議站隊</option></select></div><div><label class="block text-[10px] font-bold text-slate-400 mb-1">文案長度節奏</label><select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer"><option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (IG/Threads)</option><option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (FB/Blog)</option></select></div></div></div>`;
-    const ui = createSkillUI(`<div class="flex flex-col gap-3"><textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[100px] resize-y" placeholder="請描述您的產品、活動或想表達的情境...">${decodeHTMLEntities(MISSION.topic)}</textarea>${strategyPanelHTML}<div class="flex justify-end mt-2"><button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">確認鎖定主題與戰術</button></div></div>`);
-    const inputEl = ui.querySelector('#inlineTopicInput'); setTimeout(() => { inputEl.focus(); }, 100);
-    ui.querySelector('#btnConfirmTopic').onclick = async () => { const val = inputEl.value.trim(); if(!val) return showError('主題不能為空！'); MISSION.topic = val; MISSION.hookType = ui.querySelector('#selHookType').value; MISSION.contentLength = ui.querySelector('#selLength').value; inputEl.disabled = true; inputEl.classList.add('opacity-50', 'bg-slate-800'); ui.querySelector('#btnConfirmTopic').classList.add('hidden'); releaseUI(ui); await addLog("總編指令", "🗣️", `鎖定主題：${val}<br><span class="text-[10px] text-indigo-400">📝 戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}</span>`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerUniverseSkill(); } };
+    updateStepHeader("STEP 1: STRATEGY (TOPIC)"); 
+    await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
+    
+    const ui = createSkillUI(`
+        <div class="flex flex-col gap-3 mb-4">
+            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[120px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒，強調米其林三星與國禮背書...">${decodeHTMLEntities(MISSION.topic)}</textarea>
+            <div class="flex justify-end mt-2">
+                <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認戰略方向</button>
+            </div>
+        </div>
+    `);
+    
+    const inputEl = ui.querySelector('#inlineTopicInput'); 
+    setTimeout(() => { inputEl.focus(); }, 100);
+    
+    ui.querySelector('#btnConfirmTopic').onclick = async () => { 
+        const val = inputEl.value.trim(); 
+        if(!val) return showError('主題不能為空！大腦需要方向。'); 
+        
+        MISSION.topic = val; 
+        releaseUI(ui); 
+        await addLog("總編指令", "🎯", `戰略鎖定：${val}`); 
+        
+        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
+        else { await triggerPlatformSkill(); } 
+    };
 }
+
+// ==========================================
+// 📍 Step 2: 選擇戰場 (The Platforms) + 觸發後端建檔
+// ==========================================
+export async function triggerPlatformSkill() { 
+    updateStepHeader("STEP 2: BATTLEFIELD (PLATFORMS)"); 
+    await addLog("社群總監", "🚀", "這波戰役，我們打算空投到哪些平台？這會決定大腦輸出的格式。", true);
+    
+    // 🎨 插入我們剛才設計的高級平台矩陣 UI
+    const ui = createSkillUI(`
+        <div class="mb-4">
+            <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6" id="platformMatrix">
+                <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="FB" data-active="border-blue-500 bg-blue-600/20" data-inactive="border-white/10 bg-slate-800">
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-facebook-f text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
+                    <span class="text-[10px] font-bold text-slate-400 title-text">Facebook</span>
+                </div>
+                <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="IG" data-active="border-pink-500 bg-pink-600/20" data-inactive="border-white/10 bg-slate-800">
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-instagram text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
+                    <span class="text-[10px] font-bold text-slate-400 title-text">Instagram</span>
+                </div>
+                <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="THREADS" data-active="border-white bg-white/10" data-inactive="border-white/10 bg-slate-800">
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-threads text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
+                    <span class="text-[10px] font-bold text-slate-400 title-text">Threads</span>
+                </div>
+                <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="LINE" data-active="border-green-500 bg-green-600/20" data-inactive="border-white/10 bg-slate-800">
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-line text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
+                    <span class="text-[10px] font-bold text-slate-400 title-text">LINE</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
+                    <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-google text-2xl lg:text-3xl text-slate-400"></i></div>
+                    <span class="text-[10px] font-bold text-slate-500">G.商家</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
+                    <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-wordpress text-2xl lg:text-3xl text-slate-400"></i></div>
+                    <span class="text-[10px] font-bold text-slate-500">Blog</span>
+                </div>
+            </div>
+            <div class="flex justify-end border-t border-white/10 pt-4">
+                <button id="btnConfirmPlat" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">鎖定戰場，準備發起任務</button>
+            </div>
+        </div>
+    `);
+
+    let tempPlats = [...MISSION.platforms];
+    
+    // UI 點擊切換邏輯
+    ui.querySelectorAll('.plat-card').forEach(card => { 
+        card.onclick = () => { 
+            const val = card.dataset.val; 
+            const activeClasses = card.dataset.active.split(' '); 
+            const inactiveClasses = card.dataset.inactive.split(' ');
+            const box = card.querySelector('.icon-box');
+            const icon = card.querySelector('.icon-color');
+            const text = card.querySelector('.title-text');
+            
+            if (tempPlats.includes(val)) { 
+                tempPlats = tempPlats.filter(p => p !== val); 
+                box.classList.remove(...activeClasses); 
+                box.classList.add(...inactiveClasses); 
+                icon.classList.replace(`text-${activeClasses[0].split('-')[1]}-500`, 'text-slate-500'); // 移除顏色
+                text.classList.replace('text-white', 'text-slate-400');
+            } else { 
+                tempPlats.push(val); 
+                box.classList.remove(...inactiveClasses); 
+                box.classList.add(...activeClasses); 
+                icon.classList.replace('text-slate-500', `text-${activeClasses[0].split('-')[1]}-500`); // 加上顏色
+                if(val === 'THREADS') icon.classList.replace('text-slate-500', 'text-white');
+                text.classList.replace('text-slate-400', 'text-white');
+            } 
+        }; 
+    });
+
+    // 🌟 確認送出 & 建立任務 API
+    ui.querySelector('#btnConfirmPlat').onclick = async () => { 
+        if (tempPlats.length === 0) return showError('請至少選擇一個平台！'); 
+        MISSION.platforms = tempPlats; 
+        
+        const btn = ui.querySelector('#btnConfirmPlat');
+        btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div>任務建檔中...';
+        btn.disabled = true;
+
+        try {
+            // 🚀 呼叫 API，正式將這筆任務（帶著 Topic 和 Platform）寫入資料庫
+            const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
+            const tenantId = STATE.uid || 'user_chief_001';
+            
+            // 這裡假設後端有一支 POST /api/agent/tasks 的 API 可以建立空任務
+            const res = await fetch(`${baseUrl}/api/agent/tasks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    tenantId: tenantId,
+                    missionContext: {
+                        topic: MISSION.topic,
+                        platforms: MISSION.platforms
+                    },
+                    currentStatus: 'DRAFTING' // 標記為草稿生成中
+                })
+            });
+            const data = await res.json();
+            
+            if (!data.success) throw new Error(data.message);
+            MISSION.currentTaskId = data.taskId; // 取得正式身分證
+
+            releaseUI(ui); 
+            await addLog("系統", "💾", `任務已建立。追蹤代碼：<span class="text-xs font-mono text-slate-500">${MISSION.currentTaskId}</span>`);
+            await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
+            
+            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
+            else { await triggerPersonaSkill(); } 
+
+        } catch (error) {
+            showError(`任務建檔失敗：${error.message}`);
+            btn.innerHTML = '重試';
+            btn.disabled = false;
+        }
+    };
+}
+
+// ==========================================
+// 📍 Step 3: 選擇人設 (The Persona)
+// ==========================================
+export async function triggerPersonaSkill() { 
+    updateStepHeader("STEP 3: SOUL (PERSONA)"); 
+    await addLog("專案總監", "🎭", "針對這些平台，我們這次要派出哪位「品牌代言人」來發言？", true);
+    
+    let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">`; 
+    SYSTEM_DB.personas.forEach(p => { 
+        html += `<button class="persona-btn p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.persona === p.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${p.name}">
+            <span class="text-2xl mb-1">${p.icon}</span>
+            <span class="font-bold text-sm text-white">${p.name}</span>
+            <span class="text-[10px] text-slate-400 leading-relaxed">${p.desc}</span>
+        </button>`; 
+    }); 
+    html += `</div>`;
+    
+    const ui = createSkillUI(html); 
+    ui.querySelectorAll('.persona-btn').forEach(btn => { 
+        btn.onclick = async () => { 
+            MISSION.persona = btn.dataset.val; 
+            releaseUI(ui); 
+            await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); 
+            
+            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
+            else { await triggerHookSkill(); } 
+        }; 
+    });
+}
+
+// ==========================================
+// 📍 Step 4: 鉤子與策略 (The Hook)
+// ==========================================
+export async function triggerHookSkill() { 
+    updateStepHeader("STEP 4: TACTICS (HOOK & LENGTH)"); 
+    await addLog("社群總監", "🎣", "人設鎖定！那麼開頭的第一句，我們打算怎麼抓住眼球？", true);
+    
+    const strategyPanelHTML = `
+        <div class="p-5 bg-slate-800/80 border border-indigo-500/30 rounded-2xl shadow-inner text-left mb-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">🎣 開場勾子 (Hook)</label>
+                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer shadow-lg">
+                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問 (引發共鳴)</option>
+                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點 (打破認知)</option>
+                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑 (直接給好處)</option>
+                        <option value="溫情故事" ${MISSION.hookType === '溫情故事' ? 'selected' : ''}>📖 溫情故事 (感性訴求)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 mb-2">📏 文案長度節奏</label>
+                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer shadow-lg">
+                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (適合 IG/Threads)</option>
+                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (適合 FB/Blog)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button id="btnConfirmHook" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all w-full sm:w-auto">🧠 送出給大腦生成草稿</button>
+            </div>
+        </div>
+    `;
+    
+    const ui = createSkillUI(strategyPanelHTML);
+    
+    ui.querySelector('#btnConfirmHook').onclick = async () => { 
+        MISSION.hookType = ui.querySelector('#selHookType').value; 
+        MISSION.contentLength = ui.querySelector('#selLength').value; 
+        
+        releaseUI(ui); 
+        await addLog("社群總監", "✅", `戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`); 
+        
+        // 🚀 在這裡呼叫 triggerMissionSummary 進入「大腦運算階段 (Draft Editor)」
+        await triggerMissionSummary();
+    };
+}
+
+// ============== 下半部的 triggerUniverseSkill 及其餘保持不變 ==============
 
 export async function triggerUniverseSkill() { 
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
