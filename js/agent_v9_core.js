@@ -10,11 +10,17 @@ import './v9_sidebar.js'; // 側欄
 
 export { bootSystemData } from './v9_state.js';
 
+// ==========================================
+// 🚀 核心入口：初始化 (Lobby 渲染) - 被首頁呼叫
+// ==========================================
+export async function initAgentFunnel() {
+    renderLobby();
+}
+
 // 🚀 監聽來自漏斗的「重啟大廳」事件 (解決互相引用的終極解法)
 window.addEventListener('reloadLobby', () => {
     initAgentFunnel();
 });
-
 
 // ==========================================
 // 🚀 狀態變數：控制目前所在的頁籤
@@ -22,7 +28,7 @@ window.addEventListener('reloadLobby', () => {
 window.currentTaskTab = 'PENDING'; // 預設顯示進行中
 
 // ==========================================
-// 🚀 核心入口：初始化 (Lobby 渲染)
+// 🎨 大廳畫面渲染
 // ==========================================
 function renderLobby() {
     const log = document.getElementById('funnelLog');
@@ -99,7 +105,7 @@ window.switchTaskTab = function(tabName) {
 }
 
 // ==========================================
-// 📋 任務儀表板渲染 (進度條 + 雙按鈕 + 防錯)
+// 📋 任務儀表板與斷點續傳 (去重後保留最完整版)
 // ==========================================
 window.renderTaskDashboard = async function() {
     const container = document.getElementById('taskListContainer');
@@ -161,7 +167,7 @@ window.renderTaskDashboard = async function() {
             let statusColor, statusText, actionText, icon, progressPct, barColor;
             switch(task.currentStatus) {
                 case 'COMPLETED': 
-                    statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; statusText = '已發佈完成'; actionText = '查看結果'; icon = '✅'; progressPct = 100; barColor = 'bg-emerald-500'; break;
+                    statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; statusText = '已發佈完成'; actionText = '查看成品'; icon = '✅'; progressPct = 100; barColor = 'bg-emerald-500'; break;
                 case 'AWAITING_APPROVAL': 
                     statusColor = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'; statusText = '等候總編校稿'; actionText = '接續校稿'; icon = '👀'; progressPct = 50; barColor = 'bg-yellow-500'; break;
                 case 'IMAGES_GENERATED': 
@@ -172,7 +178,7 @@ window.renderTaskDashboard = async function() {
                     statusColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; statusText = '大腦運算中...'; actionText = '強制載入'; icon = '🧠'; progressPct = 25; barColor = 'bg-purple-500 animate-pulse'; break;
             }
 
-            // 🎨 UI 組裝 (手機版卡片化 / 電腦版橫列)
+            // 🎨 UI 組裝 (結合雙按鈕與進度條)
             html += `
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/40 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/30 p-4 rounded-xl transition-all group gap-4 relative overflow-hidden shadow-lg">
                     
@@ -197,10 +203,10 @@ window.renderTaskDashboard = async function() {
                     
                     <div class="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end flex-shrink-0 mt-2 sm:mt-0 z-10">
                         <button onclick="resumeTask(${index})" class="flex-1 sm:flex-none justify-center bg-indigo-600/90 hover:bg-indigo-500 text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95">
-                            <i class="fa-solid fa-bolt"></i> ${actionText}
+                            📝 ${actionText}
                         </button>
                         <button onclick="deleteTask('${task.taskId}')" class="bg-slate-700/60 hover:bg-red-500/80 text-slate-300 hover:text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95" title="刪除此任務">
-                            <i class="fa-regular fa-trash-can"></i>
+                            🗑️ 刪除
                         </button>
                     </div>
                 </div>
@@ -213,133 +219,19 @@ window.renderTaskDashboard = async function() {
     }
 }
 
-// 刪除按鈕骨架
-window.deleteTask = async function(taskId) {
-    if (!confirm('總編，確定要刪除這筆任務記錄嗎？')) return;
-    console.log(`[系統提示] 準備刪除任務: ${taskId}`);
-    alert(`任務 ${taskId} 刪除成功 (API對接保留)`);
-    // fetch DELETE 實作區...
-}
-
-
 // ==========================================
-// 📋 任務儀表板與斷點續傳
-// ==========================================
-window.renderTaskDashboard = async function() {
-    const container = document.getElementById('taskListContainer');
-    if(!container) return;
-    
-    container.innerHTML = '<div class="text-center py-4"><div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin inline-block"></div></div>';
-    
-    try {
-        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
-        const currentTenantId = STATE.uid || 'user_chief_001';
-        
-        const response = await fetch(`${baseUrl}/api/agent/tasks/${currentTenantId}`);
-        const data = await response.json();
-        
-        if (!data.success) throw new Error(data.message);
-        
-        if (data.tasks.length === 0) {
-            container.innerHTML = '<p class="text-slate-500 text-xs text-center py-4">目前尚無歷史任務，請從上方發起新任務。</p>';
-            return;
-        }
-
-        let html = '';
-        window.tempTaskCache = data.tasks; 
-
-        data.tasks.forEach((task, index) => {
-            let statusColor, statusText, actionText, icon;
-            const topic = task.missionContext?.topic || '未命名主題';
-            
-            // 🛠️ 1. 強健的時間解析邏輯 (消滅 Invalid Date)
-            let validDate = new Date();
-            if (task.updatedAt) {
-                // 處理 Firebase Timestamp 特殊格式
-                if (task.updatedAt._seconds) {
-                    validDate = new Date(task.updatedAt._seconds * 1000);
-                } else {
-                    validDate = new Date(task.updatedAt);
-                }
-            }
-            // 如果解析失敗，嘗試從 taskId 挽救
-            if (isNaN(validDate.getTime()) && task.taskId) {
-                const parts = task.taskId.split('_');
-                const possibleTime = parseInt(parts[parts.length - 1]);
-                if (!isNaN(possibleTime)) validDate = new Date(possibleTime);
-            }
-            // 最終格式化
-            let timeStr = '未知時間';
-            if (!isNaN(validDate.getTime())) {
-                timeStr = validDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-            }
-
-            // 狀態判定
-            switch(task.currentStatus) {
-                case 'COMPLETED': statusColor = 'text-emerald-400'; statusText = '已發佈'; actionText = '查看成品'; icon = '🟢'; break;
-                case 'AWAITING_APPROVAL': statusColor = 'text-yellow-400'; statusText = '等待總編審核'; actionText = '接續校稿'; icon = '🟡'; break;
-                case 'IMAGES_GENERATED': statusColor = 'text-blue-400'; statusText = '等待發佈'; actionText = '接續發佈'; icon = '🔵'; break;
-                case 'ERROR': statusColor = 'text-red-400'; statusText = '執行異常'; actionText = '重試任務'; icon = '🔴'; break;
-                default: statusColor = 'text-slate-400'; statusText = '處理中'; actionText = '查看進度'; icon = '⚪'; break;
-            }
-
-            // 🛠️ 2. UI 改造：填滿右側空間，加入雙按鈕
-            html += `
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 p-4 rounded-xl transition-all group gap-3">
-                    
-                    <div class="flex flex-col gap-1 w-full sm:w-auto overflow-hidden">
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs">${icon}</span>
-                            <span class="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[300px]" title="${topic}">${topic}</span>
-                        </div>
-                        <div class="flex gap-3 text-[10px]">
-                            <span class="${statusColor} font-black">${statusText}</span>
-                            <span class="text-slate-500">${timeStr}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
-                        <button onclick="resumeTask(${index})" class="bg-indigo-600/90 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center gap-1.5 active:scale-95">
-                            📝 ${actionText}
-                        </button>
-                        <button onclick="deleteTask('${task.taskId}')" class="bg-slate-700/80 hover:bg-red-500 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95">
-                            🗑️ 刪除
-                        </button>
-                    </div>
-
-                </div>
-            `;
-        });
-        
-        container.innerHTML = html;
-    } catch (error) {
-        container.innerHTML = `<p class="text-red-400 text-xs text-center py-4">讀取失敗: ${error.message}</p>`;
-    }
-}
-
-// ==========================================
-// 🗑️ 新增：刪除任務功能 (API 串接準備)
+// 🗑️ 刪除任務功能
 // ==========================================
 window.deleteTask = async function(taskId) {
     if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復)')) return;
     
-    // 這裡先做 UI 樂觀更新，並印出要刪除的 ID，讓總編確認
     console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
     alert(`任務 ${taskId} 刪除 API 準備串接中...`);
-    
-    // 💡 未來這裡要補上 fetch(DELETE) 到後端的代碼
-    /*
-    try {
-        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
-        await fetch(`${baseUrl}/api/agent/tasks/${taskId}`, { method: 'DELETE' });
-        // 刪除成功後重新渲染列表
-        renderTaskDashboard();
-    } catch (e) {
-        alert('刪除失敗: ' + e.message);
-    }
-    */
 }
 
+// ==========================================
+// 🔄 恢復/接續 任務功能
+// ==========================================
 window.resumeTask = async function(taskIndex) {
     const task = window.tempTaskCache[taskIndex];
     if(!task) return showError("任務資料遺失！");
@@ -360,8 +252,6 @@ window.resumeTask = async function(taskIndex) {
 
     if (task.currentStatus === 'AWAITING_APPROVAL') {
         if(chatBar) chatBar.classList.remove('translate-y-full'); 
-        
-        // 🚀 呼叫獨立出去的卡片渲染模組！
         await renderDraftEditorCard(task.taskId, task.agentData.draftContent, MISSION.universe === 'COMIC');
         
     } else if (task.currentStatus === 'IMAGES_GENERATED') {
