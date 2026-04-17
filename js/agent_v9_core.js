@@ -31,47 +31,49 @@ export async function initAgentFunnel() {
 
 function renderLobby() {
     const log = document.getElementById('funnelLog');
-    Object.assign(MISSION, { persona: '', hookType: '痛點提問', contentLength: '深度文 (約300字)', platforms: [], topic: '', universe: '', style: '', colorMode: '', ratio: '9:16', resolution: '1K', characters: [], sceneFiles: [], scheduledAt: null, panelCount: 4, currentTaskId: null });
+    // 初始化 MISSION 暫存
+    Object.assign(MISSION, { persona: '', hookType: '痛點提問', platforms: [], topic: '', currentTaskId: null });
     
     log.innerHTML = `
-        <div class="max-w-4xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6">
+        <div class="max-w-5xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-8">
             <div class="text-center space-y-2 mb-8">
-                <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">歡迎回到指揮艙，總編</h2>
-                <p class="text-xs text-slate-400">目前運作品牌：<span class="text-blue-400 font-bold">BrandDecoder 官方</span></p>
+                <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">讓夢想在對話中落地</h2>
+                <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編 K.C</span></p>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
-                <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-6 lg:p-8 hover:bg-slate-800 transition-all cursor-pointer group shadow-xl relative flex flex-col h-full" onclick="alert('全自動情報網建置中...')">
-                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase">Auto-Pilot</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-8 hover:bg-slate-800 transition-all cursor-pointer group relative flex flex-col h-full opacity-60">
+                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest">AUTO-PILOT</div>
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">🤖</div>
-                    <h3 class="text-lg font-black text-white mb-2">全自動情報偵測</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">Agent 根據品牌標籤與人設，24小時過濾趨勢，主動撰寫發文草稿。</p>
+                    <h3 class="text-lg font-black text-white mb-2">全自動巡航模式</h3>
+                    <p class="text-xs text-slate-400 leading-relaxed">Agent 根據品牌基因，自動抓取時事並生成草稿。</p>
                 </div>
-                <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
+
+                <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
-                    <h3 class="text-lg font-black text-white mb-2">手動發起任務</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">進入專屬 AI 漏斗。由您親自指定所有視覺與文案細節。</p>
+                    <h3 class="text-lg font-black text-white mb-2">發起實戰任務</h3>
+                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">從主題、平台到人設，親手建構您的獲利閉環。</p>
                     <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動全新漏斗</button>
                 </div>
             </div>
 
-            <div id="taskDashboardArea" class="bg-slate-900 border border-white/10 rounded-3xl p-6 shadow-2xl">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-sm font-black text-white">📋 任務控制台 (Mission Logs)</h3>
-                    <button onclick="renderTaskDashboard()" class="text-xs text-indigo-400 hover:text-indigo-300">🔄 重新整理</button>
+            <div id="taskDashboardArea" class="bg-slate-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
+                <div class="flex items-center justify-between px-6 py-4 border-bottom border-white/5 bg-white/5">
+                    <div class="flex gap-6">
+                        <button onclick="switchTaskTab('PENDING')" id="tabPending" class="text-sm font-black transition-colors text-blue-400 border-b-2 border-blue-400 pb-1">⚡ 進行中任務</button>
+                        <button onclick="switchTaskTab('COMPLETED')" id="tabCompleted" class="text-sm font-black transition-colors text-slate-500 hover:text-white pb-1">✅ 歷史紀錄</button>
+                    </div>
+                    <button onclick="renderTaskDashboard()" class="text-xs text-slate-400 hover:text-white"><i class="fa-solid fa-rotate"></i> 刷新</button>
                 </div>
-                <div id="taskListContainer" class="space-y-3">
-                    <p class="text-slate-500 text-xs text-center py-4">讀取歷史任務中...</p>
+
+                <div id="taskListContainer" class="p-6 space-y-4 min-h-[300px]">
+                    <p class="text-slate-500 text-xs text-center py-10">連線中...</p>
                 </div>
             </div>
         </div>
     `;
 
     document.getElementById('btnManualStart').onclick = async () => { 
-        log.innerHTML = ''; 
-        await addLog("專案總監", "👨‍💼", `${APP_VERSION} 漏斗啟動。讀取真實基因庫中...`); 
-        
-        // 🚀 呼叫獨立出去的漏斗模組！
         await startNewFunnel();
     };
 
