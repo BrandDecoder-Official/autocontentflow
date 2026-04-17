@@ -48,30 +48,38 @@ export async function triggerPlatformSkill() {
     updateStepHeader("STEP 2: BATTLEFIELD (PLATFORMS)"); 
     await addLog("社群總監", "🚀", "這波戰役，我們打算空投到哪些平台？這會決定大腦輸出的格式。", true);
     
+    // 🛠️ 修正：將 LINE 移入籌備中區域
     const ui = createSkillUI(`
         <div class="mb-4">
             <div class="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-6" id="platformMatrix">
+                
                 <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="FB" data-active="border-blue-500 bg-blue-600/20" data-inactive="border-white/10 bg-slate-800">
                     <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-facebook-f text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
                     <span class="text-[10px] font-bold text-slate-400 title-text">Facebook</span>
                 </div>
+                
                 <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="IG" data-active="border-pink-500 bg-pink-600/20" data-inactive="border-white/10 bg-slate-800">
                     <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-instagram text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
                     <span class="text-[10px] font-bold text-slate-400 title-text">Instagram</span>
                 </div>
+                
                 <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="THREADS" data-active="border-white bg-white/10" data-inactive="border-white/10 bg-slate-800">
                     <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-threads text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
                     <span class="text-[10px] font-bold text-slate-400 title-text">Threads</span>
                 </div>
-                <div class="plat-card flex flex-col items-center gap-2 group cursor-pointer transition-all" data-val="LINE" data-active="border-green-500 bg-green-600/20" data-inactive="border-white/10 bg-slate-800">
-                    <div class="w-14 h-14 lg:w-16 lg:h-16 border rounded-2xl flex justify-center items-center transition-all icon-box border-white/10 bg-slate-800"><i class="fa-brands fa-line text-2xl lg:text-3xl icon-color text-slate-500"></i></div>
-                    <span class="text-[10px] font-bold text-slate-400 title-text">LINE</span>
+                
+                <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
+                    <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
+                    <div class="w-14 h-14 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-line text-2xl lg:text-3xl text-slate-400"></i></div>
+                    <span class="text-[10px] font-bold text-slate-500">LINE</span>
                 </div>
+
                 <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
                     <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
                     <div class="w-14 h-14 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-google text-2xl lg:text-3xl text-slate-400"></i></div>
                     <span class="text-[10px] font-bold text-slate-500">G.商家</span>
                 </div>
+                
                 <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
                     <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
                     <div class="w-14 h-14 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-wordpress text-2xl lg:text-3xl text-slate-400"></i></div>
@@ -123,7 +131,6 @@ export async function triggerPlatformSkill() {
         btn.disabled = true;
 
         try {
-            // 🚀 透過封裝好的 API 模組呼叫後端，自動帶入 Token 與 TenantId
             const payload = {
                 tenantId: STATE.uid || 'user_chief_001',
                 missionContext: {
@@ -134,7 +141,7 @@ export async function triggerPlatformSkill() {
             };
 
             const data = await API.createAgentTaskAPI(payload);
-            MISSION.currentTaskId = data.taskId; // 取得後端核發的正式身分證
+            MISSION.currentTaskId = data.taskId; 
 
             releaseUI(ui); 
             await addLog("系統", "💾", `任務已建立。追蹤代碼：<span class="text-xs font-mono text-slate-500">${MISSION.currentTaskId}</span>`);
@@ -209,7 +216,7 @@ export async function triggerHookSkill() {
                 </div>
             </div>
             <div class="flex justify-end mt-6">
-                <button id="btnConfirmHook" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all w-full sm:w-auto">🧠 送出給大腦生成草稿</button>
+                <button id="btnConfirmHook" class="bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all w-full sm:w-auto">🧠 鎖定戰術，進入宇宙設定</button>
             </div>
         </div>
     `;
@@ -223,8 +230,9 @@ export async function triggerHookSkill() {
         releaseUI(ui); 
         await addLog("社群總監", "✅", `戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`); 
         
-        // 🚀 在這裡呼叫 triggerMissionSummary 進入「大腦運算階段 (Draft Editor)」
-        await triggerMissionSummary();
+        // 🚀 修正：斷橋接回！將原本的 triggerMissionSummary() 改成 triggerUniverseSkill()
+        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
+        else { await triggerUniverseSkill(); }
     };
 }
 
