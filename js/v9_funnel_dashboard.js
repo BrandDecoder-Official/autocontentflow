@@ -1,6 +1,6 @@
 // js/v9_funnel_dashboard.js
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
-import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
+import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, updatePointsDisplay } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
 import * as API from './api.js';
@@ -437,8 +437,25 @@ export async function triggerMissionSummary() {
         ui.querySelector('#btnRender').onclick = async () => {
             const btn = ui.querySelector('#btnRender');
             const oriText = btn.innerHTML;
-            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 任務驗證與建檔中...';
-            btn.disabled = true;
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
+                await window.FunnelActions.generateDraft();
+
+                // ✅ 任務成功送出，停止轉圈圈
+                btn.innerHTML = '✅ 任務已送出';
+                btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
+                btn.classList.remove('hover:bg-indigo-500');
+
+                // 🎰 觸發：向後端拉取最新點數，並執行拉霸動畫
+                try {
+                    const freshData = await API.getTenantConfigAPI(STATE.uid);
+                    if (freshData && freshData.tenant && freshData.tenant.totalPoints !== undefined) {
+                        updatePointsDisplay(freshData.tenant.totalPoints);
+                    }
+                } catch (e) {
+                    console.warn("點數同步失敗 (不影響任務):", e);
+                }
+
+            } catch (err) {
 
             try {
                 if (MISSION.scheduledAt) {
