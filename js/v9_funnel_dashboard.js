@@ -36,10 +36,15 @@ export async function triggerMissionSummary() {
             charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
         }
 
+        // 🚀 微創手術 1：在標題列加上第一張場景的縮圖
         let scenesHtml = '';
         let sceneStatus = '無 ✎';
         if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
-            sceneStatus = `已上傳 ${MISSION.sceneFiles.length} 張 ✎`;
+            // 在標題列加入縮圖預覽
+            const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
+            sceneStatus = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
+            
+            // 這是點開面板後看到的大圖列表
             scenesHtml = '<div class="flex items-center gap-2 flex-wrap">';
             MISSION.sceneFiles.forEach((file, idx) => {
                  scenesHtml += `
@@ -326,6 +331,14 @@ export async function triggerMissionSummary() {
                 sDisp = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             }
             ui.querySelector('.dash-val-schedule').innerText = sDisp + ' ✎';
+
+            // 🚀 微創手術 3：讓狀態更新時也確保小縮圖不會消失
+            if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
+                const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
+                ui.querySelector('.dash-val-scenes').innerHTML = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
+            } else {
+                ui.querySelector('.dash-val-scenes').innerText = '無 ✎';
+            }
         };
 
         ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
@@ -428,7 +441,6 @@ export async function triggerMissionSummary() {
             btn.disabled = true;
 
             try {
-                // 💡 防呆驗證：最終送出前再次檢查時間是否過期 (防止用戶在面板停留過久)
                 if (MISSION.scheduledAt) {
                     const schDate = new Date(MISSION.scheduledAt);
                     const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
