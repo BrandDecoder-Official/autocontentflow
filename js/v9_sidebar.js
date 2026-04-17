@@ -12,8 +12,14 @@ window.openCharManager = function() {
     const modal = document.getElementById('charManageModal'); 
     modal.classList.remove('hidden'); 
     setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); 
+    
     renderCharGrid(); 
     renderPersonaList(); // 開啟時一併渲染人設清單
+
+    // 🚀 修復 3：即時結算並更新「已擁有 X 組」的數字
+    const totalModels = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+    const badgeEl = document.getElementById('manageVaultBadge'); // 假設 UI 裡有這個 ID
+    if(badgeEl) badgeEl.innerText = `已擁有 ${totalModels} 組角色/人設模型`;
 };
 
 window.closeCharManager = function() { 
@@ -123,7 +129,6 @@ function renderPersonaList() {
     }
     
     SYSTEM_DB.personas.forEach(p => {
-        // 如果該人設有設定 taboos，則顯示出來；否則隱藏
         const tabooHtml = p.taboos ? `<div class="mt-2 text-[10px] text-red-300 bg-red-900/20 p-2 rounded border border-red-500/20"><b>禁忌指令：</b>${p.taboos}</div>` : '';
         
         container.innerHTML += `
@@ -156,8 +161,6 @@ window.cancelNewPersona = function() {
     document.getElementById('newPersonaTaboo').value = '';
 };
 
-// js/v9_sidebar.js (局部替換最下方的兩個函數)
-
 window.submitNewPersona = async function() {
     const icon = document.getElementById('newPersonaEmoji').value.trim() || '🤖';
     const name = document.getElementById('newPersonaName').value.trim();
@@ -171,11 +174,10 @@ window.submitNewPersona = async function() {
     btn.disabled = true;
     
     try {
-        // 🚀 正式打向後端 API
         const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
         if(res.success) {
             alert('🎉 品牌人設已寫入神經網路！');
-            await bootSystemData(); // 重新向後端拉取最新資料庫
+            await bootSystemData(); 
             window.cancelNewPersona();
             renderPersonaList();
         } else {
@@ -192,13 +194,11 @@ window.submitNewPersona = async function() {
 window.deletePersona = async function(personaId) {
     if(!confirm('確定要刪除這組品牌人設嗎？')) return;
     
-    // 🛡️ 防呆機制：保護預設人設不被誤刪
     if(personaId.startsWith('p_default_')) {
         return alert('❌ 系統預設人設為唯讀屬性，無法刪除！');
     }
 
     try {
-        // 🚀 正式打向後端 API
         const res = await API.deletePersonaAPI({ personaId, tenantId: STATE.uid });
         if(res.success) {
             await bootSystemData();
@@ -213,7 +213,7 @@ window.deletePersona = async function(personaId) {
 
 
 // ==========================================
-// 📜 算力歷史紀錄邏輯 (V10 引擎相容版 + 餘額軌跡)
+// 📜 算力歷史紀錄邏輯 (V10: 手機版全顯排版升級)
 // ==========================================
 window.refreshAuditLogs = async function() { 
     const container = document.getElementById('auditLogsContainer'); 
@@ -231,15 +231,14 @@ window.refreshAuditLogs = async function() {
                 const desc = log.description || action;
                 const dateTaipei = new Date(log.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); 
                 
-                // 💡 新增：結餘變動計算與 UI 生成
+                // 💡 修改排版：拔除 hidden，改用更緊湊的全顯排版
                 let balanceHtml = '';
                 if (log.balanceAfter !== undefined) {
-                    // 數學推算：如果是扣款，扣款前 = 扣款後 + 點數；如果是加值，加值前 = 扣款後 - 點數
                     const before = isDeduct ? (log.balanceAfter + pts) : (log.balanceAfter - pts);
                     balanceHtml = `
-                        <div class="hidden sm:flex flex-col items-center justify-center px-4 border-l border-white/5">
-                            <span class="text-[9px] text-slate-500 mb-0.5">算力結餘變化</span>
-                            <div class="text-[10px] font-mono">
+                        <div class="flex flex-col border-l border-white/10 pl-3">
+                            <span class="text-[10px] text-slate-500 mb-0.5">結餘變化</span>
+                            <div class="text-xs font-mono tracking-tight flex items-center">
                                 <span class="text-slate-400 line-through decoration-slate-600">${before.toLocaleString()}</span>
                                 <span class="text-indigo-400 mx-1">➔</span>
                                 <span class="text-white font-bold">${log.balanceAfter.toLocaleString()}</span>
@@ -249,18 +248,18 @@ window.refreshAuditLogs = async function() {
                 }
 
                 container.innerHTML += `
-                    <div class="flex justify-between items-center bg-slate-800/50 p-3 rounded-lg text-[11px] mb-2 border border-white/5 shadow-inner hover:bg-slate-800 transition-colors">
-                        <div class="flex-1 min-w-0 pr-2">
-                            <p class="text-white font-bold truncate" title="${desc}">${desc}</p>
-                            <p class="text-slate-500 text-[10px]">${dateTaipei}</p>
+                    <div class="flex flex-col bg-slate-800/50 p-4 rounded-xl mb-3 border border-white/5 shadow-inner hover:bg-slate-800 transition-colors gap-2">
+                        <div class="flex justify-between items-start w-full">
+                            <div class="flex-1 pr-2">
+                                <p class="text-white font-bold text-xs" title="${desc}">${desc}</p>
+                                <p class="text-slate-500 text-[10px] mt-1">${dateTaipei}</p>
+                            </div>
+                            <div class="flex-shrink-0 text-right">
+                                <span class="${ptClass} font-black text-sm">${sign} ${pts.toLocaleString()}</span>
+                                <span class="${ptClass} text-[10px] font-bold"> PTS</span>
+                            </div>
                         </div>
-                        
-                        ${balanceHtml}
-
-                        <div class="flex-shrink-0 text-right min-w-[70px] pl-3 border-l border-white/5 sm:border-none">
-                            <span class="${ptClass} font-black text-xs">${sign} ${pts.toLocaleString()}</span>
-                            <span class="${ptClass} text-[9px] font-bold"> PTS</span>
-                        </div>
+                        ${balanceHtml ? `<div class="w-full mt-1 pt-2 border-t border-white/5 flex justify-between items-center">${balanceHtml}</div>` : ''}
                     </div>`; 
             }); 
         } else { 
