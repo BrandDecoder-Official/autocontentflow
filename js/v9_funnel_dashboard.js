@@ -479,6 +479,11 @@ export async function triggerMissionSummary() {
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
                 await window.FunnelActions.generateDraft();
 
+                // 🚀 修復 1：草稿生成完畢後，將按鈕狀態改為成功，停止轉圈圈！
+                btn.innerHTML = '✅ 任務已送出';
+                btn.classList.replace('bg-indigo-600', 'bg-emerald-600'); // 換成成功綠色
+                btn.classList.remove('hover:bg-indigo-500');
+
             } catch (err) {
                 showError(err.message);
                 btn.innerHTML = oriText;
