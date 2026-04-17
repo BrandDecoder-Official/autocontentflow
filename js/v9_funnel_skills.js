@@ -238,36 +238,33 @@ export async function handleAssetUpload(file, container) {
 }
 
 // ==========================================
-// 📍 Step 10: 排程 (🚀 實裝預設緩衝與嚴格校驗)
+// 📍 Step 10: 排程 (🚀 實裝 CSS 暗黑模式修復)
 // ==========================================
 export async function triggerScheduleSkill() { 
     updateStepHeader("PUBLISH SCHEDULE"); 
     await addLog("社群總監", "📅", "最後一步，請指派部署時間（排程需大於目前時間 1 小時）：", true);
     
-    // 💡 計算預設時間：目前時間 + 1 小時又 5 分鐘 (給予總編填寫的緩衝)
     const defaultDateObj = new Date();
     if (MISSION.scheduledAt) {
-        // 若使用者已經設過，帶回原本的設定值
         defaultDateObj.setTime(new Date(MISSION.scheduledAt).getTime());
     } else {
-        // 第一次進入，自動加上安全緩衝
         defaultDateObj.setHours(defaultDateObj.getHours() + 1);
         defaultDateObj.setMinutes(defaultDateObj.getMinutes() + 5);
     }
 
-    // 格式化為 HTML input 能吃的值
     const year = defaultDateObj.getFullYear();
     const month = String(defaultDateObj.getMonth() + 1).padStart(2, '0');
     const day = String(defaultDateObj.getDate()).padStart(2, '0');
     const defDate = `${year}-${month}-${day}`;
-    const defTime = defaultDateObj.toTimeString().slice(0,5); // HH:MM
+    const defTime = defaultDateObj.toTimeString().slice(0,5); 
 
+    // 🚀 關鍵修復：在 input 加入 [color-scheme:dark]
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3 mb-4">
             <div class="grid grid-cols-2 gap-3 relative">
-                <input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" placeholder="📅 選擇日期" value="${defDate}">
+                <input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none [color-scheme:dark]" placeholder="📅 選擇日期" value="${defDate}">
                 <div class="relative w-full" id="timePickerWrapper">
-                    <input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none" value="${defTime}">
+                    <input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-4 text-sm text-white outline-none [color-scheme:dark]" value="${defTime}">
                 </div>
             </div>
             <div class="flex gap-2 mt-2">
@@ -281,12 +278,11 @@ export async function triggerScheduleSkill() {
         dateFormat: "Y-m-d", 
         minDate: "today", 
         defaultDate: defDate,
-        disableMobile: "true" // 避免手機原生 UI 覆蓋導致抓值異常
+        disableMobile: "true" 
     };
     if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
     const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
     
-    // ⚡ 立即部署按鈕 (無視欄位，直接清空時間)
     ui.querySelector('#btnImmediate').onclick = async () => {
         if (fp) { if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } else if (typeof fp.destroy === 'function') { fp.destroy(); } }
         MISSION.scheduledAt = null; 
@@ -295,12 +291,10 @@ export async function triggerScheduleSkill() {
         await triggerMissionSummary();
     };
 
-    // 📅 確認排程按鈕 (需通過嚴格驗證)
     ui.querySelector('#btnConfirmSchedule').onclick = async () => {
         const dateStr = ui.querySelector('#datePicker').value; 
         const timeStr = ui.querySelector('#timePickerInput').value; 
 
-        // 💡 防呆 1：確保沒有空值
         if (!dateStr || !timeStr) {
             return showError("日期與時間必須同時設定完整！");
         }
@@ -308,7 +302,6 @@ export async function triggerScheduleSkill() {
         const schDate = new Date(`${dateStr}T${timeStr}:00+08:00`);
         const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
 
-        // 💡 防呆 2：時間必須大於目前時間至少 1 小時
         if (schDate < oneHourLater) {
             return showError("排程設定的時間需大於目前時間 1 個小時，請重新設定或點選「立即部署」。");
         }
