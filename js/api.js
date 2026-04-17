@@ -113,3 +113,18 @@ export async function publishTaskAPI(payload) {
     if (!response.ok) throw new Error(data.message || '發佈連線失敗');
     return data;
 }
+
+// 🚀 [新增] 11. 建立全新代理人任務 API (V10 漏斗專用)
+export async function createAgentTaskAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/tasks`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` // 👈 這把鑰匙是通關關鍵！
+        },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '任務建檔失敗');
+    return data;
+}
