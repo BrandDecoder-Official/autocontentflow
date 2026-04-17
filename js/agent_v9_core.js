@@ -107,29 +107,62 @@ window.renderTaskDashboard = async function() {
         data.tasks.forEach((task, index) => {
             let statusColor, statusText, actionText, icon;
             const topic = task.missionContext?.topic || '未命名主題';
-            const timeStr = new Date(task.updatedAt || task.taskId.split('_')[2] * 1).toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            
+            // 🛠️ 1. 強健的時間解析邏輯 (消滅 Invalid Date)
+            let validDate = new Date();
+            if (task.updatedAt) {
+                // 處理 Firebase Timestamp 特殊格式
+                if (task.updatedAt._seconds) {
+                    validDate = new Date(task.updatedAt._seconds * 1000);
+                } else {
+                    validDate = new Date(task.updatedAt);
+                }
+            }
+            // 如果解析失敗，嘗試從 taskId 挽救
+            if (isNaN(validDate.getTime()) && task.taskId) {
+                const parts = task.taskId.split('_');
+                const possibleTime = parseInt(parts[parts.length - 1]);
+                if (!isNaN(possibleTime)) validDate = new Date(possibleTime);
+            }
+            // 最終格式化
+            let timeStr = '未知時間';
+            if (!isNaN(validDate.getTime())) {
+                timeStr = validDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
 
+            // 狀態判定
             switch(task.currentStatus) {
-                case 'COMPLETED': statusColor = 'text-emerald-400'; statusText = '已發佈'; actionText = '查看結果'; icon = '🟢'; break;
+                case 'COMPLETED': statusColor = 'text-emerald-400'; statusText = '已發佈'; actionText = '查看成品'; icon = '🟢'; break;
                 case 'AWAITING_APPROVAL': statusColor = 'text-yellow-400'; statusText = '等待總編審核'; actionText = '接續校稿'; icon = '🟡'; break;
                 case 'IMAGES_GENERATED': statusColor = 'text-blue-400'; statusText = '等待發佈'; actionText = '接續發佈'; icon = '🔵'; break;
                 case 'ERROR': statusColor = 'text-red-400'; statusText = '執行異常'; actionText = '重試任務'; icon = '🔴'; break;
-                default: statusColor = 'text-slate-400'; statusText = '處理中'; actionText = '查看'; icon = '⚪'; break;
+                default: statusColor = 'text-slate-400'; statusText = '處理中'; actionText = '查看進度'; icon = '⚪'; break;
             }
 
+            // 🛠️ 2. UI 改造：填滿右側空間，加入雙按鈕
             html += `
-                <div class="flex justify-between items-center bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 p-4 rounded-xl cursor-pointer transition-all group" onclick="resumeTask(${index})">
-                    <div class="flex flex-col gap-1">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-800/50 hover:bg-slate-800 border border-white/5 hover:border-indigo-500/50 p-4 rounded-xl transition-all group gap-3">
+                    
+                    <div class="flex flex-col gap-1 w-full sm:w-auto overflow-hidden">
                         <div class="flex items-center gap-2">
                             <span class="text-xs">${icon}</span>
-                            <span class="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[400px]">${topic}</span>
+                            <span class="text-sm font-bold text-white truncate max-w-[200px] sm:max-w-[300px]" title="${topic}">${topic}</span>
                         </div>
                         <div class="flex gap-3 text-[10px]">
                             <span class="${statusColor} font-black">${statusText}</span>
                             <span class="text-slate-500">${timeStr}</span>
                         </div>
                     </div>
-                    <button class="bg-slate-700 text-white px-4 py-2 rounded-lg text-xs font-bold group-hover:bg-indigo-600 transition-colors">${actionText}</button>
+                    
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-shrink-0">
+                        <button onclick="resumeTask(${index})" class="bg-indigo-600/90 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-lg shadow-indigo-900/20 flex items-center gap-1.5 active:scale-95">
+                            📝 ${actionText}
+                        </button>
+                        <button onclick="deleteTask('${task.taskId}')" class="bg-slate-700/80 hover:bg-red-500 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95">
+                            🗑️ 刪除
+                        </button>
+                    </div>
+
                 </div>
             `;
         });
@@ -138,6 +171,29 @@ window.renderTaskDashboard = async function() {
     } catch (error) {
         container.innerHTML = `<p class="text-red-400 text-xs text-center py-4">讀取失敗: ${error.message}</p>`;
     }
+}
+
+// ==========================================
+// 🗑️ 新增：刪除任務功能 (API 串接準備)
+// ==========================================
+window.deleteTask = async function(taskId) {
+    if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復)')) return;
+    
+    // 這裡先做 UI 樂觀更新，並印出要刪除的 ID，讓總編確認
+    console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
+    alert(`任務 ${taskId} 刪除 API 準備串接中...`);
+    
+    // 💡 未來這裡要補上 fetch(DELETE) 到後端的代碼
+    /*
+    try {
+        const baseUrl = CONFIG.CLOUD_RUN_URL.replace(/\/$/, '');
+        await fetch(`${baseUrl}/api/agent/tasks/${taskId}`, { method: 'DELETE' });
+        // 刪除成功後重新渲染列表
+        renderTaskDashboard();
+    } catch (e) {
+        alert('刪除失敗: ' + e.message);
+    }
+    */
 }
 
 window.resumeTask = async function(taskIndex) {
