@@ -2,9 +2,7 @@
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
-import { triggerCharacterSkill, triggerVisualSkill } from './v9_funnel_skills.js';
-
-// 🚀 新增匯入 API 模組以支援「延後建檔」
+import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
 import * as API from './api.js';
 import { STATE } from './config.js';
 
@@ -59,6 +57,12 @@ export async function triggerMissionSummary() {
 
         const hookOptions = ['❓ 痛點提問', '💥 反直覺爆點', '🎁 利益誘惑', '⚔️ 爭議站隊', '💖 情境共鳴'];
         const lenOptions = ['⚡ 極短篇 (約50字)', '📝 短平快 (約150字)', '📖 深度文 (約300字)', '📜 長篇連載 (約800字)'];
+
+        let scheduleDisplay = '⚡ 立即部署';
+        if (MISSION.scheduledAt) {
+            const d = new Date(MISSION.scheduledAt);
+            scheduleDisplay = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
 
         const getStrategyHtml = () => {
             if (MISSION.isIndependentPost && MISSION.platforms && MISSION.platforms.length > 0) {
@@ -231,6 +235,17 @@ export async function triggerMissionSummary() {
                             </div>
                         </div>
                     </div>
+
+                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-schedule">
+                            <span class="text-slate-400 font-bold">📅 部署排程</span>
+                            <span class="text-white font-black dash-val-schedule text-right">${scheduleDisplay} ✎</span>
+                        </button>
+                        <div id="dash-schedule" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                            <p class="text-[10px] text-slate-400 mb-1">若需修改發佈時間，請點擊下方按鈕重新設定：</p>
+                            <button id="btnBackToSchedule" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重新設定時間</button>
+                        </div>
+                    </div>
                 </div>
 
                 <button id="btnRender" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(79,70,229,0.4)] active:scale-95 transition-all">
@@ -304,6 +319,13 @@ export async function triggerMissionSummary() {
             const isComicNow = MISSION.universe === 'COMIC';
             ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
             ui.querySelector('.dash-val-visual-specs').innerText = `${MISSION.ratio || '9:16'} / ${isComicNow ? (MISSION.panelCount || 4) + '格' : ''} ✎`;
+            
+            let sDisp = '⚡ 立即部署';
+            if (MISSION.scheduledAt) {
+                const d = new Date(MISSION.scheduledAt);
+                sDisp = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+            ui.querySelector('.dash-val-schedule').innerText = sDisp + ' ✎';
         };
 
         ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
@@ -342,8 +364,8 @@ export async function triggerMissionSummary() {
         });
 
         ui.querySelector('#btnBackToChar').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerCharacterSkill(); };
-
         ui.querySelector('#btnBackToVisual').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerVisualSkill(); };
+        ui.querySelector('#btnBackToSchedule').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerScheduleSkill(); };
 
         ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
             btn.onclick = async () => {
@@ -399,15 +421,22 @@ export async function triggerMissionSummary() {
             };
         });
 
-        // 🚀 核心改動：延後建檔的終極觸發點
         ui.querySelector('#btnRender').onclick = async () => {
             const btn = ui.querySelector('#btnRender');
             const oriText = btn.innerHTML;
-            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 任務建檔中...';
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 任務驗證與建檔中...';
             btn.disabled = true;
 
             try {
-                // 1. 如果是全新任務 (還沒有 ID)，在這裡才正式呼叫 API 寫入資料庫
+                // 💡 防呆驗證：最終送出前再次檢查時間是否過期 (防止用戶在面板停留過久)
+                if (MISSION.scheduledAt) {
+                    const schDate = new Date(MISSION.scheduledAt);
+                    const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
+                    if (schDate < oneHourLater) {
+                        throw new Error("排程設定的時間需大於目前時間 1 個小時，請重新設定或直接發送。");
+                    }
+                }
+
                 if (!MISSION.currentTaskId) {
                     const payload = {
                         tenantId: STATE.uid || 'user_chief_001',
@@ -431,30 +460,15 @@ export async function triggerMissionSummary() {
                     const data = await API.createAgentTaskAPI(payload);
                     MISSION.currentTaskId = data.taskId;
 
-                    // 💡 UI 優化：顯示短版 ID 供客服追蹤，點擊可複製全長
                     const shortId = MISSION.currentTaskId.slice(-6);
                     await addLog("系統", "💾", `任務已成功建檔。追蹤碼：<span class="text-xs font-mono text-indigo-400 cursor-pointer hover:text-indigo-300 bg-indigo-900/50 px-2 py-0.5 rounded border border-indigo-500/50" onclick="navigator.clipboard.writeText('${MISSION.currentTaskId}'); alert('已複製完整追蹤碼');" title="點擊複製完整 ID">***${shortId} 📋</span>`, true);
-
-                    /*
-                     * 📝 [架構師註解：Cloud Storage 定期清理與生圖架構預留]
-                     * 未來當後端 /api/content/generate 收到生圖請求並把圖傳到 Storage 時，請遵循以下規範：
-                     * * 1. 檔名生成規則 (支援批次刪除)：
-                     * assets/tasks/{YYYY-MM}/{tenantId}/{taskId}/{timestamp}_{index}.jpg
-                     * * 2. 資料庫更新寫法 (Firestore)：
-                     * agentData.generatedImages: FieldValue.arrayUnion({
-                     * url: "https://storage...", // 供前端顯示用
-                     * storagePath: "assets/tasks/2026-04/user_001/task_123/456_1.jpg", // 💡 清理腳本刪檔的唯一鑰匙
-                     * createdAt: Timestamp.now() // 到期判定依據 (例如 30 天後刪除)
-                     * })
-                     */
                 }
 
-                // 2. 正式觸發大腦，開始產出腳本
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
                 await window.FunnelActions.generateDraft();
 
             } catch (err) {
-                showError("建檔失敗：" + err.message);
+                showError(err.message);
                 btn.innerHTML = oriText;
                 btn.disabled = false;
             }
@@ -463,7 +477,6 @@ export async function triggerMissionSummary() {
         window.refreshMissionDashboard = () => { updateDashDisplay(); };
 
     } catch (err) {
-        // 💡 捕捉任何靜默當機的元凶，不再點擊沒反應
         console.error("[Dashboard] 渲染失敗:", err);
         showError("儀表板載入失敗: " + err.message);
     }
