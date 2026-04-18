@@ -7,22 +7,19 @@ import { publishTaskAPI } from './api.js';
 export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
 
-    // 💡 1. 強化 V10 資料結構初始化 (確保任何情況下都不會報錯)
+    // 💡 1. 強化 V10 資料結構初始化
     MISSION.currentCaptions = MISSION.currentCaptions || { UNIFIED: '', FB: '', IG: '', THREADS: '' };
     MISSION.currentHashtags = MISSION.currentHashtags || { UNIFIED: [], FB: [], IG: [], THREADS: [] };
 
-    // 💡 2. 智慧型資料解析：應對後端回傳格式的各種可能
+    // 💡 2. 智慧型資料解析
     if (draftContent && typeof draftContent.captions === 'object') {
-        // V10 多軌格式：後端回傳了 { FB: "...", IG: "..." }
         MISSION.currentCaptions = { ...MISSION.currentCaptions, ...draftContent.captions };
         if (draftContent.hashtags && typeof draftContent.hashtags === 'object' && !Array.isArray(draftContent.hashtags)) {
              MISSION.currentHashtags = { ...MISSION.currentHashtags, ...draftContent.hashtags };
         } else if (Array.isArray(draftContent.hashtags)) {
-             // 如果 hashtag 還是舊版陣列，就複製給每個平台
              ['UNIFIED', 'FB', 'IG', 'THREADS'].forEach(p => MISSION.currentHashtags[p] = [...draftContent.hashtags]);
         }
     } else {
-        // V9 舊版單軌格式：後端只回傳了單一字串或 post_caption
         const defaultCap = typeof draftContent === 'string' ? draftContent : (draftContent.post_caption || '');
         const defaultTags = Array.isArray(draftContent.hashtags) ? draftContent.hashtags : (MISSION.currentHashtagsArray || []);
         
@@ -32,10 +29,9 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         });
     }
 
-    // 決定目前要顯示哪個平台的 Tab
     let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
     
-    // 生成漫畫分鏡 HTML (所有平台共用同一組圖)
+    // 生成漫畫分鏡 HTML
     let panelsHtml = '';
     const activePanels = MISSION.currentPanels || draftContent.panels;
     if (isComic && activePanels) {
@@ -55,7 +51,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         });
     }
 
-    // 準備 Tab 切換 UI
     let tabsHtml = '';
     if (MISSION.isIndependentPost && MISSION.platforms.length > 1) {
         tabsHtml = `
@@ -69,8 +64,8 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     }
 
     const ui = createSkillUI(`
-        <div class="space-y-4 mb-4 animate-fade-in">
-            <div class="bg-blue-600/10 p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
+        <div class="space-y-4 animate-fade-in w-full">
+            <div class="bg-blue-600/10 p-3 lg:p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">📝 貼文校稿總編室</h3>
                     ${MISSION.isIndependentPost ? `<span class="text-[9px] bg-indigo-600/30 text-indigo-300 px-2 py-1 rounded-full border border-indigo-500/50">多宇宙分頁模式</span>` : `<span class="text-[9px] bg-slate-700 text-slate-300 px-2 py-1 rounded-full">統一內容模式</span>`}
@@ -95,7 +90,7 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         </div>
     `);
 
-    // 🏷️ Hashtag 渲染邏輯 (綁定到 currentTab)
+    // 🏷️ Hashtag 渲染邏輯
     const renderHashtags = () => {
         const container = ui.querySelector('#hashtagContainer');
         container.innerHTML = '';
@@ -133,7 +128,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     };
     renderHashtags();
 
-    // 輸入新 Hashtag
     ui.querySelector('#hashtagInput').onkeydown = (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -146,13 +140,11 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         }
     };
 
-    // 儲存目前輸入框的內容到狀態機
     const saveCurrentCaption = () => {
         MISSION.currentCaptions[currentTab] = ui.querySelector('#editCaption').value;
     };
     ui.querySelector('#editCaption').oninput = saveCurrentCaption;
 
-    // 🔄 Tab 切換邏輯
     ui.querySelectorAll('.plat-tab-btn').forEach(btn => {
         btn.onclick = () => {
             saveCurrentCaption();
@@ -166,7 +158,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
             btn.classList.remove('text-slate-500', 'hover:text-slate-300');
             
             ui.querySelector('#captionLabel').innerText = `社群內文 (${currentTab} 專屬)`;
-            // 💡 確保切換時文字框顯示正確
             ui.querySelector('#editCaption').value = MISSION.currentCaptions[currentTab] || '';
             renderHashtags();
         };
@@ -181,8 +172,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         saveCurrentCaption(); 
         
-        // 💡 3. 將 Hashtag 自動貼合到最終字串，為生圖和發布準備！
-        // 我們這裡還是傳送一個「主要」字串給舊的生圖邏輯，但把完整的 captions 物件存在 MISSION 裡供發布使用
         const tagsString = MISSION.currentHashtags[currentTab].length > 0 ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t).join(' ') : '';
         const editedCaption = MISSION.currentCaptions[currentTab] + tagsString; 
         
@@ -196,6 +185,13 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     };
 }
 
+/**
+ * ==========================================
+ * 📌 函數名稱：renderFinalPublishCard
+ * 💡 功能說明：渲染最終生圖結果與發佈前預覽卡片。
+ * 🚀 優化情境：移除所有多餘 Margin，強制 w-full 滿版貼齊，徹底解決手機端向右偏移與切邊問題。
+ * ==========================================
+ */
 export async function renderFinalPublishCard(taskId, images, finalCaption) {
     updateStepHeader("FINAL DEPLOYMENT"); 
     await addLog("社群總監", "🚀", "大作已完成！請做最後確認，您還可以選擇重新算圖或退回修改：", true);
@@ -203,12 +199,12 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     const displayImgUrl = images[0].finalUrl; let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
 
-    // 💡 預覽區域：如果是多平台模式，提示使用者這只是「主要預覽」
     const previewNote = MISSION.isIndependentPost ? `<p class="text-[10px] text-amber-400 mb-2">※ 多宇宙模式：此為主要平台預覽，發布時將自動切分各平台專屬文案與標籤。</p>` : '';
 
+    // 💡 關鍵修復：保證最外層 `w-full`，移除任何可能造成擠壓的結構
     const ui = createSkillUI(`
-        <div class="space-y-4 animate-fade-in mb-4">
-            <div class="bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="flex flex-col gap-3 w-full animate-fade-in">
+            <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div class="relative w-full aspect-square bg-black flex items-center justify-center">
                     <img src="${displayImgUrl}" class="max-w-full max-h-full object-contain">
                     <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">共 ${images.length} 張圖</div>
@@ -219,9 +215,9 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 </div>
             </div>
             <button id="btnDeploy" class="w-full bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">${btnText}</button>
-            <div class="flex gap-2">
-                <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重新算圖 (預計扣 500 算力點)</button>
-                <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 退回總編室 (改字)</button>
+            <div class="flex gap-2 w-full">
+                <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重算 (約500點)</button>
+                <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 退回重改</button>
             </div>
         </div>
     `);
@@ -242,7 +238,6 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
         try {
-            // 💡 4. 第四階段發動準備：將組裝好的【多重宇宙文案與標籤包】傳給後端！
             const finalMultiCaptions = {};
             ['UNIFIED', 'FB', 'IG', 'THREADS'].forEach(p => {
                 if (MISSION.currentCaptions[p]) {
@@ -251,13 +246,12 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 }
             });
 
-            // 確保向下相容，同時送出單一 finalCaption 與多軌 multiCaptions
             const response = await publishTaskAPI({ 
                 taskId: taskId, 
                 tenantId: STATE.uid, 
                 scheduledAt: MISSION.scheduledAt, 
                 finalCaption: finalCaption,
-                multiCaptions: finalMultiCaptions,  // 🌟 V10 多軌傳輸核心
+                multiCaptions: finalMultiCaptions, 
                 isIndependentPost: MISSION.isIndependentPost 
             });
             
