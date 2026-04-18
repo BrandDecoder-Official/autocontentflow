@@ -24,6 +24,12 @@ export function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none
  */
 export function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
 
+* ==========================================
+ * 📌 函數名稱：createSkillUI
+ * 💡 功能說明：在對話漏斗中插入互動式卡片。
+ * 🚀 優化情境：移除所有偏移 Margin (ml-8/ml-12)，強制 w-full 滿版，解決右側被切邊與偏右的問題。
+ * ==========================================
+ */
 export function createSkillUI(html) {
     const log = document.getElementById('funnelLog');
     const oldActive = document.getElementById('activeControlCard');
@@ -34,8 +40,8 @@ export function createSkillUI(html) {
         if(inputs) inputs.forEach(i => i.disabled = true);
     }
     const div = document.createElement('div');
-    // 優化卡片邊距，適應手機螢幕
-    div.className = 'skill-card w-full bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6';
+    // 💡 關鍵修復：拔除 ml-8，改用 w-full，讓外部容器的 padding 來決定邊界
+    div.className = 'skill-card w-full bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6 mx-auto';
     div.id = 'activeControlCard';
     div.innerHTML = html;
     log.appendChild(div);
@@ -94,11 +100,11 @@ export async function showError(msg) {
 /**
  * ==========================================
  * 📌 函數名稱：updatePointsDisplay
- * 💡 功能說明：更新右上角算力餘額，並包含拉霸動態與警示效果。
+ * 💡 功能說明：更新右上角算力餘額，並包含「重力下拉拉霸」與 500 點警示效果。
  * 🚀 優化情境：
- * 1. 放大點數按鈕空間與字體。
- * 2. 低於 100 點時，啟動紅色脈衝警戒 (Pulse) 並更換 ⚠️ 圖示。
- * ⚠️ 注意事項：依賴 DOM 元素 `id="userPoints"` 及其父元素進行樣式控制。
+ * 1. 放大點數按鈕空間。
+ * 2. 低於 500 點時，啟動紅色脈衝警戒。
+ * 3. 扣點動畫改為向下沉降 (translate-y)，避免被頂部切斷。
  * ==========================================
  */
 export function updatePointsDisplay(newPoints) {
@@ -110,19 +116,17 @@ export function updatePointsDisplay(newPoints) {
     const currentPts = parseInt(currentStr, 10) || 0;
     const targetPts = parseInt(newPoints, 10) || 0;
 
-    // 💡 優化 1：強制放大父元素 padding 與自身字體，吃滿空間
     parentEl.classList.add('px-4', 'py-2', 'shadow-md');
     ptsEl.classList.add('text-sm', 'lg:text-base', 'font-black');
 
-    // 💡 優化 2：低於 100 點的急迫性警戒狀態
-    if (targetPts < 100) {
+    // 💡 優化 2：警戒線調整為 500 點
+    if (targetPts < 500) {
         parentEl.classList.add('animate-pulse', 'bg-red-900/80', 'border-red-500');
         parentEl.classList.remove('bg-slate-800', 'border-white/10', 'hover:bg-slate-700');
         ptsEl.classList.remove('text-yellow-400');
         ptsEl.classList.add('text-red-400');
         if (parentEl.innerHTML.includes('⚡')) parentEl.innerHTML = parentEl.innerHTML.replace('⚡', '⚠️');
     } else {
-        // 恢復正常狀態
         parentEl.classList.remove('animate-pulse', 'bg-red-900/80', 'border-red-500');
         parentEl.classList.add('bg-slate-800', 'border-white/10', 'hover:bg-slate-700');
         ptsEl.classList.remove('text-red-400');
@@ -135,7 +139,6 @@ export function updatePointsDisplay(newPoints) {
         return;
     }
 
-    // 🎰 拉霸動畫參數
     const duration = 1000;
     const frameRate = 30; 
     const totalFrames = Math.round(duration / (1000 / frameRate));
@@ -153,11 +156,12 @@ export function updatePointsDisplay(newPoints) {
             clearInterval(counter);
             ptsEl.innerText = targetPts.toLocaleString();
             
-            // 💡 動畫結束：超強文字發光放大特效
-            ptsEl.classList.add('scale-[1.3]', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
+            // 💡 動畫結束：向下沉降拉霸特效 (重力感)
+            // 使用 origin-top 確保變形基點在上方，translate-y-2 向下掉落
+            ptsEl.classList.add('origin-top', 'translate-y-2', 'scale-110', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
             setTimeout(() => {
-                ptsEl.classList.remove('scale-[1.3]', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
-            }, 300);
+                ptsEl.classList.remove('origin-top', 'translate-y-2', 'scale-110', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
+            }, 350); // 稍微延長時間讓掉落感更明確
         }
     }, 1000 / frameRate);
 }
