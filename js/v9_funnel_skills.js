@@ -551,6 +551,7 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
  * ==========================================
  * 📌 函數名稱：triggerScheduleSkill
  * 💡 功能說明：漏斗最後一步：指定部署排程 (發布時間)。
+ * 🚀 優化情境：將時間選單全面交給 Flatpickr 接管，強制以 15 分鐘為單位跳動，並自動進位預設時間。
  * ==========================================
  */
 export async function triggerScheduleSkill() { 
@@ -561,8 +562,12 @@ export async function triggerScheduleSkill() {
     if (MISSION.scheduledAt) {
         defaultDateObj.setTime(new Date(MISSION.scheduledAt).getTime());
     } else {
+        // 預設加 1 小時
         defaultDateObj.setHours(defaultDateObj.getHours() + 1);
-        defaultDateObj.setMinutes(defaultDateObj.getMinutes() + 5);
+        // 💡 智能進位：將分鐘無條件進位到下一個 15 的倍數 (00, 15, 30, 45)
+        const m = defaultDateObj.getMinutes();
+        defaultDateObj.setMinutes(m + (15 - (m % 15)));
+        defaultDateObj.setSeconds(0);
     }
 
     const year = defaultDateObj.getFullYear();
@@ -576,7 +581,7 @@ export async function triggerScheduleSkill() {
             <div class="grid grid-cols-2 gap-2 relative">
                 <input type="text" id="datePicker" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-3 lg:p-4 text-xs lg:text-sm text-white outline-none [color-scheme:dark]" placeholder="📅 日期" value="${defDate}">
                 <div class="relative w-full" id="timePickerWrapper">
-                    <input type="time" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-3 lg:p-4 text-xs lg:text-sm text-white outline-none [color-scheme:dark]" value="${defTime}">
+                    <input type="text" id="timePickerInput" class="w-full bg-slate-900 border border-indigo-500/30 rounded-xl p-3 lg:p-4 text-xs lg:text-sm text-white outline-none [color-scheme:dark]" placeholder="⏰ 時間" value="${defTime}">
                 </div>
             </div>
             <div class="flex gap-2 mt-2">
@@ -586,17 +591,29 @@ export async function triggerScheduleSkill() {
         </div>
     `);
     
-    const fpConfig = { 
+    // 📅 綁定日期的 Flatpickr
+    const fpDate = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", { 
         dateFormat: "Y-m-d", 
         minDate: "today", 
         defaultDate: defDate,
-        disableMobile: "true" 
-    };
-    if (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) { fpConfig.locale = "zh"; }
-    const fp = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", fpConfig) : null;
+        disableMobile: "true",
+        locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) ? "zh" : "default"
+    }) : null;
+
+    // ⏰ 綁定時間的 Flatpickr (強制 15 分鐘區間)
+    const fpTime = typeof flatpickr !== 'undefined' ? flatpickr("#timePickerInput", {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        time_24hr: true,
+        minuteIncrement: 15, // 🚀 這裡就是 15 分鐘跳轉刻度的核心指令！
+        defaultDate: defTime,
+        disableMobile: "true"
+    }) : null;
     
     ui.querySelector('#btnImmediate').onclick = async () => {
-        if (fp) { if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } else if (typeof fp.destroy === 'function') { fp.destroy(); } }
+        if (fpDate) fpDate.destroy();
+        if (fpTime) fpTime.destroy();
         MISSION.scheduledAt = null; 
         releaseUI(ui); 
         await addLog("社群總監", "⚡", `已選擇「立即部署」。`);
@@ -619,7 +636,8 @@ export async function triggerScheduleSkill() {
         }
 
         MISSION.scheduledAt = schDate.toISOString(); 
-        if (fp) { if (Array.isArray(fp)) { fp.forEach(f => f.destroy && f.destroy()); } else if (typeof fp.destroy === 'function') { fp.destroy(); } }
+        if (fpDate) fpDate.destroy();
+        if (fpTime) fpTime.destroy();
         releaseUI(ui); 
         await addLog("社群總監", "✅", `已排程於 ${schDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`); 
         await triggerMissionSummary();
