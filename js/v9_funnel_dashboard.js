@@ -6,13 +6,22 @@ import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from 
 import * as API from './api.js';
 import { STATE } from './config.js';
 
+/**
+ * ==========================================
+ * 📌 核心模組：triggerMissionSummary
+ * 💡 功能說明：渲染最終任務面板 (Dashboard)。
+ * 🚀 架構精神：Data-Driven UI。面板內的所有選項與展示，皆根據 MISSION 當前狀態與 SYSTEM_DB 動態生成，支援 1+9 附加圖預覽與寫實宇宙分流編輯。
+ * ==========================================
+ */
 export async function triggerMissionSummary() {
     try {
         updateStepHeader("MISSION CONTROL");
         await addLog("專案總監", "📋", "總編，這是目前的任務總表。您可以自由點開各項進行微調，確認無誤後即可發包給大腦。", true);
 
+        // 🛡️ 狀態快取與安全防護
         const isComic = MISSION.universe === 'COMIC';
         const isEnhance = MISSION.universe === 'ENHANCE';
+        const isRealistic = MISSION.universe === 'REALISTIC';
         const decodedTopic = decodeHTMLEntities(MISSION.topic || '');
 
         if (!MISSION.platformStrategies) {
@@ -23,12 +32,13 @@ export async function triggerMissionSummary() {
             };
         }
 
+        // 👥 角色基因展示 HTML 組裝
         let charsHtml = '';
         if(MISSION.characters && MISSION.characters.length > 0) {
             charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
             MISSION.characters.forEach(c => {
                 const o = SYSTEM_DB.characters.find(mc => mc.name === c);
-                if(o && o.imageUrl) charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0" title="${c}">`;
+                if(o && o.imageUrl) charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0 shadow-sm" title="${c}">`;
                 else charsHtml += `<span class="text-[10px] bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded border border-indigo-500/50">${c}</span>`;
             });
             charsHtml += '</div>';
@@ -36,26 +46,49 @@ export async function triggerMissionSummary() {
             charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
         }
 
+        // 📸 1+9 圖檔展示 HTML 組裝 (包含主圖與附加輪播圖)
         let scenesHtml = '';
-        let sceneStatus = '無 ✎';
-        if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
-            const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
-            sceneStatus = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
+        let sceneStatus = '無圖檔 ✎';
+        
+        const hasMainScene = MISSION.sceneFiles && MISSION.sceneFiles.length > 0;
+        const hasAttachments = MISSION.attachmentFiles && MISSION.attachmentFiles.length > 0;
+
+        if (hasMainScene || hasAttachments) {
+            const mainImgUrl = hasMainScene ? MISSION.sceneFiles[0].dataUrl : (hasAttachments ? MISSION.attachmentFiles[0].dataUrl : '');
+            let statusText = '';
+            if (hasMainScene && hasAttachments) statusText = `主圖 + ${MISSION.attachmentFiles.length} 張附加圖`;
+            else if (hasMainScene) statusText = `1 張 AI 主圖`;
+            else if (hasAttachments) statusText = `${MISSION.attachmentFiles.length} 張附加圖`;
             
-            scenesHtml = '<div class="flex items-center gap-2 flex-wrap">';
-            MISSION.sceneFiles.forEach((file, idx) => {
-                 scenesHtml += `
-                    <div class="relative w-16 h-16 rounded-md overflow-hidden border border-white/20 group">
-                        <img src="${file.dataUrl}" class="w-full h-full object-cover">
+            sceneStatus = `<div class="flex items-center gap-2"><img src="${mainImgUrl}" class="w-8 h-8 rounded-md border border-indigo-500 object-cover flex-shrink-0 shadow-sm"><span>${statusText} ✎</span></div>`;
+            
+            // 渲染主圖區
+            if (hasMainScene) {
+                scenesHtml += `
+                    <div class="mb-3 p-2 bg-indigo-900/10 border border-indigo-500/20 rounded-lg">
+                        <span class="text-[10px] text-indigo-400 font-bold block mb-1">📸 AI 參考主圖</span>
+                        <div class="relative w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50"><img src="${MISSION.sceneFiles[0].dataUrl}" class="w-full h-full object-cover"></div>
                     </div>`;
-            });
-            scenesHtml += '</div>';
+            }
+            // 渲染附加圖區
+            if (hasAttachments) {
+                scenesHtml += `
+                    <div class="p-2 bg-slate-900/50 border border-white/5 rounded-lg">
+                        <span class="text-[10px] text-slate-400 font-bold block mb-1">📥 社群附加輪播圖 (${MISSION.attachmentFiles.length} 張)</span>
+                        <div class="flex items-center gap-2 flex-wrap">`;
+                MISSION.attachmentFiles.forEach(file => {
+                    scenesHtml += `<div class="relative w-12 h-12 rounded-md overflow-hidden border border-white/20"><img src="${file.dataUrl}" class="w-full h-full object-cover"></div>`;
+                });
+                scenesHtml += `</div></div>`;
+            }
         } else {
-            scenesHtml = `<span class="text-[10px] text-slate-500">未上傳任何參考圖片</span>`;
+            scenesHtml = `<span class="text-[10px] text-slate-500">未上傳任何圖片</span>`;
         }
 
-        const stylePrefix = isEnhance ? 'REALISTIC' : (MISSION.universe || 'REALISTIC');
-        const availableStyles = SYSTEM_DB.styles ? SYSTEM_DB.styles.filter(s => s.type === stylePrefix) : [];
+        // 🌌 宇宙風格選項庫準備 (Dynamic Style Options)
+        const animeStyles = SYSTEM_DB.styles ? SYSTEM_DB.styles.filter(s => s.category === 'ANIME_STYLE' || (!s.category && s.type === 'COMIC')) : [];
+        const realisticModes = SYSTEM_DB.styles ? SYSTEM_DB.styles.filter(s => s.category === 'REALISTIC_MODE') : [];
+        const realisticFilters = SYSTEM_DB.styles ? SYSTEM_DB.styles.filter(s => s.category === 'REALISTIC_FILTER') : [];
 
         const hookOptions = ['❓ 痛點提問', '💥 反直覺爆點', '🎁 利益誘惑', '⚔️ 爭議站隊', '💖 情境共鳴'];
         const lenOptions = ['⚡ 極短篇 (約50字)', '📝 短平快 (約150字)', '📖 深度文 (約300字)', '📜 長篇連載 (約800字)'];
@@ -66,16 +99,22 @@ export async function triggerMissionSummary() {
             scheduleDisplay = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         }
 
+        /**
+         * ==========================================
+         * 📌 內部函數：getStrategyHtml
+         * 💡 功能說明：動態生成「統一內容」或「平台適配」的戰術設定 HTML。
+         * ==========================================
+         */
         const getStrategyHtml = () => {
             if (MISSION.isIndependentPost && MISSION.platforms && MISSION.platforms.length > 0) {
                 return MISSION.platforms.map(p => `
-                    <div class="mb-3 border border-white/10 p-3 rounded-xl bg-slate-900/50 animate-fade-in">
+                    <div class="mb-3 border border-white/10 p-3 rounded-xl bg-slate-900/50 animate-fade-in shadow-inner">
                         <div class="text-[10px] font-bold text-indigo-400 mb-2 flex items-center gap-1">📍 ${p} 專屬戰術</div>
                         <div class="grid grid-cols-2 gap-2">
-                            <select class="indie-hook w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                            <select class="indie-hook w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-indigo-500" data-plat="${p}">
                                 ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
                             </select>
-                            <select class="indie-len w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" data-plat="${p}">
+                            <select class="indie-len w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-indigo-500" data-plat="${p}">
                                 ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.platformStrategies[p]?.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
                             </select>
                         </div>
@@ -86,13 +125,13 @@ export async function triggerMissionSummary() {
                     <div class="grid grid-cols-2 gap-3 animate-fade-in">
                         <div class="space-y-1">
                             <label class="text-[10px] text-slate-500">全平台統一勾子</label>
-                            <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                            <select id="editDashHook" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-indigo-500">
                                 ${hookOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.hookType === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
                             </select>
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] text-slate-500">全平台統一節奏</label>
-                            <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none">
+                            <select id="editDashLen" class="w-full bg-slate-800 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-indigo-500">
                                 ${lenOptions.map(opt => `<option value="${opt.split(' ')[1]}" ${MISSION.contentLength === opt.split(' ')[1] ? 'selected' : ''}>${opt}</option>`).join('')}
                             </select>
                         </div>
@@ -101,10 +140,51 @@ export async function triggerMissionSummary() {
             }
         };
 
+        // 🌌 組合宇宙選項區域的 HTML (根據選擇切換模式與濾鏡)
+        const getUniverseStyleHtml = () => {
+            let styleSection = '';
+            let colorSection = '';
+
+            if (MISSION.universe === 'REALISTIC') {
+                styleSection = `
+                    <label class="text-[10px] text-slate-500">合成模式 (對焦邏輯)</label>
+                    <div class="flex flex-wrap gap-2">
+                        ${realisticModes.map(m => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===m.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.name}">${m.name}</button>`).join('')}
+                    </div>`;
+                colorSection = `
+                    <label class="text-[10px] text-slate-500">攝影濾鏡氛圍</label>
+                    <div class="flex flex-wrap gap-2">
+                        ${realisticFilters.map(f => `<button class="btn-dash-color px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===f.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${f.name}">${f.name}</button>`).join('')}
+                    </div>`;
+            } else if (MISSION.universe === 'COMIC') {
+                styleSection = `
+                    <label class="text-[10px] text-slate-500">動漫視覺風格</label>
+                    <div class="flex flex-wrap gap-2">
+                        ${animeStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===s.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${s.name}">${s.name}</button>`).join('')}
+                    </div>`;
+                colorSection = `
+                    <label class="text-[10px] text-slate-500">色系模式</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
+                    </div>`;
+            } else {
+                styleSection = `<span class="text-[10px] text-slate-500">無損美化模式不需選擇風格與濾鏡</span>`;
+            }
+
+            return `
+                <div class="space-y-2 pt-3 border-t border-white/5" id="dash-style-section">
+                    ${styleSection}
+                </div>
+                <div class="space-y-2 pt-3 border-t border-white/5" id="dash-color-section">
+                    ${colorSection}
+                </div>
+            `;
+        };
+
         const ui = createSkillUI(`
             <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs w-full">
                 
-                <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3">
+                <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3 shadow-inner">
                     <span class="text-xl">🤖</span>
                     <p id="agentDashboardAdvice" class="text-indigo-300 italic leading-relaxed">
                         ${MISSION.isIndependentPost 
@@ -131,8 +211,8 @@ export async function triggerMissionSummary() {
                                  <span class="text-slate-300 font-bold">🎯 發文戰術與字數</span>
                              </div>
                              <div class="flex bg-slate-900 rounded-lg p-1 border border-white/10 shadow-inner">
-                                 <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}">統一內容</button>
-                                 <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}">平台適配</button>
+                                 <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}">統一內容</button>
+                                 <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}">平台適配</button>
                              </div>
                         </div>
                         <button class="w-full px-4 py-3 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-strategy">
@@ -173,7 +253,7 @@ export async function triggerMissionSummary() {
                         <div id="dash-characters" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <div class="dash-val-characters-list">${charsHtml}</div>
                             <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請點擊下方重啟召喚儀式。</p>
-                            <button id="btnBackToChar" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重啟召喚儀式</button>
+                            <button id="btnBackToChar" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white shadow-sm">✎ 重啟召喚儀式</button>
                         </div>
                     </div>
 
@@ -184,15 +264,15 @@ export async function triggerMissionSummary() {
                         </button>
                         <div id="dash-scenes" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <div class="dash-val-scenes-list">${scenesHtml}</div>
-                            <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需新增或更換圖檔，請點擊下方返回設定畫面。</p>
-                            <button id="btnBackToVisual" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重新上傳 / 更改圖檔</button>
+                            <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">包含 AI 參考主圖與最多 9 張社群附加輪播圖。</p>
+                            <button id="btnBackToVisual" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white shadow-sm">✎ 重新上傳 / 更改圖檔</button>
                         </div>
                     </div>
 
                     <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
                         <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-universe-style">
                             <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">🌌 風格宇宙與色系 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
-                            <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
+                            <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.style || '預設'} / ${MISSION.colorMode || '直出'} ✎</span>
                         </button>
                         <div id="dash-universe-style" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
                             <div class="space-y-2">
@@ -201,17 +281,8 @@ export async function triggerMissionSummary() {
                                     ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'},{v:'ENHANCE',i:'✨',n:'美化'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
                                 </div>
                             </div>
-                            <div class="space-y-2 pt-3 border-t border-white/5">
-                                <label class="text-[10px] text-slate-500">視覺風格</label>
-                                <div class="flex flex-wrap gap-2">
-                                    ${availableStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===s.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${s.name}">${s.name}</button>`).join('')}
-                                </div>
-                            </div>
-                            <div class="space-y-2 pt-3 border-t border-white/5">
-                                <label class="text-[10px] text-slate-500">色系模式</label>
-                                <div class="grid grid-cols-2 gap-2">
-                                    ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
-                                </div>
+                            <div id="dash-dynamic-styles-container">
+                                ${getUniverseStyleHtml()}
                             </div>
                         </div>
                     </div>
@@ -245,7 +316,7 @@ export async function triggerMissionSummary() {
                         </button>
                         <div id="dash-schedule" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <p class="text-[10px] text-slate-400 mb-1">若需修改發佈時間，請點擊下方按鈕重新設定：</p>
-                            <button id="btnBackToSchedule" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重新設定時間</button>
+                            <button id="btnBackToSchedule" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white shadow-sm">✎ 重新設定時間</button>
                         </div>
                     </div>
                 </div>
@@ -256,6 +327,11 @@ export async function triggerMissionSummary() {
             </div>
         `);
 
+        /**
+         * ==========================================
+         * 📌 事件綁定區塊
+         * ==========================================
+         */
         const bindStrategyEvents = () => {
             if (MISSION.isIndependentPost) {
                 ui.querySelectorAll('.indie-hook').forEach(el => el.onchange = (e) => { MISSION.platformStrategies[e.target.dataset.plat].hookType = e.target.value; });
@@ -299,7 +375,7 @@ export async function triggerMissionSummary() {
             }
         };
 
-        // 💡 優化：旋轉箭頭動畫控制
+        // 旋轉箭頭動畫控制
         ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
             trigger.onclick = () => {
                 const targetId = trigger.dataset.target;
@@ -317,12 +393,47 @@ export async function triggerMissionSummary() {
             };
         });
 
+        // 綁定動態生成的 Style/Color 按鈕事件
+        const bindDynamicStyleEvents = () => {
+            ui.querySelectorAll('.btn-dash-style').forEach(btn => {
+                btn.onclick = () => {
+                    MISSION.style = btn.dataset.val;
+                    ui.querySelectorAll('.btn-dash-style').forEach(b => {
+                        b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                        b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    });
+                    btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    updateDashDisplay();
+                };
+            });
+
+            ui.querySelectorAll('.btn-dash-color').forEach(btn => {
+                btn.onclick = () => {
+                    MISSION.colorMode = btn.dataset.val;
+                    ui.querySelectorAll('.btn-dash-color').forEach(b => {
+                        b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                        b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    });
+                    btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    updateDashDisplay();
+                };
+            });
+        };
+        bindDynamicStyleEvents(); // 初次綁定
+
         const updateDashDisplay = () => {
             ui.querySelector('.dash-val-topic').innerText = decodeHTMLEntities(MISSION.topic || '') + ' ✎';
             ui.querySelector('.dash-val-strategy').innerText = MISSION.isIndependentPost ? '獨立配置 ✎' : `${MISSION.hookType || ''} / ${MISSION.contentLength || ''} ✎`;
             ui.querySelector('.dash-val-team').innerText = `${MISSION.persona || ''} / ${(MISSION.platforms || []).join(',')} ✎`;
+            
+            // 動態判斷宇宙顯示文字
+            let styleText = `${MISSION.universe || ''} / ${MISSION.style || '預設'} / ${MISSION.colorMode || '直出'} ✎`;
+            if (MISSION.universe === 'COMIC') styleText = `${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
+            ui.querySelector('.dash-val-universe-style').innerText = styleText;
+
             const isComicNow = MISSION.universe === 'COMIC';
-            ui.querySelector('.dash-val-universe-style').innerText = `${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
             ui.querySelector('.dash-val-visual-specs').innerText = `${MISSION.ratio || '9:16'} / ${isComicNow ? (MISSION.panelCount || 4) + '格' : ''} ✎`;
             
             let sDisp = '⚡ 立即部署';
@@ -331,13 +442,6 @@ export async function triggerMissionSummary() {
                 sDisp = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
             }
             ui.querySelector('.dash-val-schedule').innerText = sDisp + ' ✎';
-
-            if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
-                const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
-                ui.querySelector('.dash-val-scenes').innerHTML = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
-            } else {
-                ui.querySelector('.dash-val-scenes').innerText = '無 ✎';
-            }
         };
 
         ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
@@ -381,37 +485,30 @@ export async function triggerMissionSummary() {
         ui.querySelector('#btnBackToVisual').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerVisualSkill(); };
         ui.querySelector('#btnBackToSchedule').onclick = async () => { IS_EDIT_MODE.value = true; releaseUI(ui); await triggerScheduleSkill(); };
 
+        // 🪐 宇宙切換：重置參數並動態更新內部面板
         ui.querySelectorAll('.btn-dash-uni').forEach(btn => {
             btn.onclick = async () => {
                 const oldUni = MISSION.universe; MISSION.universe = btn.dataset.val;
-                if (oldUni !== MISSION.universe) { MISSION.style = ''; MISSION.colorMode = ''; MISSION.characters = []; MISSION.sceneFiles = []; MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; }
-                releaseUI(ui); await triggerMissionSummary(); 
-            };
-        });
+                if (oldUni !== MISSION.universe) { 
+                    MISSION.style = ''; 
+                    MISSION.colorMode = ''; 
+                    MISSION.characters = []; 
+                    MISSION.sceneFiles = []; 
+                    MISSION.attachmentFiles = [];
+                    MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; 
+                }
+                
+                // 重新渲染內部 Style/Color 區塊
+                ui.querySelector('#dash-dynamic-styles-container').innerHTML = getUniverseStyleHtml();
+                bindDynamicStyleEvents(); // 重新綁定新生成的按鈕事件
+                updateDashDisplay();
 
-        ui.querySelectorAll('.btn-dash-style').forEach(btn => {
-            btn.onclick = () => {
-                MISSION.style = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-style').forEach(b => {
+                ui.querySelectorAll('.btn-dash-uni').forEach(b => {
                     b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
                     b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
                 });
                 btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                 btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
-                updateDashDisplay();
-            };
-        });
-
-        ui.querySelectorAll('.btn-dash-color').forEach(btn => {
-            btn.onclick = () => {
-                MISSION.colorMode = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-color').forEach(b => {
-                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
-                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
-                });
-                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
-                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
-                updateDashDisplay();
             };
         });
 
@@ -443,6 +540,11 @@ export async function triggerMissionSummary() {
             };
         });
 
+        /**
+         * ==========================================
+         * 📌 送出任務：驗證排程並發包給後端
+         * ==========================================
+         */
         ui.querySelector('#btnRender').onclick = async () => {
             const btn = ui.querySelector('#btnRender');
             const oriText = btn.innerHTML;
@@ -492,7 +594,7 @@ export async function triggerMissionSummary() {
                 btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
                 btn.classList.remove('hover:bg-indigo-500');
 
-                // 🎰 觸發拉霸：我們現在統一呼叫全域的同步樞紐！
+                // 🎰 觸發拉霸：統一呼叫全域的同步樞紐
                 if(typeof window.API !== 'undefined' && window.API.triggerWalletSync) {
                      window.API.triggerWalletSync();
                 }
