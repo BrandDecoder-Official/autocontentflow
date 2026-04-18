@@ -1,6 +1,5 @@
 // js/v9_funnel_dashboard.js
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
-// 🚀 新增引入 updatePointsDisplay 來觸發拉霸動畫
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, updatePointsDisplay } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
@@ -37,7 +36,7 @@ export async function triggerMissionSummary() {
             charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
         }
 
-        // ✅ 確認保留：在標題列加上第一張場景的縮圖預覽
+        // ✅ 任務確認：場景圖在儀表板標題的「圓角縮圖預覽」
         let scenesHtml = '';
         let sceneStatus = '無 ✎';
         if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
