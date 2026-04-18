@@ -59,6 +59,15 @@ export function isMissionComplete() {
     return true;
 }
 
+// 💡 新增：獨立出一個專門把 SYSTEM_DB 數字同步到側邊欄的 UI 函數
+export function updateSidebarCountUI() {
+    const countLabel = document.getElementById('charCountLabel');
+    if (countLabel) {
+        const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+        countLabel.innerText = `已擁有 ${total} 組角色/人設模型`;
+    }
+}
+
 // 🚀 正確解析後端傳來的 res.data
 export async function bootSystemData() {
     // 預先準備好四大經典預設人設
@@ -89,6 +98,10 @@ export async function bootSystemData() {
         console.error("系統資料載入失敗:", e);
         // 斷線時至少保留預設人設
         SYSTEM_DB.personas = [...defaultPersonas];
+    } finally {
+        // 🎯 關鍵架構修復：資料載入完畢後，統一發送通知更新 UI！
+        // 這樣不管是剛開機(F5)、還是新增/刪除角色後重新載入，數字永遠跟著大腦走。
+        updateSidebarCountUI();
     }
 }
 
