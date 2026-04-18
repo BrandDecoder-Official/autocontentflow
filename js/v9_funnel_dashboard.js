@@ -1,5 +1,6 @@
 // js/v9_funnel_dashboard.js
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
+// 🚀 新增引入 updatePointsDisplay 來觸發拉霸動畫
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, updatePointsDisplay } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
@@ -36,15 +37,13 @@ export async function triggerMissionSummary() {
             charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
         }
 
-        // 🚀 微創手術 1：在標題列加上第一張場景的縮圖
+        // ✅ 確認保留：在標題列加上第一張場景的縮圖預覽
         let scenesHtml = '';
         let sceneStatus = '無 ✎';
         if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
-            // 在標題列加入縮圖預覽
             const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
             sceneStatus = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
             
-            // 這是點開面板後看到的大圖列表
             scenesHtml = '<div class="flex items-center gap-2 flex-wrap">';
             MISSION.sceneFiles.forEach((file, idx) => {
                  scenesHtml += `
@@ -183,7 +182,7 @@ export async function triggerMissionSummary() {
                     <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
                         <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-scenes">
                             <span class="text-slate-400 font-bold">🖼️ 參考場景與圖檔</span>
-                            <span class="text-white font-black dash-val-scenes">${sceneStatus}</span>
+                            <div class="text-white font-black dash-val-scenes">${sceneStatus}</div>
                         </button>
                         <div id="dash-scenes" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
                             <div class="dash-val-scenes-list">${scenesHtml}</div>
@@ -332,7 +331,6 @@ export async function triggerMissionSummary() {
             }
             ui.querySelector('.dash-val-schedule').innerText = sDisp + ' ✎';
 
-            // 🚀 微創手術 3：讓狀態更新時也確保小縮圖不會消失
             if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
                 const firstImgUrl = MISSION.sceneFiles[0].dataUrl;
                 ui.querySelector('.dash-val-scenes').innerHTML = `<div class="flex items-center gap-2"><img src="${firstImgUrl}" class="w-8 h-8 rounded-md border border-slate-500 object-cover flex-shrink-0"><span>已上傳 ${MISSION.sceneFiles.length} 張 ✎</span></div>`;
@@ -437,25 +435,8 @@ export async function triggerMissionSummary() {
         ui.querySelector('#btnRender').onclick = async () => {
             const btn = ui.querySelector('#btnRender');
             const oriText = btn.innerHTML;
-            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
-                await window.FunnelActions.generateDraft();
-
-                // ✅ 任務成功送出，停止轉圈圈
-                btn.innerHTML = '✅ 任務已送出';
-                btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
-                btn.classList.remove('hover:bg-indigo-500');
-
-                // 🎰 觸發：向後端拉取最新點數，並執行拉霸動畫
-                try {
-                    const freshData = await API.getTenantConfigAPI(STATE.uid);
-                    if (freshData && freshData.tenant && freshData.tenant.totalPoints !== undefined) {
-                        updatePointsDisplay(freshData.tenant.totalPoints);
-                    }
-                } catch (e) {
-                    console.warn("點數同步失敗 (不影響任務):", e);
-                }
-
-            } catch (err) {
+            btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 任務驗證與建檔中...';
+            btn.disabled = true;
 
             try {
                 if (MISSION.scheduledAt) {
@@ -496,10 +477,20 @@ export async function triggerMissionSummary() {
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
                 await window.FunnelActions.generateDraft();
 
-                // 🚀 修復 1：草稿生成完畢後，將按鈕狀態改為成功，停止轉圈圈！
+                // ✅ 任務成功送出，復原按鈕狀態
                 btn.innerHTML = '✅ 任務已送出';
-                btn.classList.replace('bg-indigo-600', 'bg-emerald-600'); // 換成成功綠色
+                btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
                 btn.classList.remove('hover:bg-indigo-500');
+
+                // 🎰 觸發拉霸：靜默向後端拉取最新點數，並更新 UI
+                try {
+                    const freshData = await API.getTenantConfigAPI(STATE.uid);
+                    if (freshData && freshData.tenant && freshData.tenant.totalPoints !== undefined) {
+                        updatePointsDisplay(freshData.tenant.totalPoints);
+                    }
+                } catch (e) {
+                    console.warn("點數同步失敗 (不影響任務進行):", e);
+                }
 
             } catch (err) {
                 showError(err.message);
