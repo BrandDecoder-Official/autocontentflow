@@ -16,10 +16,12 @@ window.openCharManager = function() {
     renderCharGrid(); 
     renderPersonaList(); // 開啟時一併渲染人設清單
 
-    // 🚀 修復 3：即時結算並更新「已擁有 X 組」的數字
+    // 🚀 優化 1：即時結算並更新「已擁有 X 組」的數字
     const totalModels = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-    const badgeEl = document.getElementById('manageVaultBadge'); // 假設 UI 裡有這個 ID
-    if(badgeEl) badgeEl.innerText = `已擁有 ${totalModels} 組角色/人設模型`;
+    const countLabel = document.getElementById('charCountLabel');
+    if (countLabel) {
+        countLabel.innerText = `已擁有 ${totalModels} 組角色/人設模型`;
+    }
 };
 
 window.closeCharManager = function() { 
@@ -64,7 +66,17 @@ function renderCharGrid() {
         grid.innerHTML = `<div class="col-span-full text-center text-sm text-slate-500 py-10">尚無角色，請立即註冊！</div>`; return; 
     } 
     SYSTEM_DB.characters.forEach(char => { 
-        grid.innerHTML += `<div class="bg-slate-800 rounded-xl border border-white/10 p-3 flex flex-col items-center gap-2 relative group"><div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-600"><img src="${char.imageUrl}" class="w-full h-full object-cover"></div><div class="text-center w-full"><p class="text-xs font-bold text-white truncate">${char.name}</p><p class="text-[9px] text-slate-400 truncate w-full" title="${char.aiExtractedFeatures}">${char.aiExtractedFeatures || '特徵分析中...'}</p></div><button onclick="window.deleteChar('${char.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button></div>`; 
+        grid.innerHTML += `
+            <div class="bg-slate-800 rounded-xl border border-white/10 p-3 flex flex-col items-center gap-2 relative group shadow-lg">
+                <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-slate-600">
+                    <img src="${char.imageUrl}" class="w-full h-full object-cover">
+                </div>
+                <div class="text-center w-full">
+                    <p class="text-xs font-bold text-white truncate">${char.name}</p>
+                    <p class="text-[9px] text-slate-400 truncate w-full" title="${char.aiExtractedFeatures}">${char.aiExtractedFeatures || '特徵分析中...'}</p>
+                </div>
+                <button onclick="window.deleteChar('${char.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow-md">✕</button>
+            </div>`; 
     }); 
 }
 
@@ -101,17 +113,30 @@ window.submitNewChar = async function() {
     btn.disabled = true; 
     try { 
         const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' }); 
-        if(res.success) { alert('🎉 註冊成功！'); await bootSystemData(); window.cancelNewChar(); renderCharGrid(); } 
+        if(res.success) { 
+            alert('🎉 角色基因註冊成功！'); 
+            await bootSystemData(); 
+            window.cancelNewChar(); 
+            renderCharGrid(); 
+            // 同步更新標籤數量
+            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
+        } 
         else throw new Error(res.message); 
     } catch(e) { alert(`❌ 失敗: ${e.message}`); } 
     finally { btn.innerHTML = '上傳並萃取'; btn.disabled = false; } 
 };
 
 window.deleteChar = async function(charId) { 
-    if(!confirm('確定要刪除嗎？')) return; 
+    if(!confirm('確定要從基因庫刪除此角色嗎？')) return; 
     try { 
         const res = await API.deleteCharacterAPI({ charId, tenantId: STATE.uid }); 
-        if(res.success) { await bootSystemData(); renderCharGrid(); } 
+        if(res.success) { 
+            await bootSystemData(); 
+            renderCharGrid(); 
+            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
+        } 
         else throw new Error(res.message); 
     } catch(e) { alert(`❌ 刪除失敗: ${e.message}`); } 
 };
@@ -132,7 +157,7 @@ function renderPersonaList() {
         const tabooHtml = p.taboos ? `<div class="mt-2 text-[10px] text-red-300 bg-red-900/20 p-2 rounded border border-red-500/20"><b>禁忌指令：</b>${p.taboos}</div>` : '';
         
         container.innerHTML += `
-            <div class="bg-slate-800 rounded-xl border border-white/10 p-4 relative group">
+            <div class="bg-slate-800 rounded-xl border border-white/10 p-4 relative group shadow-lg">
                 <div class="flex items-start gap-3">
                     <div class="text-3xl bg-slate-900 w-12 h-12 flex items-center justify-center rounded-lg border border-white/5 flex-shrink-0">${p.icon}</div>
                     <div class="flex-grow">
@@ -141,7 +166,7 @@ function renderPersonaList() {
                         ${tabooHtml}
                     </div>
                 </div>
-                <button onclick="window.deletePersona('${p.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                <button onclick="window.deletePersona('${p.id}')" class="absolute top-2 right-2 bg-red-500/80 hover:bg-red-500 text-white w-6 h-6 rounded-full text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity shadow-md">✕</button>
             </div>
         `;
     });
@@ -176,17 +201,19 @@ window.submitNewPersona = async function() {
     try {
         const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
         if(res.success) {
-            alert('🎉 品牌人設已寫入神經網路！');
+            alert('🎉 品牌人設已寫入神經網絡！');
             await bootSystemData(); 
             window.cancelNewPersona();
             renderPersonaList();
+            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } else {
             throw new Error(res.message);
         }
     } catch(e) { 
         alert(`❌ 失敗: ${e.message}`); 
     } finally { 
-        btn.innerHTML = '寫入神經網路'; 
+        btn.innerHTML = '寫入神經網絡'; 
         btn.disabled = false; 
     }
 };
@@ -203,6 +230,8 @@ window.deletePersona = async function(personaId) {
         if(res.success) {
             await bootSystemData();
             renderPersonaList();
+            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
+            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } else {
             throw new Error(res.message);
         }
@@ -217,7 +246,12 @@ window.deletePersona = async function(personaId) {
 // ==========================================
 window.refreshAuditLogs = async function() { 
     const container = document.getElementById('auditLogsContainer'); 
-    container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4"><div class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 讀取中...</div>'; 
+    container.innerHTML = `
+        <div class="text-center text-xs text-slate-500 py-6">
+            <div class="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 
+            正在從區塊鏈同步紀錄...
+        </div>`; 
+        
     try { 
         const res = await API.fetchAuditLogsAPI(STATE.uid); 
         if(res.success && res.logs.length > 0) { 
@@ -225,47 +259,47 @@ window.refreshAuditLogs = async function() {
             res.logs.forEach(log => { 
                 const action = log.type || log.actionType || 'SYSTEM_LOG'; 
                 const isDeduct = !!log.amount || action.includes('GENERATE') || action.includes('PUBLISH') || action.includes('UPLOAD') || action.includes('TOKEN'); 
-                const ptClass = isDeduct ? 'text-red-400' : 'text-green-400'; 
+                const ptClass = isDeduct ? 'text-red-400' : 'text-emerald-400'; 
                 const sign = isDeduct ? '-' : '+'; 
                 const pts = log.amount || log.pointsDeducted || Math.abs(log.pointsChanged || 0); 
                 const desc = log.description || action;
                 const dateTaipei = new Date(log.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); 
                 
-                // 💡 修改排版：拔除 hidden，改用更緊湊的全顯排版
+                // 🚀 優化 2：徹底優化手機版排版，拔除 hidden，字體放大
                 let balanceHtml = '';
                 if (log.balanceAfter !== undefined) {
                     const before = isDeduct ? (log.balanceAfter + pts) : (log.balanceAfter - pts);
                     balanceHtml = `
-                        <div class="flex flex-col border-l border-white/10 pl-3">
-                            <span class="text-[10px] text-slate-500 mb-0.5">結餘變化</span>
+                        <div class="flex items-center justify-between w-full mt-2 pt-2 border-t border-white/5">
+                            <span class="text-[11px] text-slate-500 font-bold uppercase tracking-wider">算力餘額軌跡</span>
                             <div class="text-xs font-mono tracking-tight flex items-center">
-                                <span class="text-slate-400 line-through decoration-slate-600">${before.toLocaleString()}</span>
+                                <span class="text-slate-500 line-through decoration-slate-600 mr-2">${before.toLocaleString()}</span>
                                 <span class="text-indigo-400 mx-1">➔</span>
-                                <span class="text-white font-bold">${log.balanceAfter.toLocaleString()}</span>
+                                <span class="text-white font-black ml-2">${log.balanceAfter.toLocaleString()}</span>
                             </div>
                         </div>
                     `;
                 }
 
                 container.innerHTML += `
-                    <div class="flex flex-col bg-slate-800/50 p-4 rounded-xl mb-3 border border-white/5 shadow-inner hover:bg-slate-800 transition-colors gap-2">
+                    <div class="flex flex-col bg-slate-900/50 p-4 rounded-xl mb-3 border border-white/5 shadow-inner hover:bg-slate-800 transition-all duration-300">
                         <div class="flex justify-between items-start w-full">
                             <div class="flex-1 pr-2">
-                                <p class="text-white font-bold text-xs" title="${desc}">${desc}</p>
-                                <p class="text-slate-500 text-[10px] mt-1">${dateTaipei}</p>
+                                <p class="text-white font-black text-xs sm:text-sm leading-tight mb-1 truncate" title="${desc}">${desc}</p>
+                                <p class="text-slate-500 text-[10px] sm:text-xs font-medium">${dateTaipei}</p>
                             </div>
                             <div class="flex-shrink-0 text-right">
-                                <span class="${ptClass} font-black text-sm">${sign} ${pts.toLocaleString()}</span>
-                                <span class="${ptClass} text-[10px] font-bold"> PTS</span>
+                                <div class="${ptClass} font-black text-sm sm:text-base mb-0.5">${sign} ${pts.toLocaleString()}</div>
+                                <div class="${ptClass} text-[9px] font-black tracking-widest opacity-80 uppercase">PTS</div>
                             </div>
                         </div>
-                        ${balanceHtml ? `<div class="w-full mt-1 pt-2 border-t border-white/5 flex justify-between items-center">${balanceHtml}</div>` : ''}
+                        ${balanceHtml}
                     </div>`; 
             }); 
         } else { 
-            container.innerHTML = '<div class="text-center text-xs text-slate-500 py-4">目前尚無算力紀錄，立即開啟新任務！</div>'; 
+            container.innerHTML = '<div class="text-center text-xs text-slate-500 py-10">目前尚無算力紀錄，立即開啟新任務！</div>'; 
         } 
     } catch(e) { 
-        container.innerHTML = `<div class="text-center text-xs text-red-400 py-4">讀取失敗 (髒資料跳過)</div>`; 
+        container.innerHTML = `<div class="text-center text-xs text-red-400 py-10">⚠️ 紀錄讀取失敗，請稍後再試</div>`; 
     } 
 };
