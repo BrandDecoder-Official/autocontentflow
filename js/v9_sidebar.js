@@ -1,7 +1,8 @@
 // js/v9_sidebar.js
 import { STATE } from './config.js';
 import * as API from './api.js';
-import { SYSTEM_DB, compressImage, bootSystemData } from './v9_state.js';
+// 🚀 引入更新函數，確保打開面板時也能主動刷新
+import { SYSTEM_DB, compressImage, bootSystemData, updateSidebarCountUI } from './v9_state.js';
 
 let tempCharBase64 = null;
 
@@ -14,14 +15,10 @@ window.openCharManager = function() {
     setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); 
     
     renderCharGrid(); 
-    renderPersonaList(); // 開啟時一併渲染人設清單
-
-    // 🚀 優化 1：即時結算並更新「已擁有 X 組」的數字
-    const totalModels = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-    const countLabel = document.getElementById('charCountLabel');
-    if (countLabel) {
-        countLabel.innerText = `已擁有 ${totalModels} 組角色/人設模型`;
-    }
+    renderPersonaList(); 
+    
+    // 呼叫唯一的 UI 更新樞紐，絕不自己拼湊字串
+    updateSidebarCountUI(); 
 };
 
 window.closeCharManager = function() { 
@@ -115,12 +112,10 @@ window.submitNewChar = async function() {
         const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' }); 
         if(res.success) { 
             alert('🎉 角色基因註冊成功！'); 
+            // 💡 架構發威：bootSystemData 內部已經掛載了 updateSidebarCountUI，畫面會自動更新，不需手動補丁！
             await bootSystemData(); 
             window.cancelNewChar(); 
             renderCharGrid(); 
-            // 同步更新標籤數量
-            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } 
         else throw new Error(res.message); 
     } catch(e) { alert(`❌ 失敗: ${e.message}`); } 
@@ -134,8 +129,6 @@ window.deleteChar = async function(charId) {
         if(res.success) { 
             await bootSystemData(); 
             renderCharGrid(); 
-            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } 
         else throw new Error(res.message); 
     } catch(e) { alert(`❌ 刪除失敗: ${e.message}`); } 
@@ -205,8 +198,6 @@ window.submitNewPersona = async function() {
             await bootSystemData(); 
             window.cancelNewPersona();
             renderPersonaList();
-            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } else {
             throw new Error(res.message);
         }
@@ -230,8 +221,6 @@ window.deletePersona = async function(personaId) {
         if(res.success) {
             await bootSystemData();
             renderPersonaList();
-            const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-            if(document.getElementById('charCountLabel')) document.getElementById('charCountLabel').innerText = `已擁有 ${total} 組角色/人設模型`;
         } else {
             throw new Error(res.message);
         }
@@ -242,7 +231,7 @@ window.deletePersona = async function(personaId) {
 
 
 // ==========================================
-// 📜 算力歷史紀錄邏輯 (V10: 手機版全顯排版升級)
+// 📜 算力歷史紀錄邏輯
 // ==========================================
 window.refreshAuditLogs = async function() { 
     const container = document.getElementById('auditLogsContainer'); 
@@ -265,7 +254,6 @@ window.refreshAuditLogs = async function() {
                 const desc = log.description || action;
                 const dateTaipei = new Date(log.createdAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }); 
                 
-                // 🚀 優化 2：徹底優化手機版排版，拔除 hidden，字體放大
                 let balanceHtml = '';
                 if (log.balanceAfter !== undefined) {
                     const before = isDeduct ? (log.balanceAfter + pts) : (log.balanceAfter - pts);
