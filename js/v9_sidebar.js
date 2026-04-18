@@ -1,8 +1,10 @@
 // js/v9_sidebar.js
 import { STATE } from './config.js';
 import * as API from './api.js';
-// 🚀 引入更新函數，確保打開面板時也能主動刷新
 import { SYSTEM_DB, compressImage, bootSystemData, updateSidebarCountUI } from './v9_state.js';
+
+// 🚀 引入統一計費防護網
+import { getPricingConfig, validatePoints, applyPointDeduction } from './v9_finance.js';
 
 let tempCharBase64 = null;
 
@@ -105,6 +107,12 @@ window.submitNewChar = async function() {
     const type = document.getElementById('newCharType').value; 
     const persona = document.getElementById('newCharPersona').value.trim(); 
     if(!name || !tempCharBase64) return alert('請提供照片與名稱！'); 
+    
+    // 💡 財務閘門：註冊視覺基因扣點防呆
+    const pricing = getPricingConfig();
+    const cost = pricing.BASE_FEES.CREATE_CHARACTER || 800;
+    if (!validatePoints(cost, "註冊視覺角色")) return; // 餘額不足直接阻擋
+
     const btn = document.getElementById('btnSubmitNewChar'); 
     btn.innerHTML = '<div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></div> 萃取中...'; 
     btn.disabled = true; 
@@ -112,7 +120,10 @@ window.submitNewChar = async function() {
         const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' }); 
         if(res.success) { 
             alert('🎉 角色基因註冊成功！'); 
-            // 💡 架構發威：bootSystemData 內部已經掛載了 updateSidebarCountUI，畫面會自動更新，不需手動補丁！
+            
+            // 💸 財務展演：成功後觸發拉霸扣點與 Log 紀錄
+            await applyPointDeduction(cost, "註冊角色特徵萃取");
+            
             await bootSystemData(); 
             window.cancelNewChar(); 
             renderCharGrid(); 
@@ -187,6 +198,11 @@ window.submitNewPersona = async function() {
     
     if(!name || !desc) return alert('圖示可以不填，但請提供人設名稱與語氣特徵！');
     
+    // 💡 財務閘門：訓練品牌人設扣點防呆
+    const pricing = getPricingConfig();
+    const cost = pricing.BASE_FEES.CREATE_PERSONA || 500;
+    if (!validatePoints(cost, "訓練品牌人設")) return; // 餘額不足直接阻擋
+
     const btn = document.getElementById('btnSubmitNewPersona');
     btn.innerHTML = '<div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></div> 寫入中...';
     btn.disabled = true;
@@ -195,6 +211,10 @@ window.submitNewPersona = async function() {
         const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
         if(res.success) {
             alert('🎉 品牌人設已寫入神經網絡！');
+            
+            // 💸 財務展演：成功後觸發拉霸扣點與 Log 紀錄
+            await applyPointDeduction(cost, "神經網路人設寫入");
+
             await bootSystemData(); 
             window.cancelNewPersona();
             renderPersonaList();
