@@ -50,12 +50,22 @@ export function createSkillUI(html) {
     return div;
 }
 
+/**
+ * ==========================================
+ * 📌 函數名稱：releaseUI
+ * 💡 功能說明：封裝當前卡片，鎖定所有輸入與按鈕，並清空殘留的錯誤提示框。
+ * ==========================================
+ */
 export function releaseUI(ui) {
     lockUI(ui);
     ui.removeAttribute('id');
     ui.querySelectorAll('button').forEach(b => b.disabled = true);
     const inputs = ui.querySelectorAll('input, textarea, select');
     if(inputs) inputs.forEach(i => i.disabled = true);
+    
+    // 💡 步驟完成時，清除上一步遺留的警報框
+    const errBox = document.getElementById('singletonErrorMsg');
+    if (errBox) errBox.remove();
 }
 
 /**
@@ -89,12 +99,32 @@ export async function addLog(role, icon, msg, skipTyping = false) {
     if (!skipTyping) { await new Promise(r => setTimeout(r, 600)); div.querySelector('.msg-content').innerHTML = msg; }
 }
 
+/**
+ * ==========================================
+ * 📌 函數名稱：showError
+ * 💡 功能說明：顯示錯誤警報框。
+ * 🚀 優化情境：導入 Singleton (單一實例) 模式，避免用戶連點導致錯誤堆疊。
+ * ==========================================
+ */
 export async function showError(msg) {
-    const log = document.getElementById('funnelLog'); const div = document.createElement('div');
-    div.className = 'flex justify-center w-full my-2 animate-bounce';
-    div.innerHTML = `<div class="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded-full text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center gap-2"><span class="text-lg">🚨</span> <span>${msg}</span></div>`;
-    const activeCard = document.getElementById('activeControlCard');
-    if (activeCard) log.insertBefore(div, activeCard); else log.appendChild(div);
+    const log = document.getElementById('funnelLog'); 
+    let div = document.getElementById('singletonErrorMsg');
+    
+    if (div) {
+        // 如果已經有了，就更新文字並重新觸發彈跳特效
+        div.querySelector('.error-text').innerHTML = msg;
+        div.classList.remove('animate-bounce');
+        void div.offsetWidth; // 觸發瀏覽器重繪 (Reflow) 以重啟動畫
+        div.classList.add('animate-bounce');
+    } else {
+        // 沒有則新建
+        div = document.createElement('div');
+        div.id = 'singletonErrorMsg';
+        div.className = 'flex justify-center w-full my-2 animate-bounce';
+        div.innerHTML = `<div class="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-2 rounded-full text-xs font-bold shadow-[0_0_15px_rgba(239,68,68,0.2)] flex items-center gap-2"><span class="text-lg">🚨</span> <span class="error-text">${msg}</span></div>`;
+        const activeCard = document.getElementById('activeControlCard');
+        if (activeCard) log.insertBefore(div, activeCard); else log.appendChild(div);
+    }
     scrollDown();
 }
 
@@ -158,11 +188,10 @@ export function updatePointsDisplay(newPoints) {
             ptsEl.innerText = targetPts.toLocaleString();
             
             // 💡 動畫結束：向下沉降拉霸特效 (重力感)
-            // 使用 origin-top 確保變形基點在上方，translate-y-2 向下掉落
             ptsEl.classList.add('origin-top', 'translate-y-2', 'scale-110', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
             setTimeout(() => {
                 ptsEl.classList.remove('origin-top', 'translate-y-2', 'scale-110', 'text-white', 'drop-shadow-[0_0_12px_rgba(255,255,255,1)]');
-            }, 350); // 稍微延長時間讓掉落感更明確
+            }, 350); 
         }
     }, 1000 / frameRate);
 }
