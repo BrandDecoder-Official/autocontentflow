@@ -59,12 +59,22 @@ export function isMissionComplete() {
     return true;
 }
 
-// 💡 新增：獨立出一個專門把 SYSTEM_DB 數字同步到側邊欄的 UI 函數
+/**
+ * ==========================================
+ * 📌 函數名稱：updateSidebarCountUI
+ * 💡 功能說明：分別計算並更新側邊欄「專屬基因庫」的角色與人設總數顯示。
+ * 🚀 使用情境：
+ * 1. 系統剛開機，完成 `bootSystemData` 載入資料後自動觸發。
+ * 2. 開啟側邊欄管理面板時，確保數字為最新狀態。
+ * ⚠️ 注意事項：依賴 DOM 元素 `id="charCountLabel"`，若畫面無此 ID 則靜默略過。
+ * ==========================================
+ */
 export function updateSidebarCountUI() {
     const countLabel = document.getElementById('charCountLabel');
     if (countLabel) {
-        const total = SYSTEM_DB.characters.length + SYSTEM_DB.personas.length;
-        countLabel.innerText = `已擁有 ${total} 組角色/人設模型`;
+        const charCount = SYSTEM_DB.characters.length;
+        const personaCount = SYSTEM_DB.personas.length;
+        countLabel.innerText = `已擁有 ${charCount} 組角色 / ${personaCount} 組人設模型`;
     }
 }
 
