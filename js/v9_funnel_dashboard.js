@@ -36,7 +36,6 @@ export async function triggerMissionSummary() {
             charsHtml = `<span class="text-xs text-slate-500">純場景模式</span>`;
         }
 
-        // ✅ 任務確認：場景圖在儀表板標題的「圓角縮圖預覽」
         let scenesHtml = '';
         let sceneStatus = '無 ✎';
         if(MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
@@ -103,7 +102,7 @@ export async function triggerMissionSummary() {
         };
 
         const ui = createSkillUI(`
-            <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs">
+            <div id="missionDashboard" class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-4 lg:p-6 shadow-2xl space-y-4 mb-4 animate-fade-in text-[11px] lg:text-xs w-full">
                 
                 <div class="bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl flex items-start gap-3">
                     <span class="text-xl">🤖</span>
@@ -114,144 +113,144 @@ export async function triggerMissionSummary() {
                     </p>
                 </div>
 
-                <div class="space-y-2">
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-topic">
-                            <span class="text-slate-400 font-bold">📝 任務主題</span>
-                            <span class="text-white font-black dash-val-topic truncate max-w-[200px] text-right">${decodedTopic} ✎</span>
+                <div class="space-y-3">
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-topic">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">📝 任務主題 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-topic truncate max-w-[180px] text-right">${decodedTopic} ✎</span>
                         </button>
-                        <div id="dash-topic" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div id="dash-topic" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <p class="text-[10px] text-slate-400 mb-1">請在此編輯完整主題或補充細節：</p>
                             <textarea id="editDashTopic" class="w-full bg-slate-800 border border-white/10 rounded-xl p-3 text-xs text-white focus:border-indigo-500 outline-none h-32 resize-y">${decodedTopic}</textarea>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
                         <div class="w-full p-4 flex justify-between items-center bg-transparent border-b border-white/5">
                              <div class="flex items-center gap-2">
-                                 <span class="text-slate-400 font-bold">🎯 發文戰術與字數</span>
+                                 <span class="text-slate-300 font-bold">🎯 發文戰術與字數</span>
                              </div>
-                             <div class="flex bg-slate-800 rounded-lg p-1 border border-white/10">
-                                 <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">統一內容</button>
-                                 <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500'}">平台適配</button>
+                             <div class="flex bg-slate-900 rounded-lg p-1 border border-white/10 shadow-inner">
+                                 <button id="btnModeUnified" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${!MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}">統一內容</button>
+                                 <button id="btnModeIndie" class="px-3 py-1.5 rounded-md text-[10px] font-bold transition-all ${MISSION.isIndependentPost ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500'}">平台適配</button>
                              </div>
                         </div>
-                        <button class="w-full px-4 py-3 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-strategy">
-                            <span class="text-[10px] text-slate-500">目前配置</span>
-                            <span class="text-white font-black dash-val-strategy">${MISSION.isIndependentPost ? '獨立配置' : (MISSION.hookType || '') + ' / ' + (MISSION.contentLength || '')} ✎</span>
+                        <button class="w-full px-4 py-3 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-strategy">
+                            <span class="text-[10px] text-slate-500 group-hover:text-slate-300 flex items-center gap-1">目前配置 <span class="text-[8px] transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-strategy">${MISSION.isIndependentPost ? '獨立配置' : (MISSION.hookType || '') + ' / ' + (MISSION.contentLength || '')} ✎</span>
                         </button>
-                        <div id="dash-strategy" class="hidden p-4 bg-black/20 border-t border-white/5">
+                        <div id="dash-strategy" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20">
                             ${getStrategyHtml()}
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-team">
-                            <span class="text-slate-400 font-bold">🎭 人設與平台</span>
-                            <span class="text-white font-black dash-val-team text-right">${MISSION.persona || ''} / ${(MISSION.platforms || []).join(',')} ✎</span>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-team">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">🎭 人設與平台 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-team text-right">${MISSION.persona || ''} / ${(MISSION.platforms || []).join(',')} ✎</span>
                         </button>
-                        <div id="dash-team" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                        <div id="dash-team" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">指派人設角色</label>
                                 <div class="flex flex-wrap gap-2">
-                                    ${SYSTEM_DB.personas.map(p => `<button class="btn-dash-persona px-3 py-2 rounded-lg border ${MISSION.persona===p.name?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${p.name}">${p.icon} ${p.name}</button>`).join('')}
+                                    ${SYSTEM_DB.personas.map(p => `<button class="btn-dash-persona px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.persona===p.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${p.name}">${p.icon} ${p.name}</button>`).join('')}
                                 </div>
                             </div>
                             <div class="space-y-2 pt-3 border-t border-white/5">
                                 <label class="text-[10px] text-slate-500">部署社群平台 (可多選)</label>
                                 <div class="flex flex-wrap gap-2">
-                                    ${['FB','IG','THREADS'].map(plat => `<button class="btn-dash-plat px-3 py-2 rounded-lg border ${MISSION.platforms.includes(plat)?'border-blue-500 bg-blue-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${plat}">${plat}</button>`).join('')}
+                                    ${['FB','IG','THREADS'].map(plat => `<button class="btn-dash-plat px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.platforms.includes(plat)?'border-blue-500 bg-blue-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${plat}">${plat}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-characters">
-                            <span class="text-slate-400 font-bold">👥 登場角色基因</span>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-characters">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">👥 登場角色基因 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
                             <div class="flex items-center gap-2 max-w-[150px] overflow-hidden dash-val-characters">${charsHtml} ✎</div>
                         </button>
-                        <div id="dash-characters" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div id="dash-characters" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <div class="dash-val-characters-list">${charsHtml}</div>
                             <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需更換登場角色，請點擊下方重啟召喚儀式。</p>
-                            <button id="btnBackToChar" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重啟召喚儀式</button>
+                            <button id="btnBackToChar" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重啟召喚儀式</button>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-scenes">
-                            <span class="text-slate-400 font-bold">🖼️ 參考場景與圖檔</span>
-                            <div class="text-white font-black dash-val-scenes">${sceneStatus}</div>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-scenes">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">🖼️ 參考場景與圖檔 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <div class="text-indigo-300 font-black dash-val-scenes">${sceneStatus}</div>
                         </button>
-                        <div id="dash-scenes" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div id="dash-scenes" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <div class="dash-val-scenes-list">${scenesHtml}</div>
                             <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">若需新增或更換圖檔，請點擊下方返回設定畫面。</p>
-                            <button id="btnBackToVisual" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重新上傳 / 更改圖檔</button>
+                            <button id="btnBackToVisual" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重新上傳 / 更改圖檔</button>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-universe-style">
-                            <span class="text-slate-400 font-bold">🌌 風格宇宙與色系</span>
-                            <span class="text-white font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-universe-style">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">🌌 風格宇宙與色系 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎</span>
                         </button>
-                        <div id="dash-universe-style" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                        <div id="dash-universe-style" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">宇宙類型</label>
                                 <div class="grid grid-cols-3 gap-2">
-                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'},{v:'ENHANCE',i:'✨',n:'美化'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
+                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'},{v:'ENHANCE',i:'✨',n:'美化'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
                                 </div>
                             </div>
                             <div class="space-y-2 pt-3 border-t border-white/5">
                                 <label class="text-[10px] text-slate-500">視覺風格</label>
                                 <div class="flex flex-wrap gap-2">
-                                    ${availableStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border ${MISSION.style===s.name?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${s.name}">${s.name}</button>`).join('')}
+                                    ${availableStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===s.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${s.name}">${s.name}</button>`).join('')}
                                 </div>
                             </div>
                             <div class="space-y-2 pt-3 border-t border-white/5">
                                 <label class="text-[10px] text-slate-500">色系模式</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
+                                    ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-visual-specs">
-                            <span class="text-slate-400 font-bold">📐 畫面規格</span>
-                            <span class="text-white font-black dash-val-visual-specs">${MISSION.ratio || '9:16'} / ${isComic ? (MISSION.panelCount || 4) + '格' : ''} ✎</span>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-visual-specs">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">📐 畫面規格 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-visual-specs">${MISSION.ratio || '9:16'} / ${isComic ? (MISSION.panelCount || 4) + '格' : ''} ✎</span>
                         </button>
-                        <div id="dash-visual-specs" class="hidden p-4 bg-black/20 space-y-4 border-t border-white/5">
+                        <div id="dash-visual-specs" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
                             ${!isEnhance ? `
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">漫畫格數</label>
                                 <div class="grid grid-cols-4 gap-2">
-                                    ${[1,2,3,4].map(n => `<button class="btn-dash-panel py-2 rounded-lg border ${MISSION.panelCount===n?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${n}">${n}格</button>`).join('')}
+                                    ${[1,2,3,4].map(n => `<button class="btn-dash-panel py-2 rounded-lg border shadow-sm transition-all ${MISSION.panelCount===n?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${n}">${n}格</button>`).join('')}
                                 </div>
                             </div>` : ''}
                             <div class="space-y-2 pt-3 border-t border-white/5">
                                 <label class="text-[10px] text-slate-500">畫面比例</label>
                                 <div class="grid grid-cols-3 gap-2">
-                                    ${['9:16','16:9','1:1'].map(r => `<button class="btn-dash-ratio py-2 rounded-lg border ${MISSION.ratio===r?'border-indigo-500 bg-indigo-500/20 text-white':'border-white/10 text-slate-400'}" data-val="${r}">${r}</button>`).join('')}
+                                    ${['9:16','16:9','1:1'].map(r => `<button class="btn-dash-ratio py-2 rounded-lg border shadow-sm transition-all ${MISSION.ratio===r?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${r}">${r}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="dashboard-item border border-white/5 rounded-2xl overflow-hidden bg-white/5">
-                        <button class="w-full p-4 flex justify-between items-center hover:bg-white/5 transition-all accordion-trigger" data-target="dash-schedule">
-                            <span class="text-slate-400 font-bold">📅 部署排程</span>
-                            <span class="text-white font-black dash-val-schedule text-right">${scheduleDisplay} ✎</span>
+                    <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
+                        <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-schedule">
+                            <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">📅 部署排程 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
+                            <span class="text-indigo-300 font-black dash-val-schedule text-right">${scheduleDisplay} ✎</span>
                         </button>
-                        <div id="dash-schedule" class="hidden p-4 bg-black/20 space-y-3 border-t border-white/5">
+                        <div id="dash-schedule" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <p class="text-[10px] text-slate-400 mb-1">若需修改發佈時間，請點擊下方按鈕重新設定：</p>
-                            <button id="btnBackToSchedule" class="bg-slate-800 border border-white/10 text-slate-200 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-slate-700">✎ 重新設定時間</button>
+                            <button id="btnBackToSchedule" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white">✎ 重新設定時間</button>
                         </div>
                     </div>
                 </div>
 
-                <button id="btnRender" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(79,70,229,0.4)] active:scale-95 transition-all">
+                <button id="btnRender" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-4 rounded-2xl font-black text-sm shadow-[0_0_20px_rgba(79,70,229,0.4)] active:scale-95 transition-all mt-4">
                     ⚡ 鎖定配置並產出校稿卡
                 </button>
             </div>
@@ -279,9 +278,9 @@ export async function triggerMissionSummary() {
             if(MISSION.isIndependentPost) { 
                 MISSION.isIndependentPost = false; 
                 ui.querySelector('#btnModeUnified').classList.replace('text-slate-500', 'bg-indigo-600');
-                ui.querySelector('#btnModeUnified').classList.add('text-white', 'shadow-lg');
+                ui.querySelector('#btnModeUnified').classList.add('text-white', 'shadow-md');
                 ui.querySelector('#btnModeIndie').classList.replace('bg-indigo-600', 'text-slate-500');
-                ui.querySelector('#btnModeIndie').classList.remove('text-white', 'shadow-lg');
+                ui.querySelector('#btnModeIndie').classList.remove('text-white', 'shadow-md');
                 ui.querySelector('#agentDashboardAdvice').innerHTML = `「目前文案將採用【統一內容】發布。點擊下方選項可即時微調。」`;
                 refreshStrategyPanelUI(); 
                 ui.querySelector('#dash-strategy').classList.remove('hidden');
@@ -291,26 +290,29 @@ export async function triggerMissionSummary() {
             if(!MISSION.isIndependentPost) { 
                 MISSION.isIndependentPost = true; 
                 ui.querySelector('#btnModeIndie').classList.replace('text-slate-500', 'bg-indigo-600');
-                ui.querySelector('#btnModeIndie').classList.add('text-white', 'shadow-lg');
+                ui.querySelector('#btnModeIndie').classList.add('text-white', 'shadow-md');
                 ui.querySelector('#btnModeUnified').classList.replace('bg-indigo-600', 'text-slate-500');
-                ui.querySelector('#btnModeUnified').classList.remove('text-white', 'shadow-lg');
+                ui.querySelector('#btnModeUnified').classList.remove('text-white', 'shadow-md');
                 ui.querySelector('#agentDashboardAdvice').innerHTML = `「總編，已開啟【平台適配模式】！請在下方分別設定各平台的專屬字數與開場戰術。」`;
                 refreshStrategyPanelUI(); 
                 ui.querySelector('#dash-strategy').classList.remove('hidden');
             }
         };
 
+        // 💡 優化：旋轉箭頭動畫控制
         ui.querySelectorAll('.accordion-trigger').forEach(trigger => {
             trigger.onclick = () => {
                 const targetId = trigger.dataset.target;
                 const targetEl = ui.querySelector(`#${targetId}`);
+                const arrowIcon = trigger.querySelector('.arrow-icon');
                 const isHidden = targetEl.classList.contains('hidden');
+                
                 if (isHidden) { 
                     targetEl.classList.remove('hidden'); 
-                    trigger.querySelector('span:nth-child(2)').style.display = 'none'; 
+                    if(arrowIcon) arrowIcon.classList.replace('rotate-0', 'rotate-180');
                 } else {
                     targetEl.classList.add('hidden'); 
-                    trigger.querySelector('span:nth-child(2)').style.display = 'block'; 
+                    if(arrowIcon) arrowIcon.classList.replace('rotate-180', 'rotate-0');
                 }
             };
         });
@@ -343,10 +345,12 @@ export async function triggerMissionSummary() {
         ui.querySelectorAll('.btn-dash-persona').forEach(btn => {
             btn.onclick = () => {
                 MISSION.persona = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-persona').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
-                ui.querySelectorAll('.btn-dash-persona').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
-                btn.classList.remove('border-white/10', 'text-slate-400');
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                ui.querySelectorAll('.btn-dash-persona').forEach(b => {
+                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
                 updateDashDisplay();
             };
         });
@@ -357,13 +361,13 @@ export async function triggerMissionSummary() {
                 if (MISSION.platforms.includes(p)) {
                     if (MISSION.platforms.length > 1) {
                         MISSION.platforms = MISSION.platforms.filter(x => x!==p);
-                        btn.classList.remove('border-blue-500', 'bg-blue-500/20', 'text-white');
-                        btn.classList.add('border-white/10', 'text-slate-400');
+                        btn.classList.remove('border-blue-500', 'bg-blue-600', 'text-white');
+                        btn.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
                     }
                 } else { 
                     MISSION.platforms.push(p); 
-                    btn.classList.add('border-blue-500', 'bg-blue-500/20', 'text-white');
-                    btn.classList.remove('border-white/10', 'text-slate-400');
+                    btn.classList.add('border-blue-500', 'bg-blue-600', 'text-white');
+                    btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                 }
                 if (MISSION.isIndependentPost) {
                     refreshStrategyPanelUI();
@@ -388,10 +392,12 @@ export async function triggerMissionSummary() {
         ui.querySelectorAll('.btn-dash-style').forEach(btn => {
             btn.onclick = () => {
                 MISSION.style = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-style').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
-                ui.querySelectorAll('.btn-dash-style').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
-                btn.classList.remove('border-white/10', 'text-slate-400');
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                ui.querySelectorAll('.btn-dash-style').forEach(b => {
+                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
                 updateDashDisplay();
             };
         });
@@ -399,10 +405,12 @@ export async function triggerMissionSummary() {
         ui.querySelectorAll('.btn-dash-color').forEach(btn => {
             btn.onclick = () => {
                 MISSION.colorMode = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-color').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
-                ui.querySelectorAll('.btn-dash-color').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
-                btn.classList.remove('border-white/10', 'text-slate-400');
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                ui.querySelectorAll('.btn-dash-color').forEach(b => {
+                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
                 updateDashDisplay();
             };
         });
@@ -411,10 +419,12 @@ export async function triggerMissionSummary() {
             ui.querySelectorAll('.btn-dash-panel').forEach(btn => {
                 btn.onclick = () => {
                     MISSION.panelCount = parseInt(btn.dataset.val);
-                    ui.querySelectorAll('.btn-dash-panel').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
-                    ui.querySelectorAll('.btn-dash-panel').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
-                    btn.classList.remove('border-white/10', 'text-slate-400');
-                    btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                    ui.querySelectorAll('.btn-dash-panel').forEach(b => {
+                        b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                        b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    });
+                    btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                    btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
                     updateDashDisplay();
                 };
             });
@@ -423,10 +433,12 @@ export async function triggerMissionSummary() {
         ui.querySelectorAll('.btn-dash-ratio').forEach(btn => {
             btn.onclick = () => {
                 MISSION.ratio = btn.dataset.val;
-                ui.querySelectorAll('.btn-dash-ratio').forEach(b => b.classList.add('border-white/10', 'text-slate-400'));
-                ui.querySelectorAll('.btn-dash-ratio').forEach(b => b.classList.remove('border-indigo-500', 'bg-indigo-500/20', 'text-white'));
-                btn.classList.remove('border-white/10', 'text-slate-400');
-                btn.classList.add('border-indigo-500', 'bg-indigo-500/20', 'text-white');
+                ui.querySelectorAll('.btn-dash-ratio').forEach(b => {
+                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
                 updateDashDisplay();
             };
         });
@@ -442,7 +454,7 @@ export async function triggerMissionSummary() {
                     const schDate = new Date(MISSION.scheduledAt);
                     const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
                     if (schDate < oneHourLater) {
-                        throw new Error("排程設定的時間需大於目前時間 1 個小時，請重新設定或直接發送。");
+                        throw new Error("排程時間需大於目前時間 1 個小時。");
                     }
                 }
 
@@ -476,19 +488,13 @@ export async function triggerMissionSummary() {
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
                 await window.FunnelActions.generateDraft();
 
-                // ✅ 任務成功送出，復原按鈕狀態
                 btn.innerHTML = '✅ 任務已送出';
                 btn.classList.replace('bg-indigo-600', 'bg-emerald-600');
                 btn.classList.remove('hover:bg-indigo-500');
 
-                // 🎰 觸發拉霸：靜默向後端拉取最新點數，並更新 UI
-                try {
-                    const freshData = await API.getTenantConfigAPI(STATE.uid);
-                    if (freshData && freshData.tenant && freshData.tenant.totalPoints !== undefined) {
-                        updatePointsDisplay(freshData.tenant.totalPoints);
-                    }
-                } catch (e) {
-                    console.warn("點數同步失敗 (不影響任務進行):", e);
+                // 🎰 觸發拉霸：我們現在統一呼叫全域的同步樞紐！
+                if(typeof window.API !== 'undefined' && window.API.triggerWalletSync) {
+                     window.API.triggerWalletSync();
                 }
 
             } catch (err) {
