@@ -1,49 +1,73 @@
 // js/v9_finance.js
 import { STATE } from './config.js';
-import { addLog, showError } from './v9_ui.js'; // 🚀 記得補上 showError
+import { addLog, showError, updatePointsDisplay } from './v9_ui.js';
+import { SYSTEM_DB } from './v9_state.js';
 
-// 🚀 [新增] 共用的算力檢查閘門
+/**
+ * ==========================================
+ * 📌 函數名稱：getPricingConfig
+ * 💡 功能說明：安全獲取系統動態報價表 (Config as Code)
+ * ==========================================
+ */
+export function getPricingConfig() {
+    // 確保 SYSTEM_DB 裡面有 pricing 屬性，若無則提供安全預設值
+    if (SYSTEM_DB && SYSTEM_DB.pricing && SYSTEM_DB.pricing.BASE_FEES) {
+        return SYSTEM_DB.pricing;
+    }
+    // 預防萬一後端沒傳回來，給予保底設定
+    return {
+        BASE_FEES: {
+            CREATE_PERSONA: 500,
+            CREATE_CHARACTER: 800,
+            GENERATE_DRAFT: 200
+        }
+    };
+}
+
+/**
+ * ==========================================
+ * 📌 函數名稱：validatePoints
+ * 💡 功能說明：執行前端防呆閘門，確認餘額是否足夠扣抵「基礎費用」。
+ * ==========================================
+ */
 export function validatePoints(requiredPoints, actionName = "此操作") {
-    if (STATE.userPoints < requiredPoints) {
-        showError(`⚠️ 算力不足！${actionName}需要 ${requiredPoints} PTS，您目前剩餘 ${STATE.userPoints} PTS。請前往儲值。`);
-        return false; // 餘額不足，回傳 false 阻斷流程
+    // 由於我們把 userPoints 改成從 STATE 管理，這邊多加個防護
+    const currentPoints = STATE.userPoints || 0;
+    
+    if (currentPoints < requiredPoints) {
+        showError(`⚠️ 算力不足！${actionName} 起步價需 ${requiredPoints} PTS，您目前剩餘 ${currentPoints} PTS。請前往儲值。`);
+        return false; // 餘額不足，阻斷流程
     }
     return true; // 餘額充足，放行
 }
 
-// (以下為您原本的代碼，完全不變)
+/**
+ * ==========================================
+ * 📌 函數名稱：applyPointDeduction
+ * 💡 功能說明：前端虛擬扣點展演 (真正的扣點由後端執行)。
+ * 🚀 優化情境：將拉霸動畫統一委派給 v9_ui.js 的 updatePointsDisplay。
+ * ==========================================
+ */
 export async function applyPointDeduction(deducted, reason = "") {
     if (deducted <= 0) return;
 
-    const targetEl = document.getElementById('userPoints');
-    if (targetEl) {
-        const oldPoints = STATE.userPoints;
-        STATE.userPoints -= deducted;
-        animateNumberRoll(targetEl, oldPoints, STATE.userPoints, 1500);
-        showPointDeductionEffect(deducted, 'userPoints');
-    }
+    // 1. 扣除本地狀態的數字
+    STATE.userPoints = (STATE.userPoints || 0) - deducted;
+    
+    // 2. 呼叫 UI 統一重力拉霸更新
+    updatePointsDisplay(STATE.userPoints);
+    
+    // 3. 顯示靈魂上飄 (這裡我們保留您原本喜歡的上飄設計，做為局部回饋)
+    showPointDeductionEffect(deducted, 'userPoints');
 
     if (reason) {
         await addLog("計費系統", "🪙", `<span class="text-[10px] text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-2 py-1 rounded shadow-inner">本次消耗 ${deducted} 點 (${reason})</span>`);
     }
 }
 
-// 私有函數：拉霸滾動特效
-function animateNumberRoll(obj, start, end, duration) {
-    let startTimestamp = null;
-    const step = (timestamp) => {
-        if (!startTimestamp) startTimestamp = timestamp;
-        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        const easeProgress = 1 - Math.pow(1 - progress, 4);
-        obj.innerText = Math.floor(start + easeProgress * (end - start)).toLocaleString();
-        
-        if (progress < 1) window.requestAnimationFrame(step);
-        else obj.innerText = end.toLocaleString(); 
-    };
-    window.requestAnimationFrame(step);
-}
-
-// 私有函數：靈魂慢飄特效
+/**
+ * 私有函數：靈魂慢飄特效 (局部點數回饋)
+ */
 function showPointDeductionEffect(points, targetElementId) {
     const target = document.getElementById(targetElementId);
     if (!target) return;
