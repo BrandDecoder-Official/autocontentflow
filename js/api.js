@@ -1,5 +1,34 @@
 // js/api.js
 import { CONFIG, STATE } from './config.js'; 
+import { updatePointsDisplay } from './v9_ui.js';
+
+/**
+ * ==========================================
+ * 📌 函數名稱：triggerWalletSync
+ * 💡 功能說明：全域錢包同步樞紐。向後端獲取最新算力，並同步派發給「右上角 UI」與「側邊欄 Log」。
+ * 🚀 使用情境：被綁定在所有扣點 API (草稿、生圖、發布) 成功後背景靜默執行。徹底解決資料脫鉤。
+ * ==========================================
+ */
+export async function triggerWalletSync() {
+    if (!STATE.uid) return;
+    try {
+        const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/tenant/config?tenantId=${STATE.uid}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` }
+        });
+        const res = await response.json();
+        if (res && res.tenant && res.tenant.totalPoints !== undefined) {
+            // 1. 同步右上角拉霸
+            updatePointsDisplay(res.tenant.totalPoints);
+            // 2. 同步側邊欄 Log (如果函數存在於全域)
+            if (typeof window.refreshAuditLogs === 'function') {
+                window.refreshAuditLogs();
+            }
+        }
+    } catch (e) {
+        console.warn("全域錢包同步失敗 (不影響主程序)", e);
+    }
+}
 
 // 🌟 1. 取得系統選項 (包含專屬角色與人設)
 export async function fetchSystemOptionsAPI(tenantId = '') {
@@ -30,7 +59,7 @@ export async function deleteCharacterAPI(payload) {
     return response.json();
 }
 
-// 🚀 [新增] 4. 建立品牌人設 API
+// 🚀 4. 建立品牌人設 API
 export async function createPersonaAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/create-persona`, {
         method: 'POST',
@@ -40,7 +69,7 @@ export async function createPersonaAPI(payload) {
     return response.json();
 }
 
-// 🚀 [新增] 5. 刪除品牌人設 API
+// 🚀 5. 刪除品牌人設 API
 export async function deletePersonaAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/delete-persona`, {
         method: 'POST',
@@ -74,6 +103,15 @@ export async function verifyLoginAPI(credential) {
     } catch (error) { throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試'); }
 }
 
+// 🌟 新增：獲取租戶設定 (供錢包同步使用)
+export async function getTenantConfigAPI(tenantId) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/tenant/config?tenantId=${tenantId}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${STATE.globalAuthToken}` }
+    });
+    return response.json();
+}
+
 // ==========================================
 // 🚀 漏斗流程專屬 API (精準對接 backend content 路由)
 // ==========================================
@@ -87,6 +125,9 @@ export async function generateDraftAPI(payload) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || '產出劇本連線失敗');
+    
+    // 💸 攔截器同步：成功扣點後，背景觸發全站同步
+    triggerWalletSync();
     return data;
 }
 
@@ -99,6 +140,9 @@ export async function generateImageFromDraftAPI(payload) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || '影像合成連線失敗');
+    
+    // 💸 攔截器同步：成功扣點後，背景觸發全站同步
+    triggerWalletSync();
     return data;
 }
 
@@ -111,16 +155,19 @@ export async function publishTaskAPI(payload) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || '發佈連線失敗');
+    
+    // 💸 攔截器同步：成功扣點後，背景觸發全站同步
+    triggerWalletSync();
     return data;
 }
 
-// 🚀 [新增] 11. 建立全新代理人任務 API (V10 漏斗專用)
+// 🚀 11. 建立全新代理人任務 API (V10 漏斗專用)
 export async function createAgentTaskAPI(payload) {
     const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/tasks`, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json', 
-            'Authorization': `Bearer ${STATE.globalAuthToken}` // 👈 這把鑰匙是通關關鍵！
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
         },
         body: JSON.stringify(payload)
     });
