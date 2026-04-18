@@ -24,7 +24,8 @@ export function lockUI(el) { el.classList.add('opacity-40', 'pointer-events-none
  */
 export function scrollDown() { document.getElementById('funnelLog').scrollTo({ top: document.getElementById('funnelLog').scrollHeight, behavior: 'smooth' }); }
 
-* ==========================================
+/**
+ * ==========================================
  * 📌 函數名稱：createSkillUI
  * 💡 功能說明：在對話漏斗中插入互動式卡片。
  * 🚀 優化情境：移除所有偏移 Margin (ml-8/ml-12)，強制 w-full 滿版，解決右側被切邊與偏右的問題。
