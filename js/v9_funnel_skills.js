@@ -12,23 +12,40 @@ export async function startNewFunnel() { await triggerTopicSkill(); }
  * ==========================================
  * 📌 函數名稱：triggerTopicSkill
  * 💡 功能說明：漏斗第一步：確立任務主題。
- * 🚀 使用情境：點擊「開啟新任務」時觸發。
+ * 🚀 優化情境：加入 1000 字限制與動態字數計數器，防範 API Token 燃燒與幻覺。
  * ==========================================
  */
 export async function triggerTopicSkill() { 
     updateStepHeader("STEP 1: STRATEGY (TOPIC)"); 
     await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
-    // 移除不必要的寬度強制限制，交由父容器管控
+    
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3">
-            <textarea id="inlineTopicInput" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[120px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒...">${decodeHTMLEntities(MISSION.topic || '')}</textarea>
+            <div class="relative">
+                <textarea id="inlineTopicInput" maxlength="1000" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 pb-8 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[140px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒...">${decodeHTMLEntities(MISSION.topic || '')}</textarea>
+                <div id="topicCharCount" class="absolute bottom-3 right-4 text-[10px] font-bold text-slate-500 bg-slate-900 px-1">0 / 1000 字</div>
+            </div>
             <div class="flex justify-end mt-2">
                 <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認戰略方向</button>
             </div>
         </div>
     `);
+    
     const inputEl = ui.querySelector('#inlineTopicInput'); 
+    const countEl = ui.querySelector('#topicCharCount');
+    
+    // 💡 動態字數計算
+    const updateCount = () => {
+        const len = inputEl.value.length;
+        countEl.innerText = `${len} / 1000 字`;
+        if (len >= 1000) countEl.classList.replace('text-slate-500', 'text-red-400');
+        else countEl.classList.replace('text-red-400', 'text-slate-500');
+    };
+    inputEl.addEventListener('input', updateCount);
+    updateCount(); // 初始化顯示
+
     setTimeout(() => { inputEl.focus(); }, 100);
+    
     ui.querySelector('#btnConfirmTopic').onclick = async () => { 
         const val = inputEl.value.trim(); 
         if(!val) return showError('主題不能為空！'); 
@@ -44,7 +61,7 @@ export async function triggerTopicSkill() {
  * ==========================================
  * 📌 函數名稱：triggerPlatformSkill
  * 💡 功能說明：漏斗第二步：選擇發布平台。
- * 🚀 優化情境：優化 Grid 排版，確保手機端不溢出切邊。
+ * 🚀 優化情境：補回 Google 商家與 Blog 的鎖定狀態圖示。
  * ==========================================
  */
 export async function triggerPlatformSkill() { 
@@ -70,6 +87,16 @@ export async function triggerPlatformSkill() {
                     <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
                     <div class="w-12 h-12 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-line text-xl lg:text-3xl text-slate-400"></i></div>
                     <span class="text-[9px] lg:text-[10px] font-bold text-slate-500">LINE</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
+                    <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
+                    <div class="w-12 h-12 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-google text-xl lg:text-3xl text-slate-400"></i></div>
+                    <span class="text-[9px] lg:text-[10px] font-bold text-slate-500">G.商家</span>
+                </div>
+                <div class="flex flex-col items-center gap-2 grayscale opacity-40 cursor-not-allowed relative group">
+                    <div class="absolute -top-3 bg-slate-700 text-[9px] px-2 py-0.5 rounded border border-slate-500 text-white font-bold z-10 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">籌備中</div>
+                    <div class="w-12 h-12 lg:w-16 lg:h-16 bg-slate-800 border border-white/10 rounded-2xl flex justify-center items-center"><i class="fa-brands fa-wordpress text-xl lg:text-3xl text-slate-400"></i></div>
+                    <span class="text-[9px] lg:text-[10px] font-bold text-slate-500">Blog</span>
                 </div>
             </div>
             <div class="flex justify-end border-t border-white/10 pt-4 mt-auto">
@@ -112,12 +139,6 @@ export async function triggerPlatformSkill() {
     };
 }
 
-/**
- * ==========================================
- * 📌 函數名稱：triggerPersonaSkill
- * 💡 功能說明：漏斗第三步：選擇品牌人設。
- * ==========================================
- */
 export async function triggerPersonaSkill() { 
     updateStepHeader("STEP 3: SOUL (PERSONA)"); 
     await addLog("專案總監", "🎭", "請指派本次任務的靈魂（品牌人設）：", true);
@@ -137,12 +158,6 @@ export async function triggerPersonaSkill() {
     });
 }
 
-/**
- * ==========================================
- * 📌 函數名稱：triggerHookSkill
- * 💡 功能說明：漏斗第四步：選擇戰術 (勾子與字數)。
- * ==========================================
- */
 export async function triggerHookSkill() { 
     updateStepHeader("STEP 4: TACTICS (HOOK & LENGTH)"); 
     await addLog("社群總監", "🎣", "人設鎖定！那麼開頭的第一句，我們打算怎麼抓住眼球？", true);
@@ -213,13 +228,6 @@ export async function triggerCharacterSkill() {
     ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
 }
 
-/**
- * ==========================================
- * 📌 函數名稱：triggerVisualSkill
- * 💡 功能說明：漏斗核心：畫面規格與場景圖上傳。
- * 🚀 優化情境：標註場景圖 (限 1 張)。
- * ==========================================
- */
 export async function triggerVisualSkill() { 
     updateStepHeader("VISUAL CONFIG"); const isEnhance = MISSION.universe === 'ENHANCE'; const isComic = MISSION.universe === 'COMIC';
     await addLog("美術總監", "👨‍🎨", isEnhance ? "美化模式：請上傳原圖。" : "請確認畫面參數：", true);
@@ -249,9 +257,6 @@ export async function handleAssetUpload(file, container) {
     panel.innerHTML = `<div class="text-[10px] text-blue-400 font-bold uppercase">📸 參考素材</div><div class="w-16 h-16 rounded-md overflow-hidden border border-white/20"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `已優化。`); 
 }
 
-// ==========================================
-// 📍 Step 10: 排程 (🚀 實裝 CSS 暗黑模式修復)
-// ==========================================
 export async function triggerScheduleSkill() { 
     updateStepHeader("PUBLISH SCHEDULE"); 
     await addLog("社群總監", "📅", "最後一步，請指派部署時間（排程需大於目前時間 1 小時）：", true);
