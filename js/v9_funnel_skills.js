@@ -251,12 +251,11 @@ export async function triggerUniverseSkill() {
 /**
  * ==========================================
  * 🚀 智能分流：triggerStyleSkill
- * 💡 修正：動漫的分類嚴格定義為 `COMIC`，移除 `ANIME_STYLE` 以符合總編規範。
+ * 💡 修正：嚴格對齊資料庫 system_styles.category === "ANIME"
  * ==========================================
  */
 export async function triggerStyleSkill() { 
     if (MISSION.universe === 'REALISTIC') {
-        // 📷 真實攝影：選取合成模式 (REALISTIC_MODE)
         updateStepHeader("SYNTHESIS MODE"); 
         await addLog("攝影總監", "📸", "進入寫實攝影棚！請選擇這張圖的「核心對焦與合成模式」：", true);
         
@@ -284,15 +283,13 @@ export async function triggerStyleSkill() {
         });
 
     } else {
-        // 🎨 2D動漫：選取風格 (COMIC)
         updateStepHeader("STYLE SELECTION"); 
         
-        // 💡 落實總編指示：嚴格抓取分類或類型為 'COMIC' 的資料
-        let availableStyles = SYSTEM_DB.styles.filter(s => 
-            s.category === 'COMIC' || 
-            s.type === 'COMIC' || 
-            s.universe === 'COMIC'
-        );
+        // 💡 修正：嚴格抓取 category 為 'ANIME' 的風格資料
+        let availableStyles = SYSTEM_DB.styles.filter(s => {
+            const sCat = String(s.category || '').trim().toUpperCase();
+            return sCat === 'ANIME' || sCat === 'ANIME_STYLE'; // 確保新舊標籤都能兼容
+        });
         if(availableStyles.length === 0) availableStyles = [{id: 'MANGA_BW', name: '預設風格', icon: '🎨'}];
         
         let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-3">`; 
@@ -359,17 +356,22 @@ export async function triggerColorSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerCharacterSkill
- * 💡 修正：放寬角色隔離，確保沒設定 type 的舊資料也能向下相容。
+ * 💡 修正：嚴格對齊資料庫 system_characters.type === "COMIC" 或 "REALISTIC"
  * ==========================================
  */
 export async function triggerCharacterSkill() { 
     updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     
     const available = SYSTEM_DB.characters.filter(c => {
-        if (!c.type) return true; // 如果舊資料庫沒填 type，通用顯示
-        if (MISSION.universe === 'COMIC') return ['COMIC', 'ANIME', '2D'].includes(c.type.toUpperCase());
-        if (MISSION.universe === 'REALISTIC') return ['REALISTIC', '3D', 'PHOTO'].includes(c.type.toUpperCase());
-        return c.type === MISSION.universe;
+        // 取出真正的字串並去頭去尾去空白
+        const rawType = c.type || '';
+        if (!rawType) return true; // 如果舊資料沒填 type，通用顯示
+        const cType = String(rawType).trim().toUpperCase();
+
+        // 💡 嚴格對齊總編指示的資料庫欄位
+        if (MISSION.universe === 'COMIC') return cType === 'COMIC';
+        if (MISSION.universe === 'REALISTIC') return cType === 'REALISTIC';
+        return false;
     });
     
     if(available.length === 0) { 
