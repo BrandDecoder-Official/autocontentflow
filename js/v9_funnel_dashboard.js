@@ -545,7 +545,7 @@ export async function triggerMissionSummary() {
          * 📌 送出任務：驗證排程並發包給後端
          * ==========================================
          */
-        ui.querySelector('#btnRender').onclick = async () => {
+       ui.querySelector('#btnRender').onclick = async () => {
             const btn = ui.querySelector('#btnRender');
             const oriText = btn.innerHTML;
             btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 任務驗證與建檔中...';
@@ -559,6 +559,8 @@ export async function triggerMissionSummary() {
                         throw new Error("排程時間需大於目前時間 1 個小時。");
                     }
                 }
+
+                let currentPayload = null; // 用來暫存這次建檔的包袱
 
                 if (!MISSION.currentTaskId) {
                     const payload = {
@@ -579,9 +581,7 @@ export async function triggerMissionSummary() {
                         },
                         currentStatus: 'DRAFTING'
                     };
-
-                    // 🚨 第一道攔截器：檢查初始建檔的 payload 結構
-                    console.log("📦 [攔截器] 準備送給後端的【建檔】 JSON 結構：\n", JSON.stringify(payload, null, 2));
+                    currentPayload = payload;
 
                     const data = await API.createAgentTaskAPI(payload);
                     MISSION.currentTaskId = data.taskId;
@@ -591,9 +591,31 @@ export async function triggerMissionSummary() {
                 }
 
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
-                
-                // 🚨 第二道終極攔截器：印出最關鍵的 MISSION，因為 generateDraft 必定是打包這包資料送出去的
-                console.log("📦 [攔截器] 準備送給後端的【生成草稿(MISSION)】完整狀態：\n", JSON.stringify(MISSION, null, 2));
+
+                // ==========================================
+                // 🚨 終極視覺攔截器：直接在畫面上覆蓋一個黑板顯示 JSON
+                // ==========================================
+                try {
+                    const debugData = {
+                        step: "發送前攔截",
+                        payload: currentPayload || "已有 taskId，未產生新 payload", 
+                        mission: MISSION  // 完整狀態資料
+                    };
+                    const debugStr = JSON.stringify(debugData, null, 2);
+                    
+                    // 暴力建立一個浮動視窗蓋在畫面上
+                    const debugDiv = document.createElement('div');
+                    debugDiv.style.cssText = "position:fixed; top:5%; left:5%; width:90%; height:90%; z-index:99999; background:rgba(0,0,0,0.9); padding:20px; border:3px solid #ef4444; border-radius:10px; display:flex; flex-direction:column;";
+                    debugDiv.innerHTML = `
+                        <h2 style="color:#ef4444; font-size:18px; font-weight:bold; margin-bottom:10px;">🚨 攔截成功！請點擊下方綠色文字框【全選複製 (Ctrl+A / Cmd+A)】貼給 AI</h2>
+                        <textarea style="width:100%; flex-grow:1; background:#1e293b; color:#10b981; font-family:monospace; padding:10px; font-size:12px; border:1px solid #475569;">${debugStr}</textarea>
+                        <button onclick="this.parentElement.remove()" style="margin-top:10px; background:#ef4444; color:white; padding:10px; font-weight:bold; border-radius:5px; cursor:pointer;">關閉攔截視窗，繼續執行</button>
+                    `;
+                    document.body.appendChild(debugDiv);
+                } catch (jsonErr) {
+                    alert("🚨 攔截器報告：JSON 轉換失敗！裡面真的藏了無法轉譯的幽靈物件：" + jsonErr.message);
+                }
+                // ==========================================
 
                 await window.FunnelActions.generateDraft();
 
