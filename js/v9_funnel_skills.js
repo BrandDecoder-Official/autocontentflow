@@ -10,9 +10,9 @@ export async function startNewFunnel() { await triggerTopicSkill(); }
 
 /**
  * ==========================================
- * 📌 函數名稱：triggerTopicSkill
- * 💡 功能說明：漏斗第一步：確立任務主題。
- * 🚀 優化情境：加入 1000 字限制與動態字數計數器，防範 API Token 燃燒與幻覺。
+ * 📌 核心漏斗 STEP 1：確立任務主題 (triggerTopicSkill)
+ * 💡 功能說明：收集並鎖定本次行銷任務的核心目標與推廣內容。
+ * 🚀 架構優化：導入 1000 字極限長度防護，實裝動態字數計數器。
  * ==========================================
  */
 export async function triggerTopicSkill() { 
@@ -56,12 +56,10 @@ export async function triggerTopicSkill() {
     };
 }
 
-
 /**
  * ==========================================
- * 📌 函數名稱：triggerPlatformSkill
- * 💡 功能說明：漏斗第二步：選擇發布平台。
- * 🚀 優化情境：補回 Google 商家與 Blog 的鎖定狀態圖示。
+ * 📌 核心漏斗 STEP 2：選擇發布平台 (triggerPlatformSkill)
+ * 💡 功能說明：定義本次內容即將空投的社群戰場。
  * ==========================================
  */
 export async function triggerPlatformSkill() { 
@@ -139,11 +137,9 @@ export async function triggerPlatformSkill() {
     };
 }
 
-
 /**
  * ==========================================
- * 📌 函數名稱：triggerPersonaSkill
- * 💡 功能說明：漏斗第三步：選擇品牌人設。
+ * 📌 核心漏斗 STEP 3：選擇品牌人設 (triggerPersonaSkill)
  * ==========================================
  */
 export async function triggerPersonaSkill() { 
@@ -165,11 +161,10 @@ export async function triggerPersonaSkill() {
     });
 }
 
-
 /**
  * ==========================================
- * 📌 函數名稱：triggerHookSkill
- * 💡 功能說明：漏斗第四步：選擇戰術 (開場勾子與文案長度節奏)。
+ * 📌 核心漏斗 STEP 4：選擇戰術 (triggerHookSkill)
+ * 💡 功能說明：選擇開場勾子與文案長度節奏。
  * ==========================================
  */
 export async function triggerHookSkill() { 
@@ -211,12 +206,10 @@ export async function triggerHookSkill() {
     };
 }
 
-
 /**
  * ==========================================
- * 📌 函數名稱：triggerUniverseSkill
- * 💡 功能說明：漏斗第六步：宇宙智能分流。
- * 🚀 優化情境：依據宇宙進行分岔。真實攝影導向「合成模式 (REALISTIC_MODE)」；2D 動漫導向「視覺風格 (COMIC)」。
+ * 📌 核心漏斗 STEP 6：宇宙智能分流 (triggerUniverseSkill)
+ * 💡 功能說明：依據宇宙進行分岔。
  * ==========================================
  */
 export async function triggerUniverseSkill() { 
@@ -258,7 +251,7 @@ export async function triggerUniverseSkill() {
 /**
  * ==========================================
  * 🚀 智能分流：triggerStyleSkill
- * 💡 修正 1：依據總編指示，動漫的分類嚴格定義為 `COMIC`，移除舊有的 `ANIME_STYLE` 判定。
+ * 💡 修正：動漫的分類嚴格定義為 `COMIC`，移除 `ANIME_STYLE` 以符合總編規範。
  * ==========================================
  */
 export async function triggerStyleSkill() { 
@@ -294,7 +287,7 @@ export async function triggerStyleSkill() {
         // 🎨 2D動漫：選取風格 (COMIC)
         updateStepHeader("STYLE SELECTION"); 
         
-        // 💡 修正 1 落實：嚴格抓取分類或類型為 'COMIC' 的資料，不再使用 'ANIME_STYLE'
+        // 💡 落實總編指示：嚴格抓取分類或類型為 'COMIC' 的資料
         let availableStyles = SYSTEM_DB.styles.filter(s => 
             s.category === 'COMIC' || 
             s.type === 'COMIC' || 
@@ -323,7 +316,6 @@ export async function triggerStyleSkill() {
  * ==========================================
  * 📌 函數名稱：triggerRealisticFilterSkill
  * 💡 功能說明：真實攝影專屬流程：選取濾鏡氛圍 (取代 ColorSkill)。
- * 🚀 優化情境：讀取 DB 的 REALISTIC_FILTER，並將結果巧妙存入 colorMode 共用欄位，節省資料庫空間。
  * ==========================================
  */
 export async function triggerRealisticFilterSkill() {
@@ -355,7 +347,7 @@ export async function triggerRealisticFilterSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerColorSkill
- * 💡 功能說明：2D動漫專屬流程：選取漫畫色系 (經典黑白 / 現代全彩)。
+ * 💡 功能說明：2D動漫專屬流程：選取漫畫色系。
  * ==========================================
  */
 export async function triggerColorSkill() { 
@@ -364,19 +356,15 @@ export async function triggerColorSkill() {
     ui.querySelectorAll('.color-btn').forEach(btn => { btn.onclick = async () => { MISSION.colorMode = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerCharacterSkill(); } }; });
 }
 
-
 /**
  * ==========================================
  * 📌 函數名稱：triggerCharacterSkill
- * 💡 功能說明：漏斗第七步：登場角色召喚。
- * 🚀 優化情境：利用 DB 中的 type 欄位進行「物理隔離」，防止動漫宇宙選到真人角色，或真實攝影選到動漫角色。
- * 💡 修正 2：放寬角色隔離，確保沒設定 type 的舊資料也能選，向下相容動漫與寫實各有容錯空間。
+ * 💡 修正：放寬角色隔離，確保沒設定 type 的舊資料也能向下相容。
  * ==========================================
  */
 export async function triggerCharacterSkill() { 
     updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     
-    // 💡 修正 2 落實：利用 type 來物理隔離動漫與真人角色，同時兼容舊資料庫未填寫 type 的情況
     const available = SYSTEM_DB.characters.filter(c => {
         if (!c.type) return true; // 如果舊資料庫沒填 type，通用顯示
         if (MISSION.universe === 'COMIC') return ['COMIC', 'ANIME', '2D'].includes(c.type.toUpperCase());
@@ -404,10 +392,7 @@ export async function triggerCharacterSkill() {
  * ==========================================
  * 📌 函數名稱：triggerVisualSkill
  * 💡 功能說明：漏斗第八步：畫面規格與 1+9 圖片上傳引擎。
- * 🚀 優化情境：
- * 1. 寫實模式加入「防動漫惡搞次元轉換警告」。
- * 2. 實裝 1 張 AI 參考圖 + 最多 9 張社群附加輪播圖的雙軌上傳介面。
- * 💡 修正 3：補上「AI 參考主圖」返回此步驟時的預載渲染 UI，確保上傳的場景圖不會在視覺上消失。
+ * 🚀 優化情境：補上「AI 參考主圖」返回此步驟時的預載渲染 UI。
  * ==========================================
  */
 export async function triggerVisualSkill() { 
@@ -424,7 +409,6 @@ export async function triggerVisualSkill() {
     
     const panelHtml = isComic ? `<div class="space-y-3 pt-4 border-t border-white/10"><label class="text-[10px] text-slate-500 font-black">🖼️ 漫畫格數</label><div class="grid grid-cols-4 gap-2"><button class="panel-btn py-2 lg:py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="1">1格</button><button class="panel-btn py-2 lg:py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="2">2格</button><button class="panel-btn py-2 lg:py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="3">3格</button><button class="panel-btn py-2 lg:py-3 bg-slate-800 rounded-xl text-xs font-bold active:scale-95" data-val="4">4格</button></div></div>` : '';
     
-    // 🛡️ 寫實模式防護警告
     const warningHtml = isRealistic ? `<div class="bg-orange-500/10 border border-orange-500/30 p-2 rounded-lg text-[10px] text-orange-400 mb-3 shadow-inner">⚠️ 提示：寫實模式下請盡量上傳真實照片。若上傳 2D 動漫圖片，AI 將啟動「次元轉換」強制進行寫實化合成，成功率可能較低。</div>` : '';
 
     const ui = createSkillUI(`
@@ -468,11 +452,11 @@ export async function triggerVisualSkill() {
     // 📸 處理主圖 (AI 參考用)
     ui.querySelector('#btnUploadScene').onclick = () => { let i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; i.click(); };
     
-    // 💡 修正 3 落實：如果原本已經有上傳主圖，回到這一步時預先渲染出來，防止畫面消失！
+    // 💡 預載已上傳主圖，防止畫面消失
     if (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
         const panel = document.createElement('div');
         panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner';
-        panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 已鎖定之 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${MISSION.sceneFiles[0].dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`;
+        panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 已鎖定之 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${MISSION.sceneFiles[0].dataUrl || MISSION.sceneFiles[0].imageUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`;
         ui.querySelector('#dynamicAssetsArea').appendChild(panel);
     }
 
@@ -505,21 +489,24 @@ export async function triggerVisualSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：handleAssetUpload
- * 💡 功能說明：處理單張 AI 參考圖的極限壓縮與暫存，供後端視覺模型分析使用。
+ * 💡 處理 AI 主圖：可在此整合您的 Storage API 將 dataUrl 轉為 imageUrl
  * ==========================================
  */
 export async function handleAssetUpload(file, container) { 
     if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove(); 
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner'; 
-    const dataUrl = await compressImage(file, 800); MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
+    const dataUrl = await compressImage(file, 800); 
+    
+    // 💡 若您前端原本就有上傳至 Storage 取得 imageUrl 的 API，可在此處執行並改存 imageUrl
+    MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
+    
     panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 鎖定為 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `主參考圖已優化定位。`); 
 }
 
 /**
  * ==========================================
  * 📌 函數名稱：handleMultipleAttachments
- * 💡 功能說明：處理多張社群附加輪播圖。
- * 🚀 優化情境：在前端背景強制將圖片極限壓縮至 800px 以內，避免後端發生 504 Timeout，並嚴格限制總數最多 9 張。
+ * 💡 處理 1+9 附加圖：同樣預留 imageUrl 轉換空間
  * ==========================================
  */
 export async function handleMultipleAttachments(files, container, isNew = true) {
@@ -531,15 +518,14 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
 
         const filesToProcess = Array.from(files).slice(0, remainingSlots);
 
-        // 載入動畫提示
         const loadingMsg = document.createElement('div');
         loadingMsg.className = 'col-span-full text-xs text-indigo-400 animate-pulse text-center py-2 bg-indigo-900/20 rounded-lg border border-indigo-500/30';
         loadingMsg.innerText = '圖片極限壓縮處理中，請稍候...';
         container.appendChild(loadingMsg);
 
-        // 背景壓縮：控制在 800px 以下，大幅降低伺服器負擔
         for (const file of filesToProcess) {
             const dataUrl = await compressImage(file, 800); 
+            // 💡 若有上傳 API，亦可在此轉換並存入 imageUrl
             MISSION.attachmentFiles.push({ dataUrl: dataUrl, name: file.name });
         }
         
@@ -550,13 +536,12 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
         }
     }
 
-    // 重新渲染圖片網格
     container.innerHTML = '';
     MISSION.attachmentFiles.forEach((af, idx) => {
         const panel = document.createElement('div');
         panel.className = 'relative w-full aspect-square rounded-md overflow-hidden border border-white/20 group shadow-md animate-fade-in';
         panel.innerHTML = `
-            <img src="${af.dataUrl}" class="w-full h-full object-cover">
+            <img src="${af.dataUrl || af.imageUrl}" class="w-full h-full object-cover">
             <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button class="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded-full text-[10px] flex items-center justify-center shadow-lg transform hover:scale-110 transition-all" data-idx="${idx}">✕</button>
             </div>
@@ -572,8 +557,6 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
 /**
  * ==========================================
  * 📌 函數名稱：triggerScheduleSkill
- * 💡 功能說明：漏斗最後一步：指定部署排程 (發布時間)。
- * 🚀 優化情境：將時間選單全面交給 Flatpickr 接管，強制以 15 分鐘為單位跳動，並自動進位預設時間。
  * ==========================================
  */
 export async function triggerScheduleSkill() { 
@@ -584,9 +567,7 @@ export async function triggerScheduleSkill() {
     if (MISSION.scheduledAt) {
         defaultDateObj.setTime(new Date(MISSION.scheduledAt).getTime());
     } else {
-        // 預設加 1 小時
         defaultDateObj.setHours(defaultDateObj.getHours() + 1);
-        // 💡 智能進位：將分鐘無條件進位到下一個 15 的倍數 (00, 15, 30, 45)
         const m = defaultDateObj.getMinutes();
         defaultDateObj.setMinutes(m + (15 - (m % 15)));
         defaultDateObj.setSeconds(0);
@@ -613,7 +594,6 @@ export async function triggerScheduleSkill() {
         </div>
     `);
     
-    // 📅 綁定日期的 Flatpickr
     const fpDate = typeof flatpickr !== 'undefined' ? flatpickr("#datePicker", { 
         dateFormat: "Y-m-d", 
         minDate: "today", 
@@ -622,13 +602,12 @@ export async function triggerScheduleSkill() {
         locale: (typeof flatpickr !== 'undefined' && flatpickr.l10ns && flatpickr.l10ns.zh) ? "zh" : "default"
     }) : null;
 
-    // ⏰ 綁定時間的 Flatpickr (強制 15 分鐘區間)
     const fpTime = typeof flatpickr !== 'undefined' ? flatpickr("#timePickerInput", {
         enableTime: true,
         noCalendar: true,
         dateFormat: "H:i",
         time_24hr: true,
-        minuteIncrement: 15, // 🚀 這裡就是 15 分鐘跳轉刻度的核心指令！
+        minuteIncrement: 15, 
         defaultDate: defTime,
         disableMobile: "true"
     }) : null;
