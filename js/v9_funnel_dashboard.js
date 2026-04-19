@@ -580,6 +580,9 @@ export async function triggerMissionSummary() {
                         currentStatus: 'DRAFTING'
                     };
 
+                    // 🚨 第一道攔截器：檢查初始建檔的 payload 結構
+                    console.log("📦 [攔截器] 準備送給後端的【建檔】 JSON 結構：\n", JSON.stringify(payload, null, 2));
+
                     const data = await API.createAgentTaskAPI(payload);
                     MISSION.currentTaskId = data.taskId;
 
@@ -588,6 +591,10 @@ export async function triggerMissionSummary() {
                 }
 
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
+                
+                // 🚨 第二道終極攔截器：印出最關鍵的 MISSION，因為 generateDraft 必定是打包這包資料送出去的
+                console.log("📦 [攔截器] 準備送給後端的【生成草稿(MISSION)】完整狀態：\n", JSON.stringify(MISSION, null, 2));
+
                 await window.FunnelActions.generateDraft();
 
                 btn.innerHTML = '✅ 任務已送出';
