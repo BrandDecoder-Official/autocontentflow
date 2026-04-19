@@ -214,9 +214,9 @@ export async function triggerHookSkill() {
 
 /**
  * ==========================================
- * 📌 函數名稱：triggerStyleSkill
+ * 📌 函數名稱：triggerUniverseSkill
  * 💡 功能說明：漏斗第六步：宇宙智能分流。
- * 🚀 優化情境：依據宇宙進行分岔。真實攝影導向「合成模式 (REALISTIC_MODE)」；2D 動漫導向「視覺風格 (ANIME_STYLE)」。
+ * 🚀 優化情境：依據宇宙進行分岔。真實攝影導向「合成模式 (REALISTIC_MODE)」；2D 動漫導向「視覺風格 (COMIC)」。
  * ==========================================
  */
 export async function triggerUniverseSkill() { 
@@ -258,6 +258,7 @@ export async function triggerUniverseSkill() {
 /**
  * ==========================================
  * 🚀 智能分流：triggerStyleSkill
+ * 💡 修正 1：依據總編指示，動漫的分類嚴格定義為 `COMIC`，移除舊有的 `ANIME_STYLE` 判定。
  * ==========================================
  */
 export async function triggerStyleSkill() { 
@@ -290,9 +291,15 @@ export async function triggerStyleSkill() {
         });
 
     } else {
-        // 🎨 2D動漫：選取風格 (ANIME_STYLE)
+        // 🎨 2D動漫：選取風格 (COMIC)
         updateStepHeader("STYLE SELECTION"); 
-        let availableStyles = SYSTEM_DB.styles.filter(s => s.category === 'ANIME_STYLE' || (!s.category && s.type === 'COMIC'));
+        
+        // 💡 修正 1 落實：嚴格抓取分類或類型為 'COMIC' 的資料，不再使用 'ANIME_STYLE'
+        let availableStyles = SYSTEM_DB.styles.filter(s => 
+            s.category === 'COMIC' || 
+            s.type === 'COMIC' || 
+            s.universe === 'COMIC'
+        );
         if(availableStyles.length === 0) availableStyles = [{id: 'MANGA_BW', name: '預設風格', icon: '🎨'}];
         
         let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-3">`; 
@@ -363,13 +370,19 @@ export async function triggerColorSkill() {
  * 📌 函數名稱：triggerCharacterSkill
  * 💡 功能說明：漏斗第七步：登場角色召喚。
  * 🚀 優化情境：利用 DB 中的 type 欄位進行「物理隔離」，防止動漫宇宙選到真人角色，或真實攝影選到動漫角色。
+ * 💡 修正 2：放寬角色隔離，確保沒設定 type 的舊資料也能選，向下相容動漫與寫實各有容錯空間。
  * ==========================================
  */
 export async function triggerCharacterSkill() { 
     updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     
-    // 💡 架構神技：利用 type 來物理隔離動漫與真人角色！
-    const available = SYSTEM_DB.characters.filter(c => c.type === MISSION.universe);
+    // 💡 修正 2 落實：利用 type 來物理隔離動漫與真人角色，同時兼容舊資料庫未填寫 type 的情況
+    const available = SYSTEM_DB.characters.filter(c => {
+        if (!c.type) return true; // 如果舊資料庫沒填 type，通用顯示
+        if (MISSION.universe === 'COMIC') return ['COMIC', 'ANIME', '2D'].includes(c.type.toUpperCase());
+        if (MISSION.universe === 'REALISTIC') return ['REALISTIC', '3D', 'PHOTO'].includes(c.type.toUpperCase());
+        return c.type === MISSION.universe;
+    });
     
     if(available.length === 0) { 
         const ui = createSkillUI(`<div class="text-center flex flex-col gap-4"><p class="text-slate-400 text-xs">您的基因庫目前沒有對應此宇宙的角色，將採用純場景模式。</p><button id="btnSkipChar" class="w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-bold active:scale-95 shadow-lg">⏭️ 確認並繼續</button></div>`); 
@@ -394,6 +407,7 @@ export async function triggerCharacterSkill() {
  * 🚀 優化情境：
  * 1. 寫實模式加入「防動漫惡搞次元轉換警告」。
  * 2. 實裝 1 張 AI 參考圖 + 最多 9 張社群附加輪播圖的雙軌上傳介面。
+ * 💡 修正 3：補上「AI 參考主圖」返回此步驟時的預載渲染 UI，確保上傳的場景圖不會在視覺上消失。
  * ==========================================
  */
 export async function triggerVisualSkill() { 
@@ -454,6 +468,14 @@ export async function triggerVisualSkill() {
     // 📸 處理主圖 (AI 參考用)
     ui.querySelector('#btnUploadScene').onclick = () => { let i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; i.click(); };
     
+    // 💡 修正 3 落實：如果原本已經有上傳主圖，回到這一步時預先渲染出來，防止畫面消失！
+    if (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
+        const panel = document.createElement('div');
+        panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner';
+        panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 已鎖定之 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${MISSION.sceneFiles[0].dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`;
+        ui.querySelector('#dynamicAssetsArea').appendChild(panel);
+    }
+
     // 📥 處理多張附加圖 (社群輪播用)
     if(MISSION.attachmentFiles && MISSION.attachmentFiles.length > 0) {
          handleMultipleAttachments([], ui.querySelector('#attachmentAssetsArea'), false); 
@@ -490,7 +512,7 @@ export async function handleAssetUpload(file, container) {
     if(!file) return; const existing = container.querySelector('.scene-picker-panel'); if (existing) existing.remove(); 
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner'; 
     const dataUrl = await compressImage(file, 800); MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
-    panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 鎖定為 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50"><img src="${dataUrl}" class="w-full h-full object-cover"></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `主參考圖已優化定位。`); 
+    panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 鎖定為 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `主參考圖已優化定位。`); 
 }
 
 /**
