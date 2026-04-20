@@ -2,6 +2,7 @@
 import { STATE, CONFIG } from './config.js';
 import { APP_VERSION, MISSION, loadMissionFromDB, IS_EDIT_MODE } from './v9_state.js'; // 🚀 引入時光機引擎
 import { updateStepHeader, addLog, showError } from './v9_ui.js';
+import * as API from './api.js';
 
 // 📦 引入專屬模組
 import { initAgentChatBar } from './v9_chat.js';
@@ -235,12 +236,26 @@ window.renderTaskDashboard = async function() {
 }
 
 // ==========================================
-// 🗑️ 刪除任務功能
+// 🗑️ 刪除任務功能 (已接通 API)
 // ==========================================
 window.deleteTask = async function(taskId) {
-    if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復)')) return;
-    console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
-    alert(`此處保留未來串接 DELETE API，任務 ID: ${taskId}`);
+    if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復，請謹慎操作)')) return;
+    
+    try {
+        console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
+        // 呼叫刪除 API
+        await API.deleteAgentTaskAPI(taskId);
+        
+        // 重新刷新當前畫面 (重新抓取最新資料)
+        window.renderTaskDashboard();
+        
+        // 跳個小提示告訴使用者刪除成功
+        alert('任務已成功刪除並清空！');
+        
+    } catch (error) {
+        console.error("刪除失敗:", error);
+        alert('刪除失敗：' + error.message);
+    }
 }
 
 // ==========================================
