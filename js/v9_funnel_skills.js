@@ -96,7 +96,7 @@ export async function triggerTopicSkill() {
         rssList.innerHTML = '';
         rssLoading.classList.remove('hidden');
         try {
-            const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_BASE_URL) ? CONFIG.API_BASE_URL : '';
+            const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.CLOUD_RUN_URL) ? CONFIG.CLOUD_RUN_URL.replace(/\/$/, '') : '';
             const res = await fetch(`${baseUrl}/api/rss/news?category=${category}`);
             const json = await res.json();
             
