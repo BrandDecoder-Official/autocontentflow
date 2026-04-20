@@ -65,6 +65,12 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     const ui = createSkillUI(`
         <div class="space-y-4 animate-fade-in w-full">
+            <div class="flex justify-between items-center px-1 mb-2">
+                <button id="btnTopReturnLobby" class="text-[10px] text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-bold">
+                    <i class="fa-solid fa-arrow-left"></i> 暫存並返回大廳
+                </button>
+            </div>
+
             <div class="bg-blue-600/10 p-3 lg:p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
                 <div class="flex justify-between items-center mb-2">
                     <h3 class="text-xs font-black text-blue-400 uppercase tracking-widest">📝 貼文校稿總編室</h3>
@@ -86,9 +92,23 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
                 <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1 pt-3 border-t border-white/10">${panelsHtml}</div>
             </div>
+            
             <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本與對白，發包生圖</button>
+            
+            <button id="btnBottomReturnLobby" class="w-full bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700 mt-2">
+                🔙 稍後處理，返回大廳
+            </button>
         </div>
     `);
+
+    // 🔙 綁定返回大廳事件
+    const returnToLobbyHandler = () => {
+        saveCurrentCaption(); // 離開前默默存個檔在記憶體裡
+        releaseUI(ui);
+        window.dispatchEvent(new Event('reloadLobby'));
+    };
+    ui.querySelector('#btnTopReturnLobby').onclick = returnToLobbyHandler;
+    ui.querySelector('#btnBottomReturnLobby').onclick = returnToLobbyHandler;
 
     // 🏷️ Hashtag 渲染邏輯
     const renderHashtags = () => {
@@ -188,39 +208,60 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 /**
  * ==========================================
  * 📌 函數名稱：renderFinalPublishCard
- * 💡 功能說明：渲染最終生圖結果與發佈前預覽卡片。
- * 🚀 優化情境：移除所有多餘 Margin，強制 w-full 滿版貼齊，徹底解決手機端向右偏移與切邊問題。
  * ==========================================
  */
 export async function renderFinalPublishCard(taskId, images, finalCaption) {
     updateStepHeader("FINAL DEPLOYMENT"); 
     await addLog("社群總監", "🚀", "大作已完成！請做最後確認，您還可以選擇重新算圖或退回修改：", true);
 
-    const displayImgUrl = images[0].finalUrl; let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
+    const displayImgUrl = images && images.length > 0 ? images[0].finalUrl : ''; 
+    let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
 
     const previewNote = MISSION.isIndependentPost ? `<p class="text-[10px] text-amber-400 mb-2">※ 多宇宙模式：此為主要平台預覽，發布時將自動切分各平台專屬文案與標籤。</p>` : '';
 
-    // 💡 關鍵修復：保證最外層 `w-full`，移除任何可能造成擠壓的結構
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3 w-full animate-fade-in">
+            <div class="flex justify-between items-center px-1 mb-2">
+                <button id="btnTopReturnLobbyFinal" class="text-[10px] text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-bold">
+                    <i class="fa-solid fa-arrow-left"></i> 暫存並返回大廳
+                </button>
+            </div>
+
             <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div class="relative w-full aspect-square bg-black flex items-center justify-center">
                     <img src="${displayImgUrl}" class="max-w-full max-h-full object-contain">
-                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">共 ${images.length} 張圖</div>
+                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">共 ${images ? images.length : 0} 張圖</div>
                 </div>
                 <div class="p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
                     ${previewNote}
                     <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">${finalCaption}</p>
                 </div>
             </div>
+            
             <button id="btnDeploy" class="w-full bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">${btnText}</button>
+            
             <div class="flex gap-2 w-full">
                 <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重算 (約500點)</button>
                 <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 退回重改</button>
             </div>
+
+            <button id="btnBottomReturnLobbyFinal" class="w-full bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700 mt-1">
+                🔙 任務已保留，返回大廳
+            </button>
         </div>
     `);
+
+    // 🔙 綁定返回大廳事件
+    const returnToLobbyHandler = () => {
+        releaseUI(ui);
+        window.dispatchEvent(new Event('reloadLobby'));
+        // 恢復聊天室視窗狀態
+        const chatBar = document.getElementById('agentChatBar');
+        if(chatBar) chatBar.classList.remove('translate-y-full'); 
+    };
+    ui.querySelector('#btnTopReturnLobbyFinal').onclick = returnToLobbyHandler;
+    ui.querySelector('#btnBottomReturnLobbyFinal').onclick = returnToLobbyHandler;
 
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
