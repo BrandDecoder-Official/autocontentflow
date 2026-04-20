@@ -12,7 +12,7 @@ export async function startNewFunnel() { await triggerTopicSkill(); }
  * ==========================================
  * 📌 核心漏斗 STEP 1：確立任務主題 (triggerTopicSkill)
  * 💡 功能說明：收集並鎖定本次行銷任務的核心目標與推廣內容。
- * 🚀 架構優化：導入 1000 字極限長度防護，實裝動態字數計數器。
+ * 🚀 V1 終極版升級：實裝「RSS 熱門新聞進料模組」，一鍵抓取靈感。
  * ==========================================
  */
 export async function triggerTopicSkill() { 
@@ -20,9 +20,30 @@ export async function triggerTopicSkill() {
     await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
     
     const ui = createSkillUI(`
-        <div class="flex flex-col gap-3">
+        <div class="flex flex-col gap-3 relative">
+            <div class="flex justify-between items-end mb-1">
+                <label class="text-[10px] text-slate-400 font-bold">戰略主題與內容</label>
+                <button id="btnOpenRSS" class="bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-1 shadow-lg active:scale-95">
+                    📰 抓取熱門新聞
+                </button>
+            </div>
+
+            <div id="rssPanel" class="hidden flex-col gap-3 bg-slate-800 border border-indigo-500/50 rounded-xl p-3 animate-fade-in shadow-2xl relative">
+                <div class="absolute -top-2 right-4 w-4 h-4 bg-slate-800 border-t border-l border-indigo-500/50 transform rotate-45"></div>
+                <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-hide" id="rssCategoryTabs">
+                    <button class="rss-cat-btn px-3 py-1 bg-indigo-600 text-white border border-indigo-500 rounded-full text-[10px] font-bold whitespace-nowrap transition-all" data-cat="BUSINESS">財金</button>
+                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="POLITICS">政治</button>
+                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="WORLD">國際</button>
+                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="ENTERTAINMENT">娛樂</button>
+                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="SPORTS">運動</button>
+                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="LIFE">生活</button>
+                </div>
+                <div id="rssLoading" class="hidden text-center text-[10px] text-indigo-400 py-6 animate-pulse font-bold">📡 正在接收 Google News 衛星訊號...</div>
+                <div id="rssList" class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar"></div>
+            </div>
+
             <div class="relative">
-                <textarea id="inlineTopicInput" maxlength="1000" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 pb-8 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[140px] resize-y" placeholder="例如：推廣定迎高山茶的中秋禮盒...">${decodeHTMLEntities(MISSION.topic || '')}</textarea>
+                <textarea id="inlineTopicInput" maxlength="1000" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 pb-8 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[140px] resize-y" placeholder="您可以自己輸入，或是點擊上方按鈕抓取新聞來生成..."> ${decodeHTMLEntities(MISSION.topic || '')}</textarea>
                 <div id="topicCharCount" class="absolute bottom-3 right-4 text-[10px] font-bold text-slate-500 bg-slate-900 px-1">0 / 1000 字</div>
             </div>
             <div class="flex justify-end mt-2">
@@ -34,6 +55,7 @@ export async function triggerTopicSkill() {
     const inputEl = ui.querySelector('#inlineTopicInput'); 
     const countEl = ui.querySelector('#topicCharCount');
     
+    // 🧮 字數計算器
     const updateCount = () => {
         const len = inputEl.value.length;
         countEl.innerText = `${len} / 1000 字`;
@@ -43,6 +65,73 @@ export async function triggerTopicSkill() {
     inputEl.addEventListener('input', updateCount);
     updateCount(); 
 
+    // 📡 RSS 模組互動邏輯
+    const btnOpenRSS = ui.querySelector('#btnOpenRSS');
+    const rssPanel = ui.querySelector('#rssPanel');
+    const rssCategoryTabs = ui.querySelectorAll('.rss-cat-btn');
+    const rssList = ui.querySelector('#rssList');
+    const rssLoading = ui.querySelector('#rssLoading');
+
+    btnOpenRSS.onclick = () => {
+        rssPanel.classList.toggle('hidden');
+        if (!rssPanel.classList.contains('hidden') && rssList.innerHTML === '') {
+            loadRSSNews('BUSINESS'); // 預設載入財金
+        }
+    };
+
+    rssCategoryTabs.forEach(btn => {
+        btn.onclick = () => {
+            // 切換樣式
+            rssCategoryTabs.forEach(b => { 
+                b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500'); 
+                b.classList.add('bg-slate-700', 'text-slate-300', 'border-white/10'); 
+            });
+            btn.classList.remove('bg-slate-700', 'text-slate-300', 'border-white/10');
+            btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
+            loadRSSNews(btn.dataset.cat);
+        };
+    });
+
+    async function loadRSSNews(category) {
+        rssList.innerHTML = '';
+        rssLoading.classList.remove('hidden');
+        try {
+            const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.API_BASE_URL) ? CONFIG.API_BASE_URL : '';
+            const res = await fetch(`${baseUrl}/api/rss/news?category=${category}`);
+            const json = await res.json();
+            
+            if (json.success && json.data) {
+                if (json.data.length === 0) {
+                    rssList.innerHTML = `<div class="text-[10px] text-slate-400 text-center py-4">此分類目前無新聞</div>`;
+                    return;
+                }
+                json.data.forEach(news => {
+                    const div = document.createElement('div');
+                    div.className = "p-3 bg-slate-900 border border-white/5 rounded-lg hover:bg-indigo-900/40 hover:border-indigo-500/50 cursor-pointer transition-all flex flex-col gap-1";
+                    div.innerHTML = `
+                        <span class="text-xs font-bold text-white line-clamp-1 leading-tight">${news.title}</span>
+                        <span class="text-[10px] text-slate-400 line-clamp-2 leading-tight">${news.content}</span>
+                    `;
+                    div.onclick = async () => {
+                        // 自動填入，並加上排版
+                        inputEl.value = `【今日熱門話題】\n${news.title}\n\n【情報摘要】\n${news.content}`;
+                        updateCount();
+                        rssPanel.classList.add('hidden');
+                        await addLog("情報官", "📡", `已載入情報：<b>${news.title.substring(0, 15)}...</b>`);
+                    };
+                    rssList.appendChild(div);
+                });
+            } else {
+                rssList.innerHTML = `<div class="text-[10px] text-red-400 text-center py-4">抓取失敗，請重試</div>`;
+            }
+        } catch(e) {
+            console.error("RSS Error:", e);
+            rssList.innerHTML = `<div class="text-[10px] text-red-400 text-center py-4">連線錯誤，無法取得新聞</div>`;
+        } finally {
+            rssLoading.classList.add('hidden');
+        }
+    }
+
     setTimeout(() => { inputEl.focus(); }, 100);
     
     ui.querySelector('#btnConfirmTopic').onclick = async () => { 
@@ -50,7 +139,7 @@ export async function triggerTopicSkill() {
         if(!val) return showError('主題不能為空！'); 
         MISSION.topic = val; 
         releaseUI(ui); 
-        await addLog("總編指令", "🎯", `戰略鎖定：${val}`); 
+        await addLog("總編指令", "🎯", `戰略鎖定：${val.substring(0, 20)}...`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
         else { await triggerPlatformSkill(); } 
     };
@@ -164,7 +253,6 @@ export async function triggerPersonaSkill() {
 /**
  * ==========================================
  * 📌 核心漏斗 STEP 4：選擇戰術 (triggerHookSkill)
- * 💡 功能說明：選擇開場勾子與文案長度節奏。
  * ==========================================
  */
 export async function triggerHookSkill() { 
@@ -209,7 +297,6 @@ export async function triggerHookSkill() {
 /**
  * ==========================================
  * 📌 核心漏斗 STEP 6：宇宙智能分流 (triggerUniverseSkill)
- * 💡 功能說明：依據宇宙進行分岔。
  * ==========================================
  */
 export async function triggerUniverseSkill() { 
@@ -251,7 +338,6 @@ export async function triggerUniverseSkill() {
 /**
  * ==========================================
  * 🚀 智能分流：triggerStyleSkill
- * 💡 修正：嚴格對齊資料庫 system_styles.category === "ANIME"
  * ==========================================
  */
 export async function triggerStyleSkill() { 
@@ -285,10 +371,9 @@ export async function triggerStyleSkill() {
     } else {
         updateStepHeader("STYLE SELECTION"); 
         
-        // 💡 修正：嚴格抓取 category 為 'ANIME' 的風格資料
         let availableStyles = SYSTEM_DB.styles.filter(s => {
             const sCat = String(s.category || '').trim().toUpperCase();
-            return sCat === 'ANIME' || sCat === 'ANIME_STYLE'; // 確保新舊標籤都能兼容
+            return sCat === 'ANIME' || sCat === 'ANIME_STYLE';
         });
         if(availableStyles.length === 0) availableStyles = [{id: 'MANGA_BW', name: '預設風格', icon: '🎨'}];
         
@@ -312,7 +397,6 @@ export async function triggerStyleSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerRealisticFilterSkill
- * 💡 功能說明：真實攝影專屬流程：選取濾鏡氛圍 (取代 ColorSkill)。
  * ==========================================
  */
 export async function triggerRealisticFilterSkill() {
@@ -324,7 +408,6 @@ export async function triggerRealisticFilterSkill() {
 
     let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">`;
     filters.forEach(f => {
-        // 💡 巧妙設計：將濾鏡直接存入 colorMode，省去後端額外開欄位
         html += `<button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === f.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${f.name}"><span class="text-xl lg:text-2xl mb-1">${f.icon || '🎞️'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${f.name}</span></button>`;
     });
     html += `</div>`;
@@ -344,7 +427,6 @@ export async function triggerRealisticFilterSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerColorSkill
- * 💡 功能說明：2D動漫專屬流程：選取漫畫色系。
  * ==========================================
  */
 export async function triggerColorSkill() { 
@@ -356,19 +438,15 @@ export async function triggerColorSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerCharacterSkill
- * 💡 修正：嚴格對齊資料庫 system_characters.type === "COMIC" 或 "REALISTIC"
  * ==========================================
  */
 export async function triggerCharacterSkill() { 
     updateStepHeader("CHARACTER SUMMON"); await addLog("視覺工程師", "🧬", `請勾選要在本次任務中登場的角色 (最多4位)：`, true);
     
     const available = SYSTEM_DB.characters.filter(c => {
-        // 取出真正的字串並去頭去尾去空白
         const rawType = c.type || '';
-        if (!rawType) return true; // 如果舊資料沒填 type，通用顯示
+        if (!rawType) return true; 
         const cType = String(rawType).trim().toUpperCase();
-
-        // 💡 嚴格對齊總編指示的資料庫欄位
         if (MISSION.universe === 'COMIC') return cType === 'COMIC';
         if (MISSION.universe === 'REALISTIC') return cType === 'REALISTIC';
         return false;
@@ -393,8 +471,6 @@ export async function triggerCharacterSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：triggerVisualSkill
- * 💡 功能說明：漏斗第八步：畫面規格與 1+9 圖片上傳引擎。
- * 🚀 優化情境：補上「AI 參考主圖」返回此步驟時的預載渲染 UI。
  * ==========================================
  */
 export async function triggerVisualSkill() { 
@@ -451,10 +527,8 @@ export async function triggerVisualSkill() {
     ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
     if (isComic) { ui.querySelectorAll('.panel-btn').forEach(btn => { if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; }); }
     
-    // 📸 處理主圖 (AI 參考用)
     ui.querySelector('#btnUploadScene').onclick = () => { let i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; i.click(); };
     
-    // 💡 預載已上傳主圖，防止畫面消失
     if (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
         const panel = document.createElement('div');
         panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner';
@@ -462,7 +536,6 @@ export async function triggerVisualSkill() {
         ui.querySelector('#dynamicAssetsArea').appendChild(panel);
     }
 
-    // 📥 處理多張附加圖 (社群輪播用)
     if(MISSION.attachmentFiles && MISSION.attachmentFiles.length > 0) {
          handleMultipleAttachments([], ui.querySelector('#attachmentAssetsArea'), false); 
     }
@@ -491,7 +564,6 @@ export async function triggerVisualSkill() {
 /**
  * ==========================================
  * 📌 函數名稱：handleAssetUpload
- * 💡 處理 AI 主圖：可在此整合您的 Storage API 將 dataUrl 轉為 imageUrl
  * ==========================================
  */
 export async function handleAssetUpload(file, container) { 
@@ -499,7 +571,6 @@ export async function handleAssetUpload(file, container) {
     const panel = document.createElement('div'); panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner'; 
     const dataUrl = await compressImage(file, 800); 
     
-    // 💡 若您前端原本就有上傳至 Storage 取得 imageUrl 的 API，可在此處執行並改存 imageUrl
     MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
     
     panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 鎖定為 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `主參考圖已優化定位。`); 
@@ -508,7 +579,6 @@ export async function handleAssetUpload(file, container) {
 /**
  * ==========================================
  * 📌 函數名稱：handleMultipleAttachments
- * 💡 處理 1+9 附加圖：同樣預留 imageUrl 轉換空間
  * ==========================================
  */
 export async function handleMultipleAttachments(files, container, isNew = true) {
@@ -527,7 +597,6 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
 
         for (const file of filesToProcess) {
             const dataUrl = await compressImage(file, 800); 
-            // 💡 若有上傳 API，亦可在此轉換並存入 imageUrl
             MISSION.attachmentFiles.push({ dataUrl: dataUrl, name: file.name });
         }
         
@@ -550,7 +619,7 @@ export async function handleMultipleAttachments(files, container, isNew = true) 
         `;
         panel.querySelector('button').onclick = () => {
             MISSION.attachmentFiles.splice(idx, 1);
-            handleMultipleAttachments([], container, false); // 重新渲染
+            handleMultipleAttachments([], container, false); 
         };
         container.appendChild(panel);
     });
