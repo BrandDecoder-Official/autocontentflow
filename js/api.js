@@ -175,3 +175,17 @@ export async function createAgentTaskAPI(payload) {
     if (!response.ok) throw new Error(data.message || '任務建檔失敗');
     return data;
 }
+
+// 🗑️ 12. [新增] 刪除指定任務 API
+export async function deleteAgentTaskAPI(taskId) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/agent/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '刪除任務失敗');
+    return data;
+}
