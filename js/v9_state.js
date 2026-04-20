@@ -17,23 +17,24 @@ export const MISSION = {
     panelCount: 4, 
     characters: [], 
     sceneFiles: [], 
+    attachmentFiles: [], // 確保這裡有初始化 9張附加圖的陣列
     scheduledAt: null,
     persona: '', 
     hookType: '痛點提問', 
     contentLength: '深度文 (約300字)',
-    platforms: [], // 用戶選擇發布的平台，例如 ['FB', 'IG']
+    platforms: [], 
 
-    // 🆕 V10 新增：平台獨立發文開關 (true: 平台適配, false: 統一內容)
+    // 🆕 V10 新增：平台獨立發文開關
     isIndependentPost: false, 
     
-    // 🆕 V10 新增：各平台獨立的發文戰術 (字數與勾子)
+    // 🆕 V10 新增：各平台獨立的發文戰術
     platformStrategies: {
         FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
         IG: { hookType: '視覺誘惑', contentLength: '短平快 (約150字)' },
         THREADS: { hookType: '反直覺爆點', contentLength: '極短篇 (約50字)' }
     },
 
-    // 🆕 V10 新增：多租戶 Telegram 設定 (供側欄綁定用)
+    // 🆕 V10 新增：多租戶 Telegram 設定
     tgConfig: {
         botToken: '',
         chatId: ''
@@ -61,12 +62,68 @@ export function isMissionComplete() {
 
 /**
  * ==========================================
+ * 🚀 新增兵器：loadMissionFromDB
+ * 💡 功能說明：將後端撈回來的任務 JSON 完美還原到前端 MISSION 狀態中。
+ * 支援「草稿復活」與「歷史檢視」。
+ * ==========================================
+ */
+export function loadMissionFromDB(taskData) {
+    if (!taskData) return null;
+
+    // 1. 抓取核心 Context (相容新舊資料結構)
+    const ctx = taskData.missionContext || taskData.payload?.missionContext || taskData.payload || {};
+
+    // 2. 還原基礎參數
+    MISSION.currentTaskId = taskData.taskId || taskData.id;
+    MISSION.topic = ctx.topic || '';
+    MISSION.universe = ctx.universe || '';
+    MISSION.style = ctx.style || '';
+    MISSION.colorMode = ctx.colorMode || '';
+    MISSION.ratio = ctx.ratio || '9:16';
+    MISSION.resolution = ctx.resolution || '1K';
+    MISSION.panelCount = ctx.panelCount || 4;
+    MISSION.characters = ctx.characters || [];
+    MISSION.persona = ctx.persona || '';
+    MISSION.hookType = ctx.hookType || '痛點提問';
+    MISSION.contentLength = ctx.contentLength || '深度文 (約300字)';
+    MISSION.platforms = ctx.platforms || [];
+    MISSION.isIndependentPost = ctx.isIndependentPost || false;
+    
+    if (ctx.platformStrategies) {
+        MISSION.platformStrategies = JSON.parse(JSON.stringify(ctx.platformStrategies));
+    }
+
+    MISSION.scheduledAt = ctx.scheduledAt || taskData.scheduledAt || null;
+
+    // 3. 還原圖片庫 (從 image_options 提取背景與 9張附加圖)
+    MISSION.sceneFiles = [];
+    MISSION.attachmentFiles = [];
+    const imgOpts = taskData.image_options || ctx.image_options || {};
+
+    if (imgOpts.referenceImages && Array.isArray(imgOpts.referenceImages)) {
+        imgOpts.referenceImages.forEach(img => {
+            if (img.type === 'scene') {
+                // 為了讓前台預覽能顯示，把 imageUrl 塞給 imageUrl 或 dataUrl
+                MISSION.sceneFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+            }
+        });
+    }
+
+    if (imgOpts.attachmentFiles && Array.isArray(imgOpts.attachmentFiles)) {
+        imgOpts.attachmentFiles.forEach(img => {
+            MISSION.attachmentFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+        });
+    }
+
+    // 4. 回傳當前任務狀態，讓外層決定要跳轉到漏斗的哪一步
+    const finalStatus = taskData.status || taskData.currentStatus || 'UNKNOWN';
+    console.log(`[State] 任務 ${MISSION.currentTaskId} 已成功還原，當前狀態：${finalStatus}`);
+    return finalStatus;
+}
+
+/**
+ * ==========================================
  * 📌 函數名稱：updateSidebarCountUI
- * 💡 功能說明：分別計算並更新側邊欄「專屬基因庫」的角色與人設總數顯示。
- * 🚀 使用情境：
- * 1. 系統剛開機，完成 `bootSystemData` 載入資料後自動觸發。
- * 2. 開啟側邊欄管理面板時，確保數字為最新狀態。
- * ⚠️ 注意事項：依賴 DOM 元素 `id="charCountLabel"`，若畫面無此 ID 則靜默略過。
  * ==========================================
  */
 export function updateSidebarCountUI() {
@@ -78,9 +135,7 @@ export function updateSidebarCountUI() {
     }
 }
 
-// 🚀 正確解析後端傳來的 res.data
 export async function bootSystemData() {
-    // 預先準備好四大經典預設人設
     const defaultPersonas = [
         { id: 'p_default_1', icon: '👔', name: '專業顧問', desc: '客觀、數據導向', taboos: '' },
         { id: 'p_default_2', icon: '😎', name: '毒舌教官', desc: '犀利、一針見血', taboos: '' },
@@ -91,14 +146,10 @@ export async function bootSystemData() {
     try {
         const res = await API.fetchSystemOptionsAPI(STATE.uid);
         if (res && res.success) {
-            // 🐛 資料是包在 res.data 裡面的
             const dbData = res.data || {};
-            
             SYSTEM_DB.characters = dbData.characters || [];
             SYSTEM_DB.styles = dbData.styles || [];
             SYSTEM_DB.pricing = dbData.pricing || {};
-            
-            // 將後端傳回的客製化人設與預設人設接合
             const customPersonas = dbData.personas || [];
             SYSTEM_DB.personas = [...defaultPersonas, ...customPersonas];
         } else {
@@ -106,16 +157,12 @@ export async function bootSystemData() {
         }
     } catch (e) {
         console.error("系統資料載入失敗:", e);
-        // 斷線時至少保留預設人設
         SYSTEM_DB.personas = [...defaultPersonas];
     } finally {
-        // 🎯 關鍵架構修復：資料載入完畢後，統一發送通知更新 UI！
-        // 這樣不管是剛開機(F5)、還是新增/刪除角色後重新載入，數字永遠跟著大腦走。
         updateSidebarCountUI();
     }
 }
 
-// 圖片壓縮引擎保持不變
 export function compressImage(file, maxWidth = 1024, forceGrayscale = false) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader(); reader.readAsDataURL(file);
