@@ -1,11 +1,12 @@
 // js/agent_v9_core.js
 import { STATE, CONFIG } from './config.js';
-import { APP_VERSION, MISSION } from './v9_state.js';
+import { APP_VERSION, MISSION, loadMissionFromDB, IS_EDIT_MODE } from './v9_state.js'; // 🚀 引入時光機引擎
 import { updateStepHeader, addLog, showError } from './v9_ui.js';
 
 // 📦 引入專屬模組
 import { initAgentChatBar } from './v9_chat.js';
 import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel.js';
+import { triggerMissionSummary } from './v9_funnel_dashboard.js'; // 🚀 引入跳轉目的地
 import './v9_sidebar.js'; // 側欄
 
 export { bootSystemData } from './v9_state.js';
@@ -33,13 +34,14 @@ window.currentTaskTab = 'PENDING'; // 預設顯示進行中
 function renderLobby() {
     const log = document.getElementById('funnelLog');
     // 初始化 MISSION 暫存 (將平台清空，等待漏斗寫入)
-    Object.assign(MISSION, { persona: '', hookType: '', platforms: [], topic: '', currentTaskId: null });
+    Object.assign(MISSION, { persona: '', hookType: '', platforms: [], topic: '', currentTaskId: null, isIndependentPost: false });
+    IS_EDIT_MODE.value = false; // 確保回到大廳時關閉編輯模式
     
     log.innerHTML = `
         <div class="max-w-5xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6 lg:space-y-8">
             <div class="text-center space-y-2 mb-6">
                 <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">讓夢想在對話中落地</h2>
-                <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編 K.C</span></p>
+                <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
@@ -77,7 +79,7 @@ function renderLobby() {
     document.getElementById('btnManualStart').onclick = async () => { 
         const log = document.getElementById('funnelLog');
         log.innerHTML = ''; 
-        await addLog("系統", "🚀", `正在啟動 V10 核心漏斗...`); 
+        await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
     };
 
@@ -105,7 +107,7 @@ window.switchTaskTab = function(tabName) {
 }
 
 // ==========================================
-// 📋 任務儀表板與斷點續傳 (去重後保留最完整版)
+// 📋 任務儀表板與斷點續傳 (完美適配後端狀態碼)
 // ==========================================
 window.renderTaskDashboard = async function() {
     const container = document.getElementById('taskListContainer');
@@ -123,13 +125,24 @@ window.renderTaskDashboard = async function() {
         if (!data.success) throw new Error(data.message);
 
         // 💡 1. 預先過濾掉沒有主題的「垃圾草稿」
-        let validTasks = data.tasks.filter(t => t.missionContext && t.missionContext.topic);
+        let validTasks = data.tasks.filter(t => {
+            const ctx = t.missionContext || t.payload?.missionContext || t.payload;
+            return ctx && ctx.topic;
+        });
 
-        // 💡 2. 依照當前頁籤進行狀態過濾
+        // 💡 2. 依照當前頁籤進行狀態過濾 (精準對齊後端狀態碼)
         if (window.currentTaskTab === 'PENDING') {
-            validTasks = validTasks.filter(t => t.currentStatus !== 'COMPLETED');
+            // 進行中：DRAFTING (草稿完成待生圖), IMAGE_READY (圖片完成待發佈), AWAITING_APPROVAL
+            validTasks = validTasks.filter(t => {
+                const s = t.status || t.currentStatus;
+                return s !== 'COMPLETED' && s !== 'PUBLISHED' && s !== 'SCHEDULED';
+            });
         } else {
-            validTasks = validTasks.filter(t => t.currentStatus === 'COMPLETED');
+            // 已完成：PUBLISHED, COMPLETED, SCHEDULED
+            validTasks = validTasks.filter(t => {
+                const s = t.status || t.currentStatus;
+                return s === 'COMPLETED' || s === 'PUBLISHED' || s === 'SCHEDULED';
+            });
         }
         
         if (validTasks.length === 0) {
@@ -143,35 +156,37 @@ window.renderTaskDashboard = async function() {
 
         // 時間倒序排列
         validTasks.sort((a, b) => {
-            let timeA = a.updatedAt?._seconds ? a.updatedAt._seconds * 1000 : new Date(a.updatedAt || 0).getTime();
-            let timeB = b.updatedAt?._seconds ? b.updatedAt._seconds * 1000 : new Date(b.updatedAt || 0).getTime();
+            let timeA = a.updatedAt?._seconds ? a.updatedAt._seconds * 1000 : new Date(a.createdAt || a.updatedAt || 0).getTime();
+            let timeB = b.updatedAt?._seconds ? b.updatedAt._seconds * 1000 : new Date(b.createdAt || b.updatedAt || 0).getTime();
             return timeB - timeA;
         }).forEach((task, index) => {
             
-            const topic = task.missionContext.topic; // 已經保證有值
+            const ctx = task.missionContext || task.payload?.missionContext || task.payload;
+            const topic = ctx.topic;
+            const finalStatus = task.status || task.currentStatus;
 
             // 🛠️ 強健的時間解析
             let validDate = new Date();
-            if (task.updatedAt) {
-                if (task.updatedAt._seconds) validDate = new Date(task.updatedAt._seconds * 1000);
-                else validDate = new Date(task.updatedAt);
-            }
-            if (isNaN(validDate.getTime()) && task.taskId) {
-                const parts = task.taskId.split('_');
-                const possibleTime = parseInt(parts[parts.length - 1]);
-                if (!isNaN(possibleTime)) validDate = new Date(possibleTime);
+            if (task.createdAt || task.updatedAt) {
+                const timeObj = task.createdAt || task.updatedAt;
+                if (timeObj._seconds) validDate = new Date(timeObj._seconds * 1000);
+                else validDate = new Date(timeObj);
             }
             let timeStr = !isNaN(validDate.getTime()) ? validDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '未知時間';
 
-            // 🧠 狀態與進度條判定
+            // 🧠 狀態與進度條判定 (對齊 V1 後端)
             let statusColor, statusText, actionText, icon, progressPct, barColor;
-            switch(task.currentStatus) {
+            switch(finalStatus) {
                 case 'COMPLETED': 
+                case 'PUBLISHED':
                     statusColor = 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20'; statusText = '已發佈完成'; actionText = '查看成品'; icon = '✅'; progressPct = 100; barColor = 'bg-emerald-500'; break;
-                case 'AWAITING_APPROVAL': 
-                    statusColor = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'; statusText = '等候總編校稿'; actionText = '接續校稿'; icon = '👀'; progressPct = 50; barColor = 'bg-yellow-500'; break;
+                case 'SCHEDULED':
+                    statusColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; statusText = '已排程待發佈'; actionText = '查看任務'; icon = '📅'; progressPct = 100; barColor = 'bg-blue-500'; break;
+                case 'IMAGE_READY': 
                 case 'IMAGES_GENERATED': 
-                    statusColor = 'text-blue-400 bg-blue-400/10 border-blue-400/20'; statusText = '等候確認發佈'; actionText = '接續發佈'; icon = '🖼️'; progressPct = 85; barColor = 'bg-blue-500'; break;
+                    statusColor = 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'; statusText = '圖片已產出 (待確認)'; actionText = '預覽與發佈'; icon = '🖼️'; progressPct = 85; barColor = 'bg-indigo-500'; break;
+                case 'DRAFTING': 
+                    statusColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; statusText = '草稿已建立 (待生圖)'; actionText = '強制載入編輯'; icon = '🟠'; progressPct = 50; barColor = 'bg-orange-500'; break;
                 case 'ERROR': 
                     statusColor = 'text-red-400 bg-red-400/10 border-red-400/20'; statusText = '發生錯誤中斷'; actionText = '重試任務'; icon = '🔴'; progressPct = 100; barColor = 'bg-red-500'; break;
                 default: 
@@ -205,7 +220,7 @@ window.renderTaskDashboard = async function() {
                         <button onclick="resumeTask(${index})" class="flex-1 sm:flex-none justify-center bg-indigo-600/90 hover:bg-indigo-500 text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all shadow-md flex items-center gap-1.5 active:scale-95">
                             📝 ${actionText}
                         </button>
-                        <button onclick="deleteTask('${task.taskId}')" class="bg-slate-700/60 hover:bg-red-500/80 text-slate-300 hover:text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95" title="刪除此任務">
+                        <button onclick="deleteTask('${task.taskId || task.id}')" class="bg-slate-700/60 hover:bg-red-500/80 text-slate-300 hover:text-white px-4 py-2.5 sm:py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95" title="刪除此任務">
                             🗑️ 刪除
                         </button>
                     </div>
@@ -224,13 +239,12 @@ window.renderTaskDashboard = async function() {
 // ==========================================
 window.deleteTask = async function(taskId) {
     if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復)')) return;
-    
     console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
-    alert(`任務 ${taskId} 刪除 API 準備串接中...`);
+    alert(`此處保留未來串接 DELETE API，任務 ID: ${taskId}`);
 }
 
 // ==========================================
-// 🔄 恢復/接續 任務功能
+// 🔄 恢復/接續 任務功能 (時光機核心)
 // ==========================================
 window.resumeTask = async function(taskIndex) {
     const task = window.tempTaskCache[taskIndex];
@@ -239,33 +253,37 @@ window.resumeTask = async function(taskIndex) {
     const log = document.getElementById('funnelLog');
     log.innerHTML = ''; 
     
-    MISSION.currentTaskId = task.taskId;
-    MISSION.topic = task.missionContext?.topic || '';
-    MISSION.universe = task.missionContext?.universe || 'REALISTIC';
-    MISSION.hookType = task.missionContext?.hookType || '痛點提問';
-    MISSION.contentLength = task.missionContext?.contentLength || '深度文 (約300字)';
-    MISSION.persona = task.missionContext?.persona || '專業顧問';
-    
-    await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic}</b>`, true);
+    // 🚀 1. 神級還原！使用剛寫好的 loadMissionFromDB 灌回資料
+    const status = loadMissionFromDB(task);
+    IS_EDIT_MODE.value = true; // 開啟編輯模式，讓漏斗知道我們是從中途插入的
 
+    await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic.substring(0, 15)}...</b>`, true);
     const chatBar = document.getElementById('agentChatBar');
 
-    if (task.currentStatus === 'AWAITING_APPROVAL') {
-        if(chatBar) chatBar.classList.remove('translate-y-full'); 
-        await renderDraftEditorCard(task.taskId, task.agentData.draftContent, MISSION.universe === 'COMIC');
-        
-    } else if (task.currentStatus === 'IMAGES_GENERATED') {
-        if(chatBar) chatBar.classList.remove('translate-y-full');
-        await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
-        
-    } else if (task.currentStatus === 'COMPLETED') {
+    // 🚀 2. 狀態分流時光機 (精準跳轉)
+    if (status === 'DRAFTING') {
+        // 情況 A：草稿剛建好，還沒確認生圖。跳轉回任務儀表板 (Dashboard) 讓小編按「鎖定配置並產出」
         if(chatBar) chatBar.classList.add('translate-y-full'); 
-        await addLog("社群總監", "✅", "這篇貼文已經發佈完畢囉！以下是最終成品：", true);
-        await renderFinalPublishCard(task.taskId, task.agentData.generatedImages, task.agentData.draftContent.post_caption);
-        
+        await triggerMissionSummary();
+
+    } else if (status === 'IMAGE_READY' || status === 'IMAGES_GENERATED') {
+        // 情況 B：圖片已經生好了！跳轉到最終的預覽發佈卡片
+        if(chatBar) chatBar.classList.remove('translate-y-full');
+        const imgs = task.images || task.agentData?.generatedImages || [];
+        const caption = task.social_post_draft || task.draftContent?.post_caption || task.agentData?.draftContent?.post_caption || '';
+        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
+
+    } else if (status === 'COMPLETED' || status === 'PUBLISHED' || status === 'SCHEDULED') {
+        // 情況 C：已經發佈或排程的成品，直接檢視
+        if(chatBar) chatBar.classList.add('translate-y-full'); 
+        await addLog("社群總監", "✅", "這篇貼文已經處理完畢囉！以下是最終成品：", true);
+        const imgs = task.images || task.agentData?.generatedImages || [];
+        const caption = task.social_post_draft || task.draftContent?.post_caption || task.agentData?.draftContent?.post_caption || '';
+        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
+
     } else {
         if(chatBar) chatBar.classList.add('translate-y-full');
-        showError(`此任務狀態 (${task.currentStatus}) 尚不支援直接續傳，請發起新任務。`);
+        showError(`此任務狀態 (${status}) 尚不支援直接續傳，請發起新任務。`);
         setTimeout(() => initAgentFunnel(), 2000);
     }
 }
