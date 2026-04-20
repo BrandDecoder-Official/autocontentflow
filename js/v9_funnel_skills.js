@@ -96,6 +96,7 @@ export async function triggerTopicSkill() {
         rssList.innerHTML = '';
         rssLoading.classList.remove('hidden');
         try {
+            // 💡 修正：換成系統標準的 CLOUD_RUN_URL，並確保沒有多餘的斜線
             const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.CLOUD_RUN_URL) ? CONFIG.CLOUD_RUN_URL.replace(/\/$/, '') : '';
             const res = await fetch(`${baseUrl}/api/rss/news?category=${category}`);
             const json = await res.json();
