@@ -29,6 +29,19 @@ window.addEventListener('reloadLobby', () => {
 // ==========================================
 window.currentTaskTab = 'PENDING'; // 預設顯示進行中
 
+function getTaskContext(task) {
+    return task?.missionContext || task?.payload?.missionContext || task?.payload || task?.agentData?.missionContext || {};
+}
+
+function getTaskTopic(task) {
+    const ctx = getTaskContext(task);
+    return ctx.topic || task?.topic || task?.title || task?.agentData?.topic || '';
+}
+
+function getTaskStatus(task) {
+    return task?.status || task?.currentStatus || task?.agentData?.status || 'UNKNOWN';
+}
+
 // ==========================================
 // 🎨 大廳畫面渲染
 // ==========================================
@@ -139,23 +152,24 @@ window.renderTaskDashboard = async function() {
         
         if (!data.success) throw new Error(data.message);
 
-        // 💡 1. 預先過濾掉沒有主題的「垃圾草稿」
+        // 💡 1. 預先過濾掉完全缺乏識別資訊的任務（避免過度誤殺）
         let validTasks = data.tasks.filter(t => {
-            const ctx = t.missionContext || t.payload?.missionContext || t.payload;
-            return ctx && ctx.topic;
+            const topic = getTaskTopic(t);
+            const status = getTaskStatus(t);
+            return !!(topic || (t.taskId || t.id) || status !== 'UNKNOWN');
         });
 
         // 💡 2. 依照當前頁籤進行狀態過濾 (精準對齊後端狀態碼)
         if (window.currentTaskTab === 'PENDING') {
             // 進行中：DRAFTING (草稿完成待生圖), IMAGE_READY (圖片完成待發佈), AWAITING_APPROVAL
             validTasks = validTasks.filter(t => {
-                const s = t.status || t.currentStatus;
+                const s = getTaskStatus(t);
                 return s !== 'COMPLETED' && s !== 'PUBLISHED' && s !== 'SCHEDULED';
             });
         } else {
             // 已完成：PUBLISHED, COMPLETED, SCHEDULED
             validTasks = validTasks.filter(t => {
-                const s = t.status || t.currentStatus;
+                const s = getTaskStatus(t);
                 return s === 'COMPLETED' || s === 'PUBLISHED' || s === 'SCHEDULED';
             });
         }
@@ -176,9 +190,8 @@ window.renderTaskDashboard = async function() {
             return timeB - timeA;
         }).forEach((task, index) => {
             
-            const ctx = task.missionContext || task.payload?.missionContext || task.payload;
-            const topic = ctx.topic;
-            const finalStatus = task.status || task.currentStatus;
+            const topic = getTaskTopic(task) || '（未命名任務）';
+            const finalStatus = getTaskStatus(task);
 
             // 🛠️ 強健的時間解析
             let validDate = new Date();
@@ -291,9 +304,14 @@ window.resumeTask = async function(taskIndex) {
 
     // 🚀 2. 狀態分流時光機 (精準跳轉)
     if (status === 'DRAFTING') {
-        // 情況 A：草稿剛建好，還沒確認生圖。跳轉回任務儀表板 (Dashboard) 讓小編按「鎖定配置並產出」
-        if(chatBar) chatBar.classList.add('translate-y-full'); 
-        await triggerMissionSummary();
+        // 情況 A：草稿狀態直接回到「內容字卡」，避免再繞回漏斗
+        if(chatBar) chatBar.classList.remove('translate-y-full');
+        const draftFromTask = task.draftContent || task.agentData?.draftContent || {
+            post_caption: task.social_post_draft || '',
+            hashtags: task.hashtags || [],
+            panels: task.panels || task.agentData?.panels || MISSION.currentPanels || []
+        };
+        await renderDraftEditorCard(MISSION.currentTaskId, draftFromTask, MISSION.universe === 'COMIC');
 
     } else if (status === 'IMAGE_READY' || status === 'IMAGES_GENERATED') {
         // 情況 B：圖片已經生好了！跳轉到最終的預覽發佈卡片

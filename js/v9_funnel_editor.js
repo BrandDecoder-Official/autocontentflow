@@ -304,11 +304,18 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     let selectedBatch = batches.find(b => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
     const selectedImages = selectedBatch?.images || [];
     const displayImgUrl = selectedImages && selectedImages.length > 0 ? (selectedImages[0].finalUrl || selectedImages[0].imageUrl || '') : '';
-    const selectedCaption = selectedBatch?.caption || finalCaption || '';
+    let selectedCaption = selectedBatch?.caption || finalCaption || '';
     let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
 
     const previewNote = MISSION.isIndependentPost ? `<p class="text-[10px] text-amber-400 mb-2">※ 多宇宙模式：此為主要平台預覽，發布時將自動切分各平台專屬文案與標籤。</p>` : '';
+    const scheduleLocal = MISSION.scheduledAt
+        ? (() => {
+            const d = new Date(MISSION.scheduledAt);
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        })()
+        : '';
 
     const ui = createSkillUI(`
         <div class="flex flex-col gap-3 w-full animate-fade-in">
@@ -325,7 +332,30 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 </div>
                 <div class="p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
                     ${previewNote}
-                    <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">${selectedCaption}</p>
+                    <div class="mb-3 bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-2">
+                        <div class="text-[10px] font-bold text-emerald-300 mb-1">✅ 可直接修改（不需重生圖）</div>
+                        <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-slate-200 min-h-[120px] focus:border-emerald-500 outline-none resize-y">${selectedCaption}</textarea>
+                    </div>
+                    <div class="mb-2 bg-amber-600/10 border border-amber-500/30 rounded-lg p-2">
+                        <div class="text-[10px] font-bold text-amber-300 mb-1">⚠️ 修改以下項目需重生圖</div>
+                        <div class="text-[10px] text-slate-300">主題 / 風格宇宙 / 色系 / 角色 / 參考圖</div>
+                    </div>
+                    <div class="mb-2 bg-blue-600/10 border border-blue-500/30 rounded-lg p-2 space-y-2">
+                        <div class="text-[10px] font-bold text-blue-300">🛠️ 字卡快速設定（不回漏斗）</div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 mb-1">發佈平台</div>
+                            <div id="finalPlatformChips" class="flex flex-wrap gap-2">
+                                ${['FB', 'IG', 'THREADS'].map(p => `<button class="final-plat-chip px-2 py-1 rounded-lg text-[10px] font-bold border ${MISSION.platforms.includes(p) ? 'border-blue-500 bg-blue-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-plat="${p}">${p}</button>`).join('')}
+                            </div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400 mb-1">排程時間（可留空=立即）</div>
+                            <div class="flex gap-2">
+                                <input id="finalScheduleInput" type="datetime-local" value="${scheduleLocal}" class="flex-1 bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-slate-200">
+                                <button id="btnFinalImmediate" class="px-2 py-1 rounded-lg text-[10px] font-bold border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700">立即</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="mt-3 pt-3 border-t border-white/10 space-y-2">
                         <div class="text-[10px] text-slate-400 font-bold">🗂️ 已扣點生圖資產（可切換批次）</div>
                         <div id="batchSelector" class="flex flex-wrap gap-2">
@@ -339,7 +369,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             
             <div class="flex gap-2 w-full">
                 <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重算 (約500點)</button>
-                <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 退回重改</button>
+                <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 回到內容編輯卡</button>
             </div>
 
             <button id="btnBottomReturnLobbyFinal" class="w-full bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700 mt-1">
@@ -359,6 +389,36 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnTopReturnLobbyFinal').onclick = returnToLobbyHandler;
     ui.querySelector('#btnBottomReturnLobbyFinal').onclick = returnToLobbyHandler;
 
+    ui.querySelectorAll('.final-plat-chip').forEach(btn => {
+        btn.onclick = () => {
+            const p = btn.dataset.plat;
+            if (MISSION.platforms.includes(p)) {
+                if (MISSION.platforms.length <= 1) return;
+                MISSION.platforms = MISSION.platforms.filter(x => x !== p);
+                btn.classList.remove('border-blue-500', 'bg-blue-600', 'text-white');
+                btn.classList.add('border-white/10', 'bg-slate-900', 'text-slate-400');
+            } else {
+                MISSION.platforms.push(p);
+                btn.classList.remove('border-white/10', 'bg-slate-900', 'text-slate-400');
+                btn.classList.add('border-blue-500', 'bg-blue-600', 'text-white');
+            }
+        };
+    });
+    const scheduleInput = ui.querySelector('#finalScheduleInput');
+    if (scheduleInput) {
+        scheduleInput.onchange = (e) => {
+            const v = e.target.value;
+            MISSION.scheduledAt = v ? new Date(v).toISOString() : null;
+        };
+    }
+    const immediateBtn = ui.querySelector('#btnFinalImmediate');
+    if (immediateBtn) {
+        immediateBtn.onclick = () => {
+            MISSION.scheduledAt = null;
+            if (scheduleInput) scheduleInput.value = '';
+        };
+    }
+
     ui.querySelectorAll('.batch-chip').forEach(btn => {
         btn.onclick = async () => {
             MISSION.selectedImageBatchId = btn.dataset.batchId;
@@ -368,6 +428,8 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     });
 
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
+        const capEl = ui.querySelector('#finalCaptionEdit');
+        if (capEl) selectedCaption = capEl.value;
         let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
         const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
             ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t.replace(/^#/, '')).join(' ')
@@ -379,12 +441,14 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
         markImageRegenerationRequired('退回修改草稿');
-        await addLog("系統", "🔙", "已退回草稿編輯模式。", true);
+        await addLog("系統", "🔙", "已回到內容編輯卡（不回漏斗）。", true);
         const pseudoDraft = { panels: MISSION.currentPanels };
         await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC');
     };
 
     ui.querySelector('#btnDeploy').onclick = async () => {
+        const capEl = ui.querySelector('#finalCaptionEdit');
+        if (capEl) selectedCaption = capEl.value;
         const currentCtx = buildImageGenerationContextKey();
         if (MISSION.imageRegenerationRequired || MISSION.lastGeneratedContextKey !== currentCtx) {
             return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
