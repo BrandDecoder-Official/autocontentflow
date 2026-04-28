@@ -21,6 +21,14 @@ alwaysApply: true
 - Multi-platform publishing exists; some multi-platform parts are still in progress.
 - Preserve tenant isolation assumptions in all changes.
 
+# Dual-Product Architecture Rules
+
+- Keep clear product boundaries: Meta platform workflow and platform-agnostic content generation are separate product lines.
+- Build reusable capabilities (scripting, storyboarding, generation orchestration, asset lifecycle) as modular services that can be invoked by internal APIs/agents.
+- Enforce tenant isolation at data/model/query boundaries whenever features touch task, asset, credential, or publish records.
+- Isolate platform-specific logic (Meta tokens, publish policies, endpoint contracts) behind adapter-style modules; do not leak it into core generation logic.
+- Require traceability and rollback safety for task-critical flows (taskId-based state transitions, audit logs, and idempotent operations for publish/billing-sensitive actions).
+
 # Point Deduction Rule
 
 - Point deduction and pricing logic is backend-owned.
