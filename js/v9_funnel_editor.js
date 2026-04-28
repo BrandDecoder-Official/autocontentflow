@@ -4,6 +4,20 @@ import { MISSION } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { publishTaskAPI } from './api.js'; 
 
+function normalizeAttachmentFilesForPublish() {
+    return (MISSION.attachmentFiles || [])
+        .map((af, idx) => {
+            const item = { name: af.name || `attachment_${idx + 1}` };
+            if (af.imageUrl) item.imageUrl = af.imageUrl;
+            if (af.dataUrl) {
+                if (typeof af.dataUrl === 'string' && af.dataUrl.startsWith('data:')) item.data = af.dataUrl;
+                if (typeof af.dataUrl === 'string' && /^https?:\/\//i.test(af.dataUrl) && !item.imageUrl) item.imageUrl = af.dataUrl;
+            }
+            return item;
+        })
+        .filter(item => item.imageUrl || item.data);
+}
+
 export async function renderDraftEditorCard(taskId, draftContent, isComic) {
     updateStepHeader("DRAFT EDITOR"); 
 
@@ -265,7 +279,11 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
 
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
-        await window.FunnelActions.generateImages(taskId, MISSION.currentCaptions[currentTab], MISSION.currentPanels);
+        const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
+            ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t.replace(/^#/, '')).join(' ')
+            : '';
+        const regeneratedCaption = (MISSION.currentCaptions[currentTab] || '') + tagsString;
+        await window.FunnelActions.generateImages(taskId, regeneratedCaption, MISSION.currentPanels);
     };
 
     ui.querySelector('#btnBackToDraft').onclick = async () => {
@@ -293,7 +311,8 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 scheduledAt: MISSION.scheduledAt, 
                 finalCaption: finalCaption,
                 multiCaptions: finalMultiCaptions, 
-                isIndependentPost: MISSION.isIndependentPost 
+                isIndependentPost: MISSION.isIndependentPost,
+                attachmentFiles: normalizeAttachmentFilesForPublish()
             });
             
             if (response && response.success) {

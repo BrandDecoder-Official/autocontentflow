@@ -6,6 +6,45 @@ import { applyPointDeduction, validatePoints } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI } from './api.js'; 
 import { renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel_editor.js';
 
+function buildReferenceImages() {
+    const referenceImages = [];
+
+    // 角色圖通常來自 DB URL，直接帶 imageUrl 讓後端可轉 base64。
+    MISSION.characters.forEach(name => {
+        const charData = SYSTEM_DB.characters.find(c => c.name === name);
+        if (charData && charData.imageUrl) {
+            referenceImages.push({ type: 'character', name, imageUrl: charData.imageUrl });
+        }
+    });
+
+    // 場景圖可能是 dataUrl（本地上傳）或 imageUrl（DB 回填），兩者都傳。
+    MISSION.sceneFiles.forEach((sf, idx) => {
+        const sceneRef = { type: 'scene', name: sf.name || `scene_${idx + 1}` };
+        if (sf.imageUrl) sceneRef.imageUrl = sf.imageUrl;
+        if (sf.dataUrl) {
+            if (typeof sf.dataUrl === 'string' && sf.dataUrl.startsWith('data:')) sceneRef.data = sf.dataUrl;
+            if (typeof sf.dataUrl === 'string' && /^https?:\/\//i.test(sf.dataUrl) && !sceneRef.imageUrl) sceneRef.imageUrl = sf.dataUrl;
+        }
+        if (sceneRef.imageUrl || sceneRef.data) referenceImages.push(sceneRef);
+    });
+
+    return referenceImages;
+}
+
+function buildAttachmentFiles() {
+    return (MISSION.attachmentFiles || [])
+        .map((af, idx) => {
+            const item = { name: af.name || `attachment_${idx + 1}` };
+            if (af.imageUrl) item.imageUrl = af.imageUrl;
+            if (af.dataUrl) {
+                if (typeof af.dataUrl === 'string' && af.dataUrl.startsWith('data:')) item.data = af.dataUrl;
+                if (typeof af.dataUrl === 'string' && /^https?:\/\//i.test(af.dataUrl) && !item.imageUrl) item.imageUrl = af.dataUrl;
+            }
+            return item;
+        })
+        .filter(item => item.imageUrl || item.data);
+}
+
 window.FunnelActions = {
     generateDraft: async () => {
         // 💸 V10 動態計費：抓取雲端產草稿底價
@@ -21,13 +60,13 @@ window.FunnelActions = {
         const spinId = 'spin_draft_' + Date.now();
         await addLog("首席文案", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在產出全新劇本...</span></div>`, true);
         
-        const referenceImages = []; 
-        MISSION.characters.forEach(name => { const charData = SYSTEM_DB.characters.find(c => c.name === name); if(charData && charData.imageUrl) referenceImages.push({ type: 'character', name: name, imageUrl: charData.imageUrl }); }); 
-        MISSION.sceneFiles.forEach(sf => { if(sf.dataUrl) referenceImages.push({ type: 'scene', data: sf.dataUrl }); });
+        const referenceImages = buildReferenceImages();
+        const attachmentFiles = buildAttachmentFiles();
 
         // 📦 V10 核心升級：將 isIndependentPost 和 tgConfig 包進去
         const rawPayload = { 
             tenantId: STATE.uid, 
+            taskId: MISSION.currentTaskId || undefined,
             topic: MISSION.topic, 
             isComicMode: MISSION.universe === 'COMIC', 
             universe: MISSION.universe, 
@@ -50,7 +89,7 @@ window.FunnelActions = {
             tgConfig: MISSION.tgConfig,
 
             characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), 
-            image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages: referenceImages } 
+            image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages, attachmentFiles } 
         };
 
         try {
@@ -98,6 +137,19 @@ window.FunnelActions = {
                 tenantId: STATE.uid, 
                 editedCaption, 
                 editedPanels,
+                universe: MISSION.universe,
+                style: MISSION.style,
+                colorMode: MISSION.colorMode,
+                ratio: MISSION.ratio,
+                resolution: MISSION.resolution,
+                panelCount: MISSION.panelCount,
+                characters: MISSION.characters,
+                image_options: {
+                    ratio: MISSION.ratio,
+                    resolution: MISSION.resolution,
+                    referenceImages: buildReferenceImages(),
+                    attachmentFiles: buildAttachmentFiles()
+                },
                 tgConfig: MISSION.tgConfig 
             });
             
