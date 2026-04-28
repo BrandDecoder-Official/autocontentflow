@@ -1,6 +1,6 @@
 // js/v9_funnel_actions.js
 import { STATE } from './config.js'; 
-import { MISSION, SYSTEM_DB } from './v9_state.js';
+import { MISSION, SYSTEM_DB, recordGeneratedImageBatch } from './v9_state.js';
 import { addLog, releaseUI, showError } from './v9_ui.js';
 import { applyPointDeduction, validatePoints } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI } from './api.js'; 
@@ -143,6 +143,8 @@ window.FunnelActions = {
                 ratio: MISSION.ratio,
                 resolution: MISSION.resolution,
                 panelCount: MISSION.panelCount,
+                plannedImageCount: MISSION.plannedImageCount || 1,
+                isStoryMode: !!MISSION.isStoryMode,
                 characters: MISSION.characters,
                 image_options: {
                     ratio: MISSION.ratio,
@@ -167,6 +169,7 @@ window.FunnelActions = {
                 const tagsString = MISSION.currentHashtagsArray && MISSION.currentHashtagsArray.length > 0 ? '\n\n' + MISSION.currentHashtagsArray.map(t => '#' + t.replace(/^#/, '')).join(' ') : '';
                 const finalFullCaption = editedCaption + tagsString;
                 
+                recordGeneratedImageBatch(response.images, finalFullCaption);
                 await renderFinalPublishCard(taskId, response.images, finalFullCaption);
             } else { throw new Error(response.message || "未能取得圖片。"); }
         } catch (e) { 

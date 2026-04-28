@@ -1,5 +1,5 @@
 // js/v9_funnel_skills.js
-import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage } from './v9_state.js';
+import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
@@ -465,8 +465,8 @@ export async function triggerCharacterSkill() {
     
     const ui = createSkillUI(html);
     ui.querySelectorAll('.char-select-card').forEach(card => { card.onclick = () => { const name = card.dataset.name; if (tempSelected.includes(name)) { tempSelected = tempSelected.filter(n => n !== name); card.classList.remove('border-2', 'border-blue-500', 'bg-blue-900/30'); card.classList.add('border', 'border-white/10'); const check = card.querySelector('.absolute'); if(check) check.remove(); } else { if (tempSelected.length >= 4) return showError('最多 4 位。'); tempSelected.push(name); card.classList.remove('border', 'border-white/10'); card.classList.add('border-2', 'border-blue-500', 'bg-blue-900/30'); card.innerHTML += '<div class="absolute top-1 right-1 lg:top-2 lg:right-2 text-blue-400 font-black text-sm">✓</div>'; } }; });
-    ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
-    ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
+    ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
+    ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
 }
 
 /**
@@ -573,6 +573,7 @@ export async function handleAssetUpload(file, container) {
     const dataUrl = await compressImage(file, 800); 
     
     MISSION.sceneFiles = [{ dataUrl: dataUrl }]; 
+    markImageRegenerationRequired('參考圖變更');
     
     panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 鎖定為 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${dataUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`; container.appendChild(panel); await addLog("影像處理組", "📐", `主參考圖已優化定位。`); 
 }

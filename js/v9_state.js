@@ -47,7 +47,15 @@ export const MISSION = {
     // 保留舊有欄位名稱以向下相容
     currentCaption: '',
     currentHashtagsArray: [],
-    currentPanels: null
+    currentPanels: null,
+    plannedImageCount: 1,
+    isStoryMode: false,
+
+    // 生圖資產池：保留每次扣點生成的批次，供用戶回選
+    generatedImageBatches: [],
+    selectedImageBatchId: null,
+    imageRegenerationRequired: false,
+    lastGeneratedContextKey: ''
 };
 
 export const IS_EDIT_MODE = { value: false };
@@ -58,6 +66,46 @@ export function isMissionComplete() {
     if (!MISSION.topic || !MISSION.universe) return false;
     if (MISSION.universe === 'COMIC' && (!MISSION.style || !MISSION.colorMode)) return false;
     return true;
+}
+
+function normalizeImageSourceList(items = []) {
+    return items.map(x => (x?.imageUrl || x?.dataUrl || '')).filter(Boolean).sort();
+}
+
+export function buildImageGenerationContextKey() {
+    const context = {
+        topic: MISSION.topic || '',
+        universe: MISSION.universe || '',
+        style: MISSION.style || '',
+        colorMode: MISSION.colorMode || '',
+        characters: [...(MISSION.characters || [])].sort(),
+        sceneRefs: normalizeImageSourceList(MISSION.sceneFiles || [])
+    };
+    return JSON.stringify(context);
+}
+
+export function markImageRegenerationRequired(reason = '') {
+    if (!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0) return;
+    MISSION.imageRegenerationRequired = true;
+    if (reason) console.log(`[State] 需重生圖：${reason}`);
+}
+
+export function recordGeneratedImageBatch(images = [], caption = '') {
+    if (!Array.isArray(images) || images.length === 0) return null;
+    const batchId = `img_batch_${Date.now()}`;
+    const batch = {
+        id: batchId,
+        createdAt: new Date().toISOString(),
+        caption,
+        contextKey: buildImageGenerationContextKey(),
+        images
+    };
+    MISSION.generatedImageBatches = MISSION.generatedImageBatches || [];
+    MISSION.generatedImageBatches.unshift(batch);
+    MISSION.selectedImageBatchId = batchId;
+    MISSION.lastGeneratedContextKey = batch.contextKey;
+    MISSION.imageRegenerationRequired = false;
+    return batch;
 }
 
 /**
@@ -82,6 +130,8 @@ export function loadMissionFromDB(taskData) {
     MISSION.ratio = ctx.ratio || '9:16';
     MISSION.resolution = ctx.resolution || '1K';
     MISSION.panelCount = ctx.panelCount || 4;
+    MISSION.plannedImageCount = ctx.plannedImageCount || 1;
+    MISSION.isStoryMode = !!ctx.isStoryMode;
     MISSION.characters = ctx.characters || [];
     MISSION.persona = ctx.persona || '';
     MISSION.hookType = ctx.hookType || '痛點提問';

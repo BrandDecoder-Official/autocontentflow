@@ -97,8 +97,13 @@
                 <div class="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_#22c55e] animate-pulse"></div>
                 <h1 id="missionStep" class="text-[10px] font-black tracking-[0.2em] text-slate-400 uppercase">SYSTEM READY</h1>
             </div>
-            <div class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors flex items-center gap-1" onclick="window.openSystemSettings()">
-                ⚡ <span id="userPoints" class="text-yellow-400 text-xs transition-all duration-500">---</span> PTS
+            <div class="flex items-center gap-2">
+                <button id="btnBackHome" class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors flex items-center gap-1">
+                    🏠 回首頁
+                </button>
+                <div class="text-[10px] font-bold bg-slate-800 px-3 py-1.5 rounded-full border border-white/10 cursor-pointer hover:bg-slate-700 transition-colors flex items-center gap-1" onclick="window.openSystemSettings()">
+                    ⚡ <span id="userPoints" class="text-yellow-400 text-xs transition-all duration-500">---</span> PTS
+                </div>
             </div>
         </header>
         <section id="funnelLog" class="flex-grow overflow-y-auto p-2 lg:p-8 agent-chat-area relative"></section>
@@ -298,6 +303,24 @@
             window.refreshAuditLogs(); 
         };
         window.closeSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
+
+        window.goFunnelHome = function() {
+            const hasUnsavedProgress = !!(
+                MISSION.currentTaskId ||
+                (MISSION.topic && MISSION.topic.trim()) ||
+                (MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0)
+            );
+            if (hasUnsavedProgress) {
+                const ok = confirm('目前有未完成內容，確定要回到漏斗首頁嗎？');
+                if (!ok) return;
+            }
+            const chatBar = document.getElementById('agentChatBar');
+            if (chatBar) chatBar.classList.add('translate-y-full');
+            initAgentFunnel();
+        };
+
+        const homeBtn = document.getElementById('btnBackHome');
+        if (homeBtn) homeBtn.onclick = window.goFunnelHome;
     </script>
 </body>
 </html>

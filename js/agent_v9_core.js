@@ -35,7 +35,20 @@ window.currentTaskTab = 'PENDING'; // 預設顯示進行中
 function renderLobby() {
     const log = document.getElementById('funnelLog');
     // 初始化 MISSION 暫存 (將平台清空，等待漏斗寫入)
-    Object.assign(MISSION, { persona: '', hookType: '', platforms: [], topic: '', currentTaskId: null, isIndependentPost: false });
+    Object.assign(MISSION, {
+        persona: '',
+        hookType: '',
+        platforms: [],
+        topic: '',
+        currentTaskId: null,
+        isIndependentPost: false,
+        plannedImageCount: 1,
+        isStoryMode: false,
+        generatedImageBatches: [],
+        selectedImageBatchId: null,
+        imageRegenerationRequired: false,
+        lastGeneratedContextKey: ''
+    });
     IS_EDIT_MODE.value = false; // 確保回到大廳時關閉編輯模式
     
     log.innerHTML = `

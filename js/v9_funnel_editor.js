@@ -1,6 +1,6 @@
 // js/v9_funnel_editor.js
 import { STATE } from './config.js'; 
-import { MISSION } from './v9_state.js';
+import { MISSION, buildImageGenerationContextKey, markImageRegenerationRequired, recordGeneratedImageBatch } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { publishTaskAPI } from './api.js'; 
 
@@ -16,6 +16,27 @@ function normalizeAttachmentFilesForPublish() {
             return item;
         })
         .filter(item => item.imageUrl || item.data);
+}
+
+function getImagePlanSuggestion() {
+    const topic = (MISSION.topic || '').toLowerCase();
+    const hasStoryIntent = /劇情|連載|短篇漫畫|分鏡|故事|系列|episode|story/.test(topic);
+    const hasCompareIntent = /對比|開箱|前後|步驟|教學|清單|攻略|懶人包/.test(topic);
+
+    if (MISSION.universe === 'COMIC') {
+        if (hasStoryIntent) {
+            return { panelCount: 2, colorMode: 'Color', imageCount: 4, reason: '主題具連續敘事傾向，建議彩色雙格搭配 4 張，兼顧節奏與成本。' };
+        }
+        if (hasCompareIntent) {
+            return { panelCount: 2, colorMode: 'Color', imageCount: 3, reason: '主題偏資訊呈現，2 格有利於對比與重點拆解。' };
+        }
+        return { panelCount: 1, colorMode: 'Color', imageCount: 2, reason: '一般主題先用 1 格主視覺 + 1 張補圖，重複風險較低。' };
+    }
+
+    if (hasCompareIntent) {
+        return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 3, reason: '資訊型主題建議 3 張內，避免相似圖造成算力浪費。' };
+    }
+    return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 2, reason: '寫實主題通常 2 張即可覆蓋主視覺與情境補圖。' };
 }
 
 export async function renderDraftEditorCard(taskId, draftContent, isComic) {
@@ -76,6 +97,8 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
             `).join('')}
         </div>`;
     }
+    const suggestion = getImagePlanSuggestion();
+    if (!MISSION.plannedImageCount || MISSION.plannedImageCount < 1) MISSION.plannedImageCount = suggestion.imageCount;
 
     const ui = createSkillUI(`
         <div class="space-y-4 animate-fade-in w-full">
@@ -105,6 +128,31 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
                 </div>
 
                 <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1 pt-3 border-t border-white/10">${panelsHtml}</div>
+            </div>
+
+            <div class="bg-violet-600/10 p-3 lg:p-4 rounded-2xl border border-violet-500/30 space-y-3 shadow-inner">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-black text-violet-300 uppercase tracking-widest">🧠 AI 生圖建議</h3>
+                    <button id="btnApplyAiSuggestion" class="text-[10px] px-2 py-1 rounded-lg border border-violet-400/40 text-violet-200 hover:bg-violet-600/30">一鍵套用</button>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">${suggestion.reason}</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議格數：<span id="aiPanelHint" class="text-violet-300 font-bold">${suggestion.panelCount} 格</span></div>
+                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議色系：<span id="aiColorHint" class="text-violet-300 font-bold">${suggestion.colorMode === 'BW' ? '黑白' : suggestion.colorMode}</span></div>
+                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議張數：<span id="aiCountHint" class="text-violet-300 font-bold">${suggestion.imageCount} 張</span></div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label class="text-[10px] text-slate-400 font-bold flex items-center justify-between bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
+                        <span>本次生圖張數</span>
+                        <select id="plannedImageCount" class="bg-slate-800 border border-white/10 rounded px-2 py-1 text-[10px] text-white">
+                            ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<option value="${n}" ${MISSION.plannedImageCount === n ? 'selected' : ''}>${n} 張</option>`).join('')}
+                        </select>
+                    </label>
+                    <label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
+                        <input id="storyModeToggle" type="checkbox" class="accent-violet-500" ${MISSION.isStoryMode ? 'checked' : ''}>
+                        連續劇情模式（適合短篇漫畫）
+                    </label>
+                </div>
             </div>
             
             <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本與對白，發包生圖</button>
@@ -203,6 +251,24 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         input.addEventListener('input', updateCounter); updateCounter();
     });
 
+    ui.querySelector('#plannedImageCount').onchange = (e) => {
+        MISSION.plannedImageCount = parseInt(e.target.value, 10);
+    };
+    ui.querySelector('#storyModeToggle').onchange = (e) => {
+        MISSION.isStoryMode = !!e.target.checked;
+    };
+    ui.querySelector('#btnApplyAiSuggestion').onclick = async () => {
+        MISSION.plannedImageCount = suggestion.imageCount;
+        MISSION.isStoryMode = suggestion.imageCount >= 4;
+        if (MISSION.universe === 'COMIC') {
+            MISSION.panelCount = suggestion.panelCount;
+            MISSION.colorMode = suggestion.colorMode;
+        }
+        ui.querySelector('#plannedImageCount').value = String(MISSION.plannedImageCount);
+        ui.querySelector('#storyModeToggle').checked = MISSION.isStoryMode;
+        await addLog("美術總監", "🧠", `已套用 AI 建議：${MISSION.universe === 'COMIC' ? `${MISSION.panelCount}格 / ${MISSION.colorMode === 'BW' ? '黑白' : '彩色'} / ` : ''}${MISSION.plannedImageCount} 張。`, true);
+    };
+
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         saveCurrentCaption(); 
         
@@ -228,7 +294,17 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     updateStepHeader("FINAL DEPLOYMENT"); 
     await addLog("社群總監", "🚀", "大作已完成！請做最後確認，您還可以選擇重新算圖或退回修改：", true);
 
-    const displayImgUrl = images && images.length > 0 ? images[0].finalUrl : ''; 
+    if ((!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0) && Array.isArray(images) && images.length > 0) {
+        recordGeneratedImageBatch(images, finalCaption || '');
+    }
+    const batches = MISSION.generatedImageBatches || [];
+    if (!MISSION.selectedImageBatchId && batches.length > 0) {
+        MISSION.selectedImageBatchId = batches[0].id;
+    }
+    let selectedBatch = batches.find(b => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
+    const selectedImages = selectedBatch?.images || [];
+    const displayImgUrl = selectedImages && selectedImages.length > 0 ? (selectedImages[0].finalUrl || selectedImages[0].imageUrl || '') : '';
+    const selectedCaption = selectedBatch?.caption || finalCaption || '';
     let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
 
@@ -245,11 +321,17 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div class="relative w-full aspect-square bg-black flex items-center justify-center">
                     <img src="${displayImgUrl}" class="max-w-full max-h-full object-contain">
-                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">共 ${images ? images.length : 0} 張圖</div>
+                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">當前批次 ${selectedImages ? selectedImages.length : 0} 張圖</div>
                 </div>
                 <div class="p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
                     ${previewNote}
-                    <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">${finalCaption}</p>
+                    <p class="text-xs text-slate-300 leading-relaxed whitespace-pre-wrap">${selectedCaption}</p>
+                    <div class="mt-3 pt-3 border-t border-white/10 space-y-2">
+                        <div class="text-[10px] text-slate-400 font-bold">🗂️ 已扣點生圖資產（可切換批次）</div>
+                        <div id="batchSelector" class="flex flex-wrap gap-2">
+                            ${batches.map((b, idx) => `<button class="batch-chip px-2 py-1 rounded-lg text-[10px] font-bold border ${b.id === MISSION.selectedImageBatchId ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-batch-id="${b.id}">第 ${batches.length - idx} 批</button>`).join('')}
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -277,6 +359,14 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnTopReturnLobbyFinal').onclick = returnToLobbyHandler;
     ui.querySelector('#btnBottomReturnLobbyFinal').onclick = returnToLobbyHandler;
 
+    ui.querySelectorAll('.batch-chip').forEach(btn => {
+        btn.onclick = async () => {
+            MISSION.selectedImageBatchId = btn.dataset.batchId;
+            releaseUI(ui);
+            await renderFinalPublishCard(taskId, images, finalCaption);
+        };
+    });
+
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
         const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
@@ -288,12 +378,18 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
 
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
+        markImageRegenerationRequired('退回修改草稿');
         await addLog("系統", "🔙", "已退回草稿編輯模式。", true);
         const pseudoDraft = { panels: MISSION.currentPanels };
         await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC');
     };
 
     ui.querySelector('#btnDeploy').onclick = async () => {
+        const currentCtx = buildImageGenerationContextKey();
+        if (MISSION.imageRegenerationRequired || MISSION.lastGeneratedContextKey !== currentCtx) {
+            return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
+        }
+
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
         try {
@@ -309,10 +405,15 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 taskId: taskId, 
                 tenantId: STATE.uid, 
                 scheduledAt: MISSION.scheduledAt, 
-                finalCaption: finalCaption,
+                finalCaption: selectedCaption,
                 multiCaptions: finalMultiCaptions, 
                 isIndependentPost: MISSION.isIndependentPost,
-                attachmentFiles: normalizeAttachmentFilesForPublish()
+                attachmentFiles: normalizeAttachmentFilesForPublish(),
+                selectedImageBatchId: selectedBatch?.id || null,
+                selectedImages: (selectedImages || []).map(img => ({
+                    finalUrl: img.finalUrl || img.imageUrl || '',
+                    prompt: img.prompt || ''
+                }))
             });
             
             if (response && response.success) {

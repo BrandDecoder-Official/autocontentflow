@@ -1,0 +1,25 @@
+---
+description: Collaboration guardrails for minimal and approved changes
+alwaysApply: true
+---
+
+# Project Guardrails
+
+- Do not modify unrelated code or "optimize" outside the approved scope.
+- Before every code change:
+  1) analyze current behavior and impact,
+  2) report current status and proposed direction,
+  3) get user approval, then edit.
+- Keep changes minimal and clean; avoid extra features, refactors, or speculative improvements.
+
+# Product Context
+
+- This project is a SaaS multi-tenant content platform.
+- Multi-platform publishing exists; some multi-platform parts are still in progress.
+- Preserve tenant isolation assumptions in all changes.
+
+# Point Deduction Rule
+
+- Point deduction and pricing logic is backend-owned.
+- If deduction behavior is involved, request backend code/context first.
+- Do not make frontend-only assumptions or unilateral point-rule changes.

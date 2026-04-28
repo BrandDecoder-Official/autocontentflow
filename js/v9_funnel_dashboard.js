@@ -1,5 +1,5 @@
 // js/v9_funnel_dashboard.js
-import { MISSION, SYSTEM_DB, IS_EDIT_MODE } from './v9_state.js';
+import { MISSION, SYSTEM_DB, IS_EDIT_MODE, markImageRegenerationRequired } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, updatePointsDisplay } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
@@ -404,6 +404,7 @@ export async function triggerMissionSummary() {
                     });
                     btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                     btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    markImageRegenerationRequired('風格變更');
                     updateDashDisplay();
                 };
             });
@@ -417,6 +418,7 @@ export async function triggerMissionSummary() {
                     });
                     btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                     btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    markImageRegenerationRequired('色系變更');
                     updateDashDisplay();
                 };
             });
@@ -444,7 +446,7 @@ export async function triggerMissionSummary() {
             ui.querySelector('.dash-val-schedule').innerText = sDisp + ' ✎';
         };
 
-        ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; updateDashDisplay(); };
+        ui.querySelector('#editDashTopic').oninput = (e) => { MISSION.topic = e.target.value; markImageRegenerationRequired('主題變更'); updateDashDisplay(); };
 
         ui.querySelectorAll('.btn-dash-persona').forEach(btn => {
             btn.onclick = () => {
@@ -455,6 +457,7 @@ export async function triggerMissionSummary() {
                 });
                 btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                 btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                markImageRegenerationRequired('人設變更');
                 updateDashDisplay();
             };
         });
@@ -496,6 +499,7 @@ export async function triggerMissionSummary() {
                     MISSION.sceneFiles = []; 
                     MISSION.attachmentFiles = [];
                     MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; 
+                    markImageRegenerationRequired('宇宙切換');
                 }
                 
                 // 重新渲染內部 Style/Color 區塊
