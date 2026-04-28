@@ -39,7 +39,7 @@ function getImagePlanSuggestion() {
     return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 2, reason: '寫實主題通常 2 張即可覆蓋主視覺與情境補圖。' };
 }
 
-export async function renderDraftEditorCard(taskId, draftContent, isComic) {
+export async function renderDraftEditorCard(taskId, draftContent, isComic, options = {}) {
     updateStepHeader("DRAFT EDITOR"); 
 
     // 💡 1. 強化 V10 資料結構初始化
@@ -62,6 +62,11 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
             if (!MISSION.currentCaptions[p]) MISSION.currentCaptions[p] = defaultCap;
             if (MISSION.currentHashtags[p].length === 0) MISSION.currentHashtags[p] = [...defaultTags];
         });
+    }
+    // 保底：若仍為空，至少給 UNIFIED 一份可編輯內容，避免回卡後空白重填
+    if (!MISSION.currentCaptions.UNIFIED) {
+        const fallbackCap = (typeof draftContent === 'string' ? draftContent : (draftContent?.post_caption || MISSION.currentCaption || '')).trim();
+        if (fallbackCap) MISSION.currentCaptions.UNIFIED = fallbackCap;
     }
 
     let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
@@ -102,10 +107,12 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
 
     const ui = createSkillUI(`
         <div class="space-y-4 animate-fade-in w-full">
+            ${options.returnBannerText ? `<div class="bg-indigo-600/20 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-indigo-200 font-bold">${options.returnBannerText}</div>` : ''}
             <div class="flex justify-between items-center px-1 mb-2">
                 <button id="btnTopReturnLobby" class="text-[10px] text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-bold">
                     <i class="fa-solid fa-arrow-left"></i> 暫存並返回大廳
                 </button>
+                <button id="btnClearDraftContent" class="text-[10px] px-2 py-1 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">🧹 一鍵清空</button>
             </div>
 
             <div class="bg-blue-600/10 p-3 lg:p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
@@ -226,6 +233,12 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         MISSION.currentCaptions[currentTab] = ui.querySelector('#editCaption').value;
     };
     ui.querySelector('#editCaption').oninput = saveCurrentCaption;
+    ui.querySelector('#btnClearDraftContent').onclick = () => {
+        MISSION.currentCaptions[currentTab] = '';
+        MISSION.currentHashtags[currentTab] = [];
+        ui.querySelector('#editCaption').value = '';
+        renderHashtags();
+    };
 
     ui.querySelectorAll('.plat-tab-btn').forEach(btn => {
         btn.onclick = () => {
@@ -283,6 +296,12 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic) {
         
         await window.FunnelActions.generateImages(taskId, editedCaption, editedPanels);
     };
+
+    if (options.returnBannerText) {
+        const log = document.getElementById('funnelLog');
+        if (log) log.scrollTo({ top: 0, behavior: 'auto' });
+        ui.scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
 }
 
 /**
@@ -441,9 +460,18 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnBackToDraft').onclick = async () => {
         releaseUI(ui);
         markImageRegenerationRequired('退回修改草稿');
-        await addLog("系統", "🔙", "已回到內容編輯卡（不回漏斗）。", true);
-        const pseudoDraft = { panels: MISSION.currentPanels };
-        await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC');
+        const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+        const finalCapEl = ui.querySelector('#finalCaptionEdit');
+        const latestCaption = (finalCapEl ? finalCapEl.value : selectedCaption) || MISSION.currentCaptions[currentTab] || '';
+        MISSION.currentCaptions[currentTab] = latestCaption;
+        const pseudoDraft = {
+            post_caption: latestCaption,
+            hashtags: MISSION.currentHashtags[currentTab] || [],
+            panels: MISSION.currentPanels
+        };
+        await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC', {
+            returnBannerText: '已回到內容編輯卡（不回漏斗）。'
+        });
     };
 
     ui.querySelector('#btnDeploy').onclick = async () => {

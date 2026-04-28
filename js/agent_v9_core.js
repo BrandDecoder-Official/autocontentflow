@@ -266,7 +266,10 @@ window.renderTaskDashboard = async function() {
 // 🗑️ 刪除任務功能 (已接通 API)
 // ==========================================
 window.deleteTask = async function(taskId) {
-    if (!confirm('總編，確定要刪除這筆任務嗎？\n(刪除後將無法恢復，請謹慎操作)')) return;
+    const ok = await (window.showConfirm
+        ? window.showConfirm('總編，確定要刪除這筆任務嗎？（刪除後將無法恢復）', { title: '刪除任務' })
+        : Promise.resolve(false));
+    if (!ok) return;
     
     try {
         console.log(`[任務控制台] 準備刪除任務: ${taskId}`);
@@ -276,12 +279,11 @@ window.deleteTask = async function(taskId) {
         // 重新刷新當前畫面 (重新抓取最新資料)
         window.renderTaskDashboard();
         
-        // 跳個小提示告訴使用者刪除成功
-        alert('任務已成功刪除並清空！');
+        if (window.showToast) window.showToast('任務已成功刪除。', 'success');
         
     } catch (error) {
         console.error("刪除失敗:", error);
-        alert('刪除失敗：' + error.message);
+        if (window.showToast) window.showToast('刪除失敗：' + error.message, 'error');
     }
 }
 

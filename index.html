@@ -227,6 +227,20 @@
     <div id="toast" class="fixed top-5 left-1/2 transform -translate-x-1/2 -translate-y-20 opacity-0 transition-all duration-300 bg-red-600 text-white px-6 py-3 rounded-full shadow-[0_0_20px_rgba(220,38,38,0.6)] font-bold flex items-center z-[11000] text-sm whitespace-nowrap">
         <span id="toastMsg">系統錯誤</span>
     </div> 
+    <div id="confirmModal" class="fixed inset-0 z-[12000] hidden items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4">
+        <div class="w-full max-w-md bg-slate-800 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div class="p-4 border-b border-white/10">
+                <h3 id="confirmTitle" class="text-sm font-black text-white">請確認操作</h3>
+            </div>
+            <div class="p-4">
+                <p id="confirmMessage" class="text-xs text-slate-300 leading-relaxed"></p>
+            </div>
+            <div class="p-3 border-t border-white/10 flex justify-end gap-2">
+                <button id="confirmCancel" class="px-3 py-2 rounded-lg text-xs font-bold border border-white/10 bg-slate-700 text-slate-200 hover:bg-slate-600">取消</button>
+                <button id="confirmOk" class="px-3 py-2 rounded-lg text-xs font-black bg-indigo-600 text-white hover:bg-indigo-500">確認</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { CONFIG, STATE } from './js/config.js';
@@ -304,14 +318,58 @@
         };
         window.closeSystemSettings = function() { const modal = document.getElementById('systemSettingsModal'); modal.classList.remove('show'); setTimeout(() => { modal.classList.add('hidden'); }, 300); };
 
-        window.goFunnelHome = function() {
+        window.showToast = function(message, type = 'error') {
+            const toast = document.getElementById('toast');
+            const msg = document.getElementById('toastMsg');
+            if (!toast || !msg) return;
+            msg.textContent = message;
+            toast.classList.remove('bg-red-600', 'bg-emerald-600', 'shadow-[0_0_20px_rgba(220,38,38,0.6)]', 'shadow-[0_0_20px_rgba(16,185,129,0.6)]');
+            if (type === 'success') {
+                toast.classList.add('bg-emerald-600', 'shadow-[0_0_20px_rgba(16,185,129,0.6)]');
+            } else {
+                toast.classList.add('bg-red-600', 'shadow-[0_0_20px_rgba(220,38,38,0.6)]');
+            }
+            toast.classList.remove('opacity-0', '-translate-y-20');
+            toast.classList.add('opacity-100', 'translate-y-0');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-20');
+                toast.classList.remove('opacity-100', 'translate-y-0');
+            }, 1800);
+        };
+
+        window.showConfirm = function(message, opts = {}) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirmModal');
+                const titleEl = document.getElementById('confirmTitle');
+                const msgEl = document.getElementById('confirmMessage');
+                const okBtn = document.getElementById('confirmOk');
+                const cancelBtn = document.getElementById('confirmCancel');
+                if (!modal || !titleEl || !msgEl || !okBtn || !cancelBtn) return resolve(false);
+
+                titleEl.textContent = opts.title || '請確認操作';
+                msgEl.textContent = message || '';
+                okBtn.textContent = opts.confirmText || '確認';
+                cancelBtn.textContent = opts.cancelText || '取消';
+
+                const cleanUp = () => {
+                    modal.classList.add('hidden');
+                    okBtn.onclick = null;
+                    cancelBtn.onclick = null;
+                };
+                okBtn.onclick = () => { cleanUp(); resolve(true); };
+                cancelBtn.onclick = () => { cleanUp(); resolve(false); };
+                modal.classList.remove('hidden');
+            });
+        };
+
+        window.goFunnelHome = async function() {
             const hasUnsavedProgress = !!(
                 MISSION.currentTaskId ||
                 (MISSION.topic && MISSION.topic.trim()) ||
                 (MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0)
             );
             if (hasUnsavedProgress) {
-                const ok = confirm('目前有未完成內容，確定要回到漏斗首頁嗎？');
+                const ok = await window.showConfirm('目前有未完成內容，確定要回到漏斗首頁嗎？', { title: '返回漏斗首頁' });
                 if (!ok) return;
             }
             const chatBar = document.getElementById('agentChatBar');

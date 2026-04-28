@@ -615,7 +615,7 @@ export async function triggerMissionSummary() {
                     MISSION.currentTaskId = data.taskId;
 
                     const shortId = MISSION.currentTaskId.slice(-6);
-                    await addLog("系統", "💾", `任務已成功建檔。追蹤碼：<span class="text-xs font-mono text-indigo-400 cursor-pointer hover:text-indigo-300 bg-indigo-900/50 px-2 py-0.5 rounded border border-indigo-500/50" onclick="navigator.clipboard.writeText('${MISSION.currentTaskId}'); alert('已複製完整追蹤碼');" title="點擊複製完整 ID">***${shortId} 📋</span>`, true);
+                    await addLog("系統", "💾", `任務已成功建檔。追蹤碼：<span class="text-xs font-mono text-indigo-400 cursor-pointer hover:text-indigo-300 bg-indigo-900/50 px-2 py-0.5 rounded border border-indigo-500/50" onclick="navigator.clipboard.writeText('${MISSION.currentTaskId}'); if(window.showToast){window.showToast('已複製完整追蹤碼','success');}" title="點擊複製完整 ID">***${shortId} 📋</span>`, true);
                 }
 
                 btn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-2"></div> 啟動大腦生成草稿...';
@@ -641,7 +641,7 @@ export async function triggerMissionSummary() {
                     `;
                     document.body.appendChild(debugDiv);
                 } catch (jsonErr) {
-                    alert("🚨 攔截器報告：JSON 轉換失敗！裡面真的藏了無法轉譯的幽靈物件：" + jsonErr.message);
+                    showError("🚨 攔截器報告：JSON 轉換失敗：" + jsonErr.message);
                 }
                 // ==========================================
 

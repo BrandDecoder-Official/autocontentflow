@@ -11,6 +11,9 @@ alwaysApply: true
   2) report current status and proposed direction,
   3) get user approval, then edit.
 - Keep changes minimal and clean; avoid extra features, refactors, or speculative improvements.
+- UI must follow existing design language (layout, colors, spacing, interaction patterns). Do not change visual style arbitrarily.
+- Security is top priority in every change. Proactively prevent injection, XSS/CSRF/auth bypass, unsafe DOM rendering, and other exploit paths.
+- Treat bug-prevention as security work: avoid risky shortcuts that could allow malicious payload planting through data or UI flows.
 
 # Product Context
 
