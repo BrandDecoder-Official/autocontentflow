@@ -10,6 +10,7 @@ export const MISSION = {
     currentTaskId: null, 
     topic: '', 
     universe: '', 
+    taskMode: 'GENERATE',
     style: '', 
     colorMode: '', 
     ratio: '9:16', 
@@ -124,7 +125,9 @@ export function loadMissionFromDB(taskData) {
     // 2. 還原基礎參數
     MISSION.currentTaskId = taskData.taskId || taskData.id;
     MISSION.topic = ctx.topic || '';
-    MISSION.universe = ctx.universe || '';
+    const legacyUniverse = ctx.universe || '';
+    MISSION.universe = legacyUniverse === 'ENHANCE' ? 'REALISTIC' : legacyUniverse;
+    MISSION.taskMode = ctx.taskMode || (legacyUniverse === 'ENHANCE' ? 'ENHANCE' : 'GENERATE');
     MISSION.style = ctx.style || '';
     MISSION.colorMode = ctx.colorMode || '';
     MISSION.ratio = ctx.ratio || '9:16';

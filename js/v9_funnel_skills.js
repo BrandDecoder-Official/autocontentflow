@@ -303,12 +303,31 @@ export async function triggerHookSkill() {
 export async function triggerUniverseSkill() { 
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
     const ui = createSkillUI(`
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-3">
-            <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-2xl lg:text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
-            <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-2xl lg:text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button>
-            <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-yellow-500 hover:bg-yellow-600/20 active:scale-95 transition-all flex flex-col items-center gap-2 ${MISSION.universe === 'ENHANCE' ? 'border-yellow-500 bg-yellow-600/20' : 'bg-slate-800'}" data-val="ENHANCE"><span class="text-2xl lg:text-3xl">✨</span><span class="font-black text-xs text-white">無損美化</span></button>
+        <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
+                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-2xl lg:text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
+                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-2xl lg:text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button>
+            </div>
+            <div class="bg-slate-900/60 border border-white/10 rounded-xl p-3 space-y-2">
+                <label class="text-[10px] text-slate-400 font-bold">子項模式</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'GENERATE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="GENERATE">新生成</button>
+                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'ENHANCE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="ENHANCE">無損美化</button>
+                </div>
+            </div>
         </div>
     `);
+    ui.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.onclick = () => {
+            MISSION.taskMode = btn.dataset.val;
+            ui.querySelectorAll('.mode-btn').forEach(b => {
+                b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+            });
+            btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+            btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+        };
+    });
     ui.querySelectorAll('.uni-btn').forEach(btn => { 
         btn.onclick = async () => { 
             const oldUni = MISSION.universe; 
@@ -321,13 +340,13 @@ export async function triggerUniverseSkill() {
                 MISSION.characters = []; 
                 MISSION.sceneFiles = []; 
                 MISSION.attachmentFiles = []; 
-                MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; 
+                MISSION.ratio = MISSION.taskMode === 'ENHANCE' ? '原圖比例' : '9:16'; 
             } 
             
             releaseUI(ui); 
-            await addLog("美術總監", "✅", `宇宙鎖定：${MISSION.universe}。`); 
+            await addLog("美術總監", "✅", `宇宙鎖定：${MISSION.universe} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'}。`); 
             
-            if (MISSION.universe === 'ENHANCE') {
+            if (MISSION.taskMode === 'ENHANCE') {
                 if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); }
             } else {
                 await triggerStyleSkill(); 
@@ -476,7 +495,7 @@ export async function triggerCharacterSkill() {
  */
 export async function triggerVisualSkill() { 
     updateStepHeader("VISUAL & ATTACHMENTS"); 
-    const isEnhance = MISSION.universe === 'ENHANCE'; 
+    const isEnhance = MISSION.taskMode === 'ENHANCE'; 
     const isComic = MISSION.universe === 'COMIC'; 
     const isRealistic = MISSION.universe === 'REALISTIC';
     

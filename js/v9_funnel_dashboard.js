@@ -20,7 +20,7 @@ export async function triggerMissionSummary() {
 
         // 🛡️ 狀態快取與安全防護
         const isComic = MISSION.universe === 'COMIC';
-        const isEnhance = MISSION.universe === 'ENHANCE';
+        const isEnhance = MISSION.taskMode === 'ENHANCE';
         const isRealistic = MISSION.universe === 'REALISTIC';
         const decodedTopic = decodeHTMLEntities(MISSION.topic || '');
 
@@ -272,13 +272,16 @@ export async function triggerMissionSummary() {
                     <div class="dashboard-item border border-white/10 rounded-2xl overflow-hidden bg-slate-800 shadow-md">
                         <button class="w-full p-4 flex justify-between items-center hover:bg-slate-700 transition-all accordion-trigger group" data-target="dash-universe-style">
                             <span class="text-slate-300 font-bold group-hover:text-white flex items-center gap-2">🌌 風格宇宙與色系 <span class="text-[10px] text-slate-500 transition-transform duration-300 transform rotate-0 arrow-icon">▼</span></span>
-                            <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.style || '預設'} / ${MISSION.colorMode || '直出'} ✎</span>
+                            <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'} / ${MISSION.style || '預設'} ✎</span>
                         </button>
                         <div id="dash-universe-style" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">宇宙類型</label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'},{v:'ENHANCE',i:'✨',n:'美化'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
+                                <div class="grid grid-cols-2 gap-2">
+                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
+                                    ${[{v:'GENERATE',n:'新生成'},{v:'ENHANCE',n:'無損美化'}].map(m => `<button class="btn-dash-mode py-2 rounded-lg border shadow-sm transition-all ${MISSION.taskMode===m.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.v}">${m.n}</button>`).join('')}
                                 </div>
                             </div>
                             <div id="dash-dynamic-styles-container">
@@ -431,8 +434,8 @@ export async function triggerMissionSummary() {
             ui.querySelector('.dash-val-team').innerText = `${MISSION.persona || ''} / ${(MISSION.platforms || []).join(',')} ✎`;
             
             // 動態判斷宇宙顯示文字
-            let styleText = `${MISSION.universe || ''} / ${MISSION.style || '預設'} / ${MISSION.colorMode || '直出'} ✎`;
-            if (MISSION.universe === 'COMIC') styleText = `${MISSION.universe || ''} / ${MISSION.style || ''} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
+            let styleText = `${MISSION.universe || ''} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'} / ${MISSION.style || '預設'} ✎`;
+            if (MISSION.universe === 'COMIC') styleText = `${MISSION.universe || ''} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'} / ${MISSION.colorMode==='BW'?'黑白':'彩色'} ✎`;
             ui.querySelector('.dash-val-universe-style').innerText = styleText;
 
             const isComicNow = MISSION.universe === 'COMIC';
@@ -498,7 +501,7 @@ export async function triggerMissionSummary() {
                     MISSION.characters = []; 
                     MISSION.sceneFiles = []; 
                     MISSION.attachmentFiles = [];
-                    MISSION.ratio = MISSION.universe === 'ENHANCE' ? '原圖比例' : '9:16'; 
+                    MISSION.ratio = MISSION.taskMode === 'ENHANCE' ? '原圖比例' : '9:16'; 
                     markImageRegenerationRequired('宇宙切換');
                 }
                 
@@ -513,6 +516,26 @@ export async function triggerMissionSummary() {
                 });
                 btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
                 btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+            };
+        });
+
+        ui.querySelectorAll('.btn-dash-mode').forEach(btn => {
+            btn.onclick = () => {
+                MISSION.taskMode = btn.dataset.val;
+                if (MISSION.taskMode === 'ENHANCE') {
+                    MISSION.ratio = '原圖比例';
+                } else if (MISSION.ratio === '原圖比例') {
+                    MISSION.ratio = '9:16';
+                }
+                ui.querySelectorAll('.btn-dash-mode').forEach(b => {
+                    b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
+                    b.classList.add('border-white/10', 'bg-slate-800', 'text-slate-400');
+                });
+                btn.classList.remove('border-white/10', 'bg-slate-800', 'text-slate-400');
+                btn.classList.add('border-indigo-500', 'bg-indigo-600', 'text-white');
+                ui.querySelector('#dash-dynamic-styles-container').innerHTML = getUniverseStyleHtml();
+                bindDynamicStyleEvents();
+                updateDashDisplay();
             };
         });
 
@@ -581,6 +604,7 @@ export async function triggerMissionSummary() {
                             ratio: MISSION.ratio,
                             resolution: MISSION.resolution,
                             panelCount: MISSION.panelCount,
+                            taskMode: MISSION.taskMode || 'GENERATE',
                             scheduledAt: MISSION.scheduledAt
                         },
                         currentStatus: 'DRAFTING'

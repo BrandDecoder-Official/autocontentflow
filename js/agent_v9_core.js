@@ -42,6 +42,7 @@ function renderLobby() {
         topic: '',
         currentTaskId: null,
         isIndependentPost: false,
+        taskMode: 'GENERATE',
         plannedImageCount: 1,
         isStoryMode: false,
         generatedImageBatches: [],
