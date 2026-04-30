@@ -1,5 +1,5 @@
 // js/v9_funnel_dashboard.js
-import { MISSION, SYSTEM_DB, IS_EDIT_MODE, markImageRegenerationRequired } from './v9_state.js';
+import { MISSION, SYSTEM_DB, IS_EDIT_MODE, markImageRegenerationRequired, getMissionCharacterNames } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, updatePointsDisplay } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerCharacterSkill, triggerVisualSkill, triggerScheduleSkill } from './v9_funnel_skills.js';
@@ -34,9 +34,10 @@ export async function triggerMissionSummary() {
 
         // 👥 角色基因展示 HTML 組裝
         let charsHtml = '';
-        if(MISSION.characters && MISSION.characters.length > 0) {
+        const charNames = getMissionCharacterNames();
+        if (charNames.length > 0) {
             charsHtml = '<div class="flex items-center gap-2 flex-wrap">';
-            MISSION.characters.forEach(c => {
+            charNames.forEach((c) => {
                 const o = SYSTEM_DB.characters.find(mc => mc.name === c);
                 if(o && o.imageUrl) charsHtml += `<img src="${o.imageUrl}" class="w-8 h-8 rounded-full border border-indigo-500 flex-shrink-0 shadow-sm" title="${c}">`;
                 else charsHtml += `<span class="text-[10px] bg-indigo-900/50 text-indigo-200 px-2 py-1 rounded border border-indigo-500/50">${c}</span>`;

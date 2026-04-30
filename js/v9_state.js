@@ -55,13 +55,105 @@ export const MISSION = {
     // 生圖資產池：保留每次扣點生成的批次，供用戶回選
     generatedImageBatches: [],
     selectedImageBatchId: null,
+    /** 目前預覽中：所選批次內第幾張（0-based） */
+    selectedImagePreviewIndex: 0,
     imageRegenerationRequired: false,
-    lastGeneratedContextKey: ''
+    lastGeneratedContextKey: '',
+
+    /** 發佈時是否納入各批次的合成圖：batchId -> boolean[]（與該批 images 對齊） */
+    publishSyntheticMaskByBatch: {}
 };
+
+/** 發佈媒體上限：使用者勾選的合成圖 + 非合成附件圖合計（相簿式 0～10 張，可多選） */
+export const PUBLISH_MEDIA_MAX_TOTAL = 10;
+
+/**
+ * 確保該批次有與圖片數量對齊的勾選陣列；新增索引預設為 true（納入發佈）。
+ */
+export function ensureSyntheticPublishMask(batchId, imageCount) {
+    if (!batchId || imageCount < 1) return [];
+    MISSION.publishSyntheticMaskByBatch = MISSION.publishSyntheticMaskByBatch || {};
+    const cur = MISSION.publishSyntheticMaskByBatch[batchId];
+    if (!Array.isArray(cur) || cur.length !== imageCount) {
+        const next = [];
+        for (let i = 0; i < imageCount; i++) {
+            next.push(cur && cur[i] !== undefined ? !!cur[i] : true);
+        }
+        MISSION.publishSyntheticMaskByBatch[batchId] = next;
+    }
+    return MISSION.publishSyntheticMaskByBatch[batchId];
+}
+
+/**
+ * 返回任務大廳時將 MISSION 還原為乾淨預設，避免上一筆任務殘留污染新任務。
+ * 不替換 tgConfig 物件本體（側欄 input 綁定的是同一參考）。
+ */
+export function resetMissionStateForLobby() {
+    const token = MISSION.tgConfig?.botToken ?? '';
+    const chatId = MISSION.tgConfig?.chatId ?? '';
+
+    MISSION.currentTaskId = null;
+    MISSION.topic = '';
+    MISSION.universe = '';
+    MISSION.taskMode = 'GENERATE';
+    MISSION.style = '';
+    MISSION.colorMode = '';
+    MISSION.ratio = '9:16';
+    MISSION.resolution = '1K';
+    MISSION.panelCount = 4;
+    MISSION.characters = [];
+    MISSION.sceneFiles = [];
+    MISSION.attachmentFiles = [];
+    MISSION.scheduledAt = null;
+    MISSION.persona = '';
+    MISSION.hookType = '痛點提問';
+    MISSION.contentLength = '深度文 (約300字)';
+    MISSION.platforms = [];
+    MISSION.isIndependentPost = false;
+    MISSION.platformStrategies = {
+        FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
+        IG: { hookType: '視覺誘惑', contentLength: '短平快 (約150字)' },
+        THREADS: { hookType: '反直覺爆點', contentLength: '極短篇 (約50字)' }
+    };
+    MISSION.currentCaptions = { UNIFIED: '', FB: '', IG: '', THREADS: '' };
+    MISSION.currentHashtags = { UNIFIED: [], FB: [], IG: [], THREADS: [] };
+    MISSION.currentCaption = '';
+    MISSION.currentHashtagsArray = [];
+    MISSION.currentPanels = null;
+    MISSION.currentDraft = null;
+    MISSION.plannedImageCount = 1;
+    MISSION.isStoryMode = false;
+    MISSION.generatedImageBatches = [];
+    MISSION.selectedImageBatchId = null;
+    MISSION.selectedImagePreviewIndex = 0;
+    MISSION.imageRegenerationRequired = false;
+    MISSION.lastGeneratedContextKey = '';
+    MISSION.publishSyntheticMaskByBatch = {};
+
+    MISSION.tgConfig.botToken = token;
+    MISSION.tgConfig.chatId = chatId;
+}
 
 export const IS_EDIT_MODE = { value: false };
 
 export const SYSTEM_DB = { characters: [], personas: [], styles: [], pricing: {} };
+
+/**
+ * 任務中的角色可能是字串（漏斗內）或 { name, persona }（後端 / 草稿 API 回寫）。
+ * 統一成角色名稱字串陣列，供比對基因庫與組 referenceImages。
+ */
+export function getMissionCharacterNames(chars) {
+    const list = chars ?? MISSION.characters;
+    if (!Array.isArray(list)) return [];
+    return list
+        .map((c) => {
+            if (c == null) return '';
+            if (typeof c === 'string') return c.trim();
+            if (typeof c === 'object' && typeof c.name === 'string') return c.name.trim();
+            return '';
+        })
+        .filter(Boolean);
+}
 
 export function isMissionComplete() {
     if (!MISSION.topic || !MISSION.universe) return false;
@@ -79,7 +171,7 @@ export function buildImageGenerationContextKey() {
         universe: MISSION.universe || '',
         style: MISSION.style || '',
         colorMode: MISSION.colorMode || '',
-        characters: [...(MISSION.characters || [])].sort(),
+        characters: [...getMissionCharacterNames(MISSION.characters)].sort(),
         sceneRefs: normalizeImageSourceList(MISSION.sceneFiles || [])
     };
     return JSON.stringify(context);
@@ -104,8 +196,11 @@ export function recordGeneratedImageBatch(images = [], caption = '') {
     MISSION.generatedImageBatches = MISSION.generatedImageBatches || [];
     MISSION.generatedImageBatches.unshift(batch);
     MISSION.selectedImageBatchId = batchId;
+    MISSION.selectedImagePreviewIndex = 0;
     MISSION.lastGeneratedContextKey = batch.contextKey;
     MISSION.imageRegenerationRequired = false;
+    MISSION.publishSyntheticMaskByBatch = MISSION.publishSyntheticMaskByBatch || {};
+    MISSION.publishSyntheticMaskByBatch[batchId] = images.map(() => true);
     return batch;
 }
 
@@ -135,7 +230,7 @@ export function loadMissionFromDB(taskData) {
     MISSION.panelCount = ctx.panelCount || 4;
     MISSION.plannedImageCount = ctx.plannedImageCount || 1;
     MISSION.isStoryMode = !!ctx.isStoryMode;
-    MISSION.characters = ctx.characters || [];
+    MISSION.characters = getMissionCharacterNames(ctx.characters || []);
     MISSION.persona = ctx.persona || '';
     MISSION.hookType = ctx.hookType || '痛點提問';
     MISSION.contentLength = ctx.contentLength || '深度文 (約300字)';

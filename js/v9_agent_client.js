@@ -190,22 +190,33 @@ export class AgentClient {
                     }
                 } else if (action === 'GENERATE_IMAGES') {
                     if (window.FunnelActions && window.FunnelActions.generateImages) {
-                        const captionEl = document.getElementById('editCaption');
-                        const editedCaption = captionEl ? captionEl.value : (MISSION.currentCaption || "");
+                        const captionEl = document.getElementById('editCaption') || document.getElementById('finalCaptionEdit');
+                        let editedCaption = '';
+                        if (captionEl) {
+                            editedCaption = captionEl.value;
+                        } else {
+                            const tab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+                            const tagsStr = (MISSION.currentHashtags[tab] || []).length > 0
+                                ? '\n\n' + MISSION.currentHashtags[tab].map(t => '#' + String(t).replace(/^#/, '')).join(' ')
+                                : '';
+                            editedCaption = (MISSION.currentCaptions[tab] || MISSION.currentCaption || '').trim() + tagsStr;
+                        }
                         const panelInputs = document.querySelectorAll('.panel-dialogue');
-                        const editedPanels = [];
+                        let editedPanels = [];
                         
-                        if (panelInputs.length > 0) {
+                        if (panelInputs.length > 0 && MISSION.currentDraft && Array.isArray(MISSION.currentDraft.panels)) {
                             panelInputs.forEach((input, idx) => { 
+                                const src = MISSION.currentDraft.panels[idx];
+                                if (!src) return;
                                 editedPanels.push({ 
-                                    panel_number: MISSION.currentDraft.panels[idx].panel_number, 
+                                    panel_number: src.panel_number, 
                                     dialogue: input.value, 
-                                    action_zh: MISSION.currentDraft.panels[idx].action_zh, 
-                                    action_en: MISSION.currentDraft.panels[idx].action_en 
+                                    action_zh: src.action_zh, 
+                                    action_en: src.action_en 
                                 }); 
                             });
-                        } else if (MISSION.currentPanels) {
-                            Object.assign(editedPanels, MISSION.currentPanels);
+                        } else if (Array.isArray(MISSION.currentPanels) && MISSION.currentPanels.length > 0) {
+                            editedPanels = MISSION.currentPanels.map((p) => ({ ...p }));
                         }
                         
                         await window.FunnelActions.generateImages(MISSION.currentTaskId, editedCaption, editedPanels);

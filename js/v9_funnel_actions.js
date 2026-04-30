@@ -1,6 +1,6 @@
 // js/v9_funnel_actions.js
 import { STATE } from './config.js'; 
-import { MISSION, SYSTEM_DB, recordGeneratedImageBatch } from './v9_state.js';
+import { MISSION, SYSTEM_DB, recordGeneratedImageBatch, getMissionCharacterNames } from './v9_state.js';
 import { addLog, releaseUI, showError } from './v9_ui.js';
 import { applyPointDeduction, validatePoints } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI } from './api.js'; 
@@ -10,7 +10,7 @@ function buildReferenceImages() {
     const referenceImages = [];
 
     // 角色圖通常來自 DB URL，直接帶 imageUrl 讓後端可轉 base64。
-    MISSION.characters.forEach(name => {
+    getMissionCharacterNames().forEach((name) => {
         const charData = SYSTEM_DB.characters.find(c => c.name === name);
         if (charData && charData.imageUrl) {
             referenceImages.push({ type: 'character', name, imageUrl: charData.imageUrl });
@@ -89,7 +89,7 @@ window.FunnelActions = {
             // 🆕 Telegram 多租戶設定
             tgConfig: MISSION.tgConfig,
 
-            characters: MISSION.characters.map(name => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name: name, persona: c ? (c.persona || "") : "" }; }), 
+            characters: getMissionCharacterNames().map((name) => { const c = SYSTEM_DB.characters.find(x => x.name === name); return { name, persona: c ? (c.persona || "") : "" }; }), 
             image_options: { ratio: MISSION.ratio, resolution: MISSION.resolution, referenceImages, attachmentFiles } 
         };
 
@@ -147,7 +147,7 @@ window.FunnelActions = {
                 panelCount: MISSION.panelCount,
                 plannedImageCount: MISSION.plannedImageCount || 1,
                 isStoryMode: !!MISSION.isStoryMode,
-                characters: MISSION.characters,
+                characters: getMissionCharacterNames(),
                 image_options: {
                     ratio: MISSION.ratio,
                     resolution: MISSION.resolution,

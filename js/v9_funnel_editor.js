@@ -1,6 +1,6 @@
 // js/v9_funnel_editor.js
 import { STATE } from './config.js'; 
-import { MISSION, buildImageGenerationContextKey, markImageRegenerationRequired, recordGeneratedImageBatch } from './v9_state.js';
+import { MISSION, buildImageGenerationContextKey, markImageRegenerationRequired, recordGeneratedImageBatch, ensureSyntheticPublishMask, PUBLISH_MEDIA_MAX_TOTAL } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { publishTaskAPI } from './api.js'; 
 
@@ -16,6 +16,32 @@ function normalizeAttachmentFilesForPublish() {
             return item;
         })
         .filter(item => item.imageUrl || item.data);
+}
+
+function getPublishSelectedBatch() {
+    const rows = MISSION.generatedImageBatches || [];
+    return rows.find(b => b.id === MISSION.selectedImageBatchId) || rows[0] || null;
+}
+
+function synthPlusAttachmentsWithinCap(nextSynthCount) {
+    const att = normalizeAttachmentFilesForPublish().length;
+    return nextSynthCount + att <= PUBLISH_MEDIA_MAX_TOTAL;
+}
+
+/** 設定某張合成圖是否納入發佈；失敗時回 false（超過 10 張） */
+function trySetPublishInclusion(batch, imageIndex, want) {
+    if (!batch || !Array.isArray(batch.images)) return false;
+    const n = batch.images.length;
+    if (imageIndex < 0 || imageIndex >= n) return false;
+    const mask = ensureSyntheticPublishMask(batch.id, n);
+    let nextSynth = 0;
+    for (let j = 0; j < n; j++) {
+        const on = (j === imageIndex) ? want : !!mask[j];
+        if (on) nextSynth++;
+    }
+    if (!synthPlusAttachmentsWithinCap(nextSynth)) return false;
+    mask[imageIndex] = want;
+    return true;
 }
 
 function getImagePlanSuggestion() {
@@ -109,10 +135,10 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
         <div class="space-y-4 animate-fade-in w-full">
             ${options.returnBannerText ? `<div class="bg-indigo-600/20 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-indigo-200 font-bold">${options.returnBannerText}</div>` : ''}
             <div class="flex justify-between items-center px-1 mb-2">
-                <button id="btnTopReturnLobby" class="text-[10px] text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-bold">
-                    <i class="fa-solid fa-arrow-left"></i> 暫存並返回大廳
+                <button type="button" id="btnTopReturnLobby" class="min-h-[44px] px-2 -ml-2 text-[11px] sm:text-[10px] text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i><span class="leading-tight">暫存並返回大廳</span>
                 </button>
-                <button id="btnClearDraftContent" class="text-[10px] px-2 py-1 rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors">🧹 一鍵清空</button>
+                <button type="button" id="btnClearDraftContent" class="min-h-[40px] px-3 text-[11px] sm:text-[10px] rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-[0.98] touch-manipulation font-bold">🧹 清空本頁</button>
             </div>
 
             <div class="bg-blue-600/10 p-3 lg:p-4 rounded-2xl border border-blue-500/30 space-y-3 shadow-inner">
@@ -162,10 +188,10 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                 </div>
             </div>
             
-            <button id="btnFinalGenerate" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">✨ 確認劇本與對白，發包生圖</button>
+            <button type="button" id="btnFinalGenerate" class="w-full min-h-[52px] sm:min-h-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-base sm:text-sm shadow-xl active:scale-[0.98] transition-all touch-manipulation">✨ 確認內容，開始生圖</button>
             
-            <button id="btnBottomReturnLobby" class="w-full bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700 mt-2">
-                🔙 稍後處理，返回大廳
+            <button type="button" id="btnBottomReturnLobby" class="w-full min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 mt-2 touch-manipulation">
+                🔙 先離開，之後從大廳繼續
             </button>
         </div>
     `);
@@ -322,7 +348,14 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     }
     let selectedBatch = batches.find(b => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
     const selectedImages = selectedBatch?.images || [];
-    const displayImgUrl = selectedImages && selectedImages.length > 0 ? (selectedImages[0].finalUrl || selectedImages[0].imageUrl || '') : '';
+    const nImg = selectedImages.length;
+    if (nImg > 0) {
+        MISSION.selectedImagePreviewIndex = Math.max(0, Math.min(MISSION.selectedImagePreviewIndex || 0, nImg - 1));
+    } else {
+        MISSION.selectedImagePreviewIndex = 0;
+    }
+    const pi = MISSION.selectedImagePreviewIndex;
+    const displayImgUrl = nImg > 0 ? (selectedImages[pi].finalUrl || selectedImages[pi].imageUrl || '') : '';
     let selectedCaption = selectedBatch?.caption || finalCaption || '';
     let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
@@ -337,65 +370,230 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         : '';
 
     const ui = createSkillUI(`
-        <div class="flex flex-col gap-3 w-full animate-fade-in">
-            <div class="flex justify-between items-center px-1 mb-2">
-                <button id="btnTopReturnLobbyFinal" class="text-[10px] text-slate-400 hover:text-white transition-colors flex items-center gap-1 font-bold">
-                    <i class="fa-solid fa-arrow-left"></i> 暫存並返回大廳
+        <div class="flex flex-col gap-3 sm:gap-4 w-full animate-fade-in max-w-full">
+            <div class="flex justify-between items-center px-0.5 sm:px-1 gap-2">
+                <button type="button" id="btnTopReturnLobbyFinal" class="min-h-[44px] min-w-0 px-2 -ml-2 text-[11px] sm:text-xs text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5">
+                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i><span class="text-left leading-tight">暫存並返回大廳</span>
                 </button>
             </div>
 
-            <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-                <div class="relative w-full aspect-square bg-black flex items-center justify-center">
-                    <img src="${displayImgUrl}" class="max-w-full max-h-full object-contain">
-                    <div class="absolute top-2 right-2 bg-black/60 text-white text-[9px] px-2 py-1 rounded-full border border-white/20">當前批次 ${selectedImages ? selectedImages.length : 0} 張圖</div>
+            <div class="rounded-xl border border-dashed border-indigo-500/35 bg-indigo-950/25 px-3 py-3 sm:py-3.5 text-slate-200 shadow-inner">
+                <div class="font-black text-indigo-300 text-[11px] sm:text-xs mb-2 flex items-center gap-2">
+                    <span class="text-base leading-none" aria-hidden="true">💡</span> 第一次用？照這三步
                 </div>
-                <div class="p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
+                <ol class="list-decimal pl-[1.35rem] space-y-1.5 text-[11px] sm:text-sm text-slate-300 leading-snug">
+                    <li><strong class="text-slate-200">小圖</strong>可左右滑動（手機）或點按；大圖兩側<strong class="text-slate-200">箭頭</strong>也可換張。</li>
+                    <li>勾<strong class="text-rose-300">選入發佈</strong>或每張小圖下的勾選，决定要帶哪幾張（<strong class="text-white">0～10 張</strong>，含附件）。</li>
+                    <li>改好文字後，按最下方綠色<strong class="text-emerald-300">發佈</strong>按鈕。</li>
+                </ol>
+            </div>
+
+            <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                <div id="finalPreviewFrame" class="relative w-full aspect-square bg-black flex items-center justify-center touch-pan-y ring-2 ring-inset ring-transparent transition-shadow duration-150">
+                    <img id="finalPreviewImg" src="${displayImgUrl}" alt="預覽" class="max-w-full max-h-full object-contain transition-opacity duration-150">
+                    <button type="button" id="finalImgPrev" class="absolute left-0 sm:left-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="上一張">‹</button>
+                    <button type="button" id="finalImgNext" class="absolute right-0 sm:right-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="下一張">›</button>
+                    <div id="finalBatchMetaBadge" class="absolute top-2 left-2 bg-black/75 text-white text-[10px] sm:text-[11px] px-2.5 py-1 rounded-full border border-white/25 font-bold pointer-events-none max-w-[50%] sm:max-w-[55%] truncate"></div>
+                    <label id="finalPublishPickWrap" class="absolute top-2 right-2 z-20 flex items-center gap-2 bg-black/85 text-white text-[11px] sm:text-[10px] min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-full border border-white/35 cursor-pointer active:bg-black shadow-lg select-none max-w-[min(52%,280px)] touch-manipulation" title="合成圖與附件加總最多 10 張，可複選">
+                        <input type="checkbox" id="finalPublishIncludeCb" class="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0 rounded border border-white/60 bg-slate-900 accent-rose-500 cursor-pointer">
+                        <span class="font-bold leading-tight">選入發佈</span>
+                    </label>
+                    <div id="finalImageIdxBadge" class="absolute bottom-2 right-2 bg-black/85 text-white text-xs font-black px-2.5 py-1.5 sm:py-1 rounded-lg border border-white/30 min-w-[2.75rem] text-center pointer-events-none shadow-lg"></div>
+                </div>
+                <div id="finalThumbScrollWrap" class="hidden border-t border-white/10 bg-slate-900/95 px-2 pt-3 pb-2 sm:px-3">
+                    <p class="text-[10px] sm:text-[11px] text-slate-400 mb-2 px-1 leading-snug font-bold">相簿縮圖：<span class="font-normal text-slate-500">手機可<strong class="text-slate-300">左右滑</strong> · 點小圖換大圖 · 勾「發佈」決定是否帶這張</span></p>
+                    <div id="finalThumbStrip" class="flex gap-3 sm:gap-3.5 overflow-x-auto overflow-y-hidden pb-1.5 pt-0.5 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] scrollbar-thin" style="scrollbar-width: thin;"></div>
+                </div>
+                <div class="p-3 sm:p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
+                    <p id="finalMultiPublishHint" class="text-[11px] sm:text-[10px] text-slate-400 mb-2 leading-relaxed hidden rounded-lg bg-slate-900/40 px-2 py-2 border border-white/5"></p>
+                    <div id="finalPublishPickTools" class="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-2 text-[11px] sm:text-[10px] mb-3 hidden">
+                        <button type="button" id="btnSynthPublishAll" class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 rounded-lg sm:rounded-none bg-slate-800/80 sm:bg-transparent border border-white/10 sm:border-0 text-rose-300 hover:text-white active:scale-[0.98] font-bold touch-manipulation" title="本批全部勾選（仍受 10 張上限）">本批全部勾選</button>
+                        <span class="text-slate-600 hidden sm:inline">|</span>
+                        <button type="button" id="btnSynthPublishNone" class="min-h-[44px] sm:min-h-0 px-3 py-2 sm:px-0 sm:py-0 rounded-lg sm:rounded-none bg-slate-800/80 sm:bg-transparent border border-white/10 sm:border-0 text-slate-400 hover:text-white active:scale-[0.98] font-bold touch-manipulation" title="本批合成圖都不帶（0 張也可以）">本批都不帶圖</button>
+                    </div>
                     ${previewNote}
-                    <div class="mb-3 bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-2">
-                        <div class="text-[10px] font-bold text-emerald-300 mb-1">✅ 可直接修改（不需重生圖）</div>
-                        <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-slate-200 min-h-[120px] focus:border-emerald-500 outline-none resize-y">${selectedCaption}</textarea>
+                    <div class="mb-3 bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-2.5 sm:p-3">
+                        <div class="text-[11px] sm:text-[10px] font-bold text-emerald-300 mb-1.5">✅ 貼文文字（改這裡不用重算圖）</div>
+                        <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-sm sm:text-xs text-slate-200 min-h-[128px] sm:min-h-[120px] focus:border-emerald-500 outline-none resize-y touch-manipulation" placeholder="在這裡修改要發出的文字…">${selectedCaption}</textarea>
                     </div>
-                    <div class="mb-2 bg-amber-600/10 border border-amber-500/30 rounded-lg p-2">
-                        <div class="text-[10px] font-bold text-amber-300 mb-1">⚠️ 修改以下項目需重生圖</div>
-                        <div class="text-[10px] text-slate-300">主題 / 風格宇宙 / 色系 / 角色 / 參考圖</div>
+                    <div class="mb-2 bg-amber-600/10 border border-amber-500/30 rounded-lg p-2.5 sm:p-2">
+                        <div class="text-[11px] sm:text-[10px] font-bold text-amber-300 mb-1">⚠️ 想改這些請先按「重算」</div>
+                        <div class="text-[11px] sm:text-[10px] text-slate-300 leading-snug">主題、風格宇宙、色系、角色、參考圖</div>
                     </div>
-                    <div class="mb-2 bg-blue-600/10 border border-blue-500/30 rounded-lg p-2 space-y-2">
-                        <div class="text-[10px] font-bold text-blue-300">🛠️ 字卡快速設定（不回漏斗）</div>
+                    <div class="mb-2 bg-blue-600/10 border border-blue-500/30 rounded-lg p-2.5 sm:p-2 space-y-3">
+                        <div class="text-[11px] sm:text-[10px] font-bold text-blue-300">🛠️ 發佈設定（不用回到上一頁）</div>
                         <div>
-                            <div class="text-[10px] text-slate-400 mb-1">發佈平台</div>
+                            <div class="text-[11px] sm:text-[10px] text-slate-400 mb-2">要發到哪個平台？（至少留一個）</div>
                             <div id="finalPlatformChips" class="flex flex-wrap gap-2">
-                                ${['FB', 'IG', 'THREADS'].map(p => `<button class="final-plat-chip px-2 py-1 rounded-lg text-[10px] font-bold border ${MISSION.platforms.includes(p) ? 'border-blue-500 bg-blue-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-plat="${p}">${p}</button>`).join('')}
+                                ${['FB', 'IG', 'THREADS'].map(p => `<button type="button" class="final-plat-chip min-h-[44px] min-w-[4.5rem] sm:min-h-0 sm:min-w-0 px-4 py-2.5 sm:px-3 sm:py-2 rounded-xl sm:rounded-lg text-xs sm:text-[10px] font-bold border touch-manipulation active:scale-[0.98] ${MISSION.platforms.includes(p) ? 'border-blue-500 bg-blue-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-plat="${p}">${p}</button>`).join('')}
                             </div>
                         </div>
                         <div>
-                            <div class="text-[10px] text-slate-400 mb-1">排程時間（可留空=立即）</div>
-                            <div class="flex gap-2">
-                                <input id="finalScheduleInput" type="datetime-local" value="${scheduleLocal}" class="flex-1 bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-slate-200">
-                                <button id="btnFinalImmediate" class="px-2 py-1 rounded-lg text-[10px] font-bold border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700">立即</button>
+                            <div class="text-[11px] sm:text-[10px] text-slate-400 mb-2">何時發文？（空白 = 馬上）</div>
+                            <div class="flex flex-col sm:flex-row gap-2">
+                                <input id="finalScheduleInput" type="datetime-local" value="${scheduleLocal}" class="flex-1 min-h-[44px] bg-slate-900 border border-white/10 rounded-lg px-2 py-2 text-sm sm:text-[10px] text-slate-200 touch-manipulation">
+                                <button type="button" id="btnFinalImmediate" class="min-h-[44px] sm:min-h-0 px-4 rounded-lg text-xs sm:text-[10px] font-bold border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-[0.98] touch-manipulation shrink-0">改為立即</button>
                             </div>
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-white/10 space-y-2">
-                        <div class="text-[10px] text-slate-400 font-bold">🗂️ 已扣點生圖資產（可切換批次）</div>
+                        <div class="text-[11px] sm:text-[10px] text-slate-400 font-bold leading-snug">🗂️ 生圖批次（扣點產生的結果，可切換）</div>
                         <div id="batchSelector" class="flex flex-wrap gap-2">
-                            ${batches.map((b, idx) => `<button class="batch-chip px-2 py-1 rounded-lg text-[10px] font-bold border ${b.id === MISSION.selectedImageBatchId ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-batch-id="${b.id}">第 ${batches.length - idx} 批</button>`).join('')}
+                            ${batches.map((b, idx) => `<button type="button" class="batch-chip min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:px-2 sm:py-1 rounded-xl sm:rounded-lg text-xs sm:text-[10px] font-bold border touch-manipulation active:scale-[0.98] ${b.id === MISSION.selectedImageBatchId ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-batch-id="${b.id}">第 ${batches.length - idx} 批</button>`).join('')}
                         </div>
                     </div>
                 </div>
             </div>
             
-            <button id="btnDeploy" class="w-full bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-sm shadow-xl active:scale-95 transition-all">${btnText}</button>
+            <button type="button" id="btnDeploy" class="w-full min-h-[52px] sm:min-h-0 bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-base sm:text-sm shadow-xl active:scale-[0.98] transition-all touch-manipulation">${btnText}</button>
             
-            <div class="flex gap-2 w-full">
-                <button id="btnRegenerateImages" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">🎲 重算 (約500點)</button>
-                <button id="btnBackToDraft" class="flex-1 bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700">📝 回到內容編輯卡</button>
+            <div class="flex flex-col sm:flex-row gap-2 w-full">
+                <button type="button" id="btnRegenerateImages" class="flex-1 min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 touch-manipulation">🎲 重算圖（約 500 點）</button>
+                <button type="button" id="btnBackToDraft" class="flex-1 min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 touch-manipulation">📝 回去改文字</button>
             </div>
 
-            <button id="btnBottomReturnLobbyFinal" class="w-full bg-slate-800 text-slate-300 border border-white/10 py-3 rounded-xl text-xs font-bold active:scale-95 transition-all hover:bg-slate-700 mt-1">
-                🔙 任務已保留，返回大廳
+            <button type="button" id="btnBottomReturnLobbyFinal" class="w-full min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 mt-1 touch-manipulation">
+                🔙 先離開，之後從大廳繼續
             </button>
         </div>
     `);
+
+    function syncFinalPreview() {
+        const rows = MISSION.generatedImageBatches || [];
+        const batch = rows.find(b => b.id === MISSION.selectedImageBatchId) || rows[0] || null;
+        const imgs = batch?.images || [];
+        const n = imgs.length;
+        let idx = MISSION.selectedImagePreviewIndex || 0;
+        if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
+        else idx = 0;
+        MISSION.selectedImagePreviewIndex = idx;
+
+        const url = n > 0 ? (imgs[idx].finalUrl || imgs[idx].imageUrl || '') : '';
+        const imgEl = ui.querySelector('#finalPreviewImg');
+        const idxBadge = ui.querySelector('#finalImageIdxBadge');
+        const batchBadge = ui.querySelector('#finalBatchMetaBadge');
+        const hint = ui.querySelector('#finalMultiPublishHint');
+        const pickTools = ui.querySelector('#finalPublishPickTools');
+        const pickWrap = ui.querySelector('#finalPublishPickWrap');
+        const publishCb = ui.querySelector('#finalPublishIncludeCb');
+        const previewFrame = ui.querySelector('#finalPreviewFrame');
+        const prev = ui.querySelector('#finalImgPrev');
+        const next = ui.querySelector('#finalImgNext');
+
+        const mask = batch && n > 0 ? ensureSyntheticPublishMask(batch.id, n) : [];
+        const included = n > 0 ? !!mask[idx] : false;
+
+        if (imgEl) {
+            imgEl.classList.add('opacity-80');
+            imgEl.onload = () => { imgEl.classList.remove('opacity-80'); };
+            imgEl.src = url || '';
+        }
+        if (idxBadge) idxBadge.textContent = n === 0 ? '—' : `${idx + 1} / ${n}`;
+        if (batchBadge) {
+            if (batch && rows.length) {
+                const ord = rows.findIndex(b => b.id === batch.id);
+                const numFromNewest = ord >= 0 ? rows.length - ord : 0;
+                batchBadge.textContent = `第 ${numFromNewest} 批 · ${n} 張`;
+            } else {
+                batchBadge.textContent = '';
+            }
+        }
+        if (pickWrap) pickWrap.classList.toggle('hidden', n === 0);
+        if (publishCb) publishCb.checked = included;
+        if (previewFrame && n > 0) {
+            previewFrame.classList.toggle('ring-rose-500/75', included);
+            previewFrame.classList.toggle('ring-white/20', !included);
+        } else if (previewFrame) {
+            previewFrame.classList.remove('ring-rose-500/75', 'ring-white/20');
+        }
+        if (pickTools) pickTools.classList.toggle('hidden', n === 0);
+        if (hint) {
+            if (n > 0 && batch) {
+                hint.classList.remove('hidden');
+                const att = normalizeAttachmentFilesForPublish().length;
+                const selSynth = mask.filter(Boolean).length;
+                hint.innerHTML = `<strong class="text-slate-200">目前張數：</strong>已選 <span class="text-rose-300 font-bold">${selSynth}</span> 張合成圖 + <span class="text-indigo-300 font-bold">${att}</span> 張附件 = <span class="text-white font-black">${selSynth + att}</span> / ${PUBLISH_MEDIA_MAX_TOTAL} 張。可全部不選圖，只發文字也行。`;
+            } else {
+                hint.classList.add('hidden');
+                hint.textContent = '';
+            }
+        }
+
+        const thumbWrap = ui.querySelector('#finalThumbScrollWrap');
+        const thumbStrip = ui.querySelector('#finalThumbStrip');
+        if (thumbWrap && thumbStrip) {
+            if (n === 0) {
+                thumbWrap.classList.add('hidden');
+                thumbStrip.innerHTML = '';
+            } else {
+                thumbWrap.classList.remove('hidden');
+                thumbStrip.innerHTML = imgs.map((img, i) => {
+                    const u = img.finalUrl || img.imageUrl || '';
+                    const on = !!mask[i];
+                    const isCur = i === idx;
+                    const curRing = isCur ? 'border-indigo-400 ring-2 ring-indigo-500/60' : 'border-white/20';
+                    const checkMark = on
+                        ? '<span class="pointer-events-none absolute bottom-1 right-1 min-w-[1.5rem] h-6 px-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md" aria-hidden="true">✓</span>'
+                        : '';
+                    return `
+                    <div class="snap-start shrink-0 flex flex-col items-center gap-1 w-[4.85rem] sm:w-[5.35rem]">
+                        <button type="button" class="thumb-preview-btn relative w-[4.25rem] h-[4.25rem] sm:w-[4.75rem] sm:h-[4.75rem] rounded-xl overflow-hidden border-[3px] ${curRing} touch-manipulation active:opacity-90 shadow-md bg-slate-800" data-idx="${i}" aria-label="看第 ${i + 1} 張大圖" aria-current="${isCur ? 'true' : 'false'}">
+                            <img src="${u}" alt="" class="w-full h-full object-cover pointer-events-none" loading="lazy" decoding="async">
+                            <span class="pointer-events-none absolute top-0.5 left-0.5 min-w-[1.1rem] h-5 flex items-center justify-center bg-black/80 text-[10px] font-black text-white px-1 rounded border border-white/20">${i + 1}</span>
+                            ${checkMark}
+                        </button>
+                        <label class="flex items-center justify-center gap-1.5 w-full min-h-[40px] py-1 rounded-lg active:bg-white/5 touch-manipulation cursor-pointer select-none">
+                            <input type="checkbox" class="final-thumb-pub w-[18px] h-[18px] sm:w-4 sm:h-4 accent-rose-500 shrink-0 touch-manipulation" data-idx="${i}" ${on ? 'checked' : ''}>
+                            <span class="text-[10px] sm:text-[10px] text-slate-400 font-bold">發佈</span>
+                        </label>
+                    </div>`;
+                }).join('');
+
+                thumbStrip.querySelectorAll('.thumb-preview-btn').forEach((btn) => {
+                    btn.onclick = () => {
+                        const i = parseInt(btn.dataset.idx, 10);
+                        if (!Number.isNaN(i)) {
+                            MISSION.selectedImagePreviewIndex = i;
+                            syncFinalPreview();
+                        }
+                    };
+                });
+                thumbStrip.querySelectorAll('.final-thumb-pub').forEach((cb) => {
+                    cb.onchange = () => {
+                        const batchNow = getPublishSelectedBatch();
+                        if (!batchNow) return;
+                        const ii = parseInt(cb.dataset.idx, 10);
+                        const want = cb.checked;
+                        if (!trySetPublishInclusion(batchNow, ii, want)) {
+                            cb.checked = !want;
+                            return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
+                        }
+                        syncFinalPreview();
+                    };
+                });
+            }
+        }
+
+        const multi = n > 1;
+        if (prev) {
+            prev.classList.toggle('invisible', !multi);
+            prev.toggleAttribute('disabled', !multi);
+        }
+        if (next) {
+            next.classList.toggle('invisible', !multi);
+            next.toggleAttribute('disabled', !multi);
+        }
+
+        ui.querySelectorAll('.batch-chip').forEach(chip => {
+            const on = chip.dataset.batchId === MISSION.selectedImageBatchId;
+            chip.classList.toggle('border-indigo-500', on);
+            chip.classList.toggle('bg-indigo-600', on);
+            chip.classList.toggle('text-white', on);
+            chip.classList.toggle('border-white/10', !on);
+            chip.classList.toggle('bg-slate-900', !on);
+            chip.classList.toggle('text-slate-400', !on);
+        });
+    }
 
     // 🔙 綁定返回大廳事件
     const returnToLobbyHandler = () => {
@@ -439,17 +637,85 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     }
 
     ui.querySelectorAll('.batch-chip').forEach(btn => {
-        btn.onclick = async () => {
+        btn.onclick = () => {
             MISSION.selectedImageBatchId = btn.dataset.batchId;
-            releaseUI(ui);
-            await renderFinalPublishCard(taskId, images, finalCaption);
+            MISSION.selectedImagePreviewIndex = 0;
+            const b = getPublishSelectedBatch();
+            const ta = ui.querySelector('#finalCaptionEdit');
+            if (ta && b && typeof b.caption === 'string') ta.value = b.caption;
+            syncFinalPreview();
         };
     });
 
+    const prevImgBtn = ui.querySelector('#finalImgPrev');
+    const nextImgBtn = ui.querySelector('#finalImgNext');
+    if (prevImgBtn) {
+        prevImgBtn.onclick = () => {
+            const imgs = getPublishSelectedBatch()?.images || [];
+            if (imgs.length <= 1) return;
+            MISSION.selectedImagePreviewIndex = (MISSION.selectedImagePreviewIndex + imgs.length - 1) % imgs.length;
+            syncFinalPreview();
+        };
+    }
+    if (nextImgBtn) {
+        nextImgBtn.onclick = () => {
+            const imgs = getPublishSelectedBatch()?.images || [];
+            if (imgs.length <= 1) return;
+            MISSION.selectedImagePreviewIndex = (MISSION.selectedImagePreviewIndex + 1) % imgs.length;
+            syncFinalPreview();
+        };
+    }
+
+    const publishCbEl = ui.querySelector('#finalPublishIncludeCb');
+    if (publishCbEl) {
+        publishCbEl.addEventListener('change', () => {
+            const batch = getPublishSelectedBatch();
+            const n = batch?.images?.length || 0;
+            if (!batch || n < 1) return;
+            const idx = MISSION.selectedImagePreviewIndex;
+            const want = publishCbEl.checked;
+            if (!trySetPublishInclusion(batch, idx, want)) {
+                publishCbEl.checked = !want;
+                return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
+            }
+            syncFinalPreview();
+        });
+    }
+
+    const btnSynthAll = ui.querySelector('#btnSynthPublishAll');
+    const btnSynthNone = ui.querySelector('#btnSynthPublishNone');
+    if (btnSynthAll) {
+        btnSynthAll.onclick = () => {
+            const batch = getPublishSelectedBatch();
+            const n = batch?.images?.length || 0;
+            if (!batch || n < 1) return;
+            if (!synthPlusAttachmentsWithinCap(n)) {
+                return showError(`本批 ${n} 張全選會超過 ${PUBLISH_MEDIA_MAX_TOTAL} 張（含附件）。請先減少附件，或不要全選。`);
+            }
+            const mask = ensureSyntheticPublishMask(batch.id, n);
+            for (let i = 0; i < n; i++) mask[i] = true;
+            syncFinalPreview();
+        };
+    }
+    if (btnSynthNone) {
+        btnSynthNone.onclick = () => {
+            const batch = getPublishSelectedBatch();
+            const n = batch?.images?.length || 0;
+            if (!batch || n < 1) return;
+            const mask = ensureSyntheticPublishMask(batch.id, n);
+            for (let i = 0; i < n; i++) mask[i] = false;
+            syncFinalPreview();
+        };
+    }
+
+    syncFinalPreview();
+
     ui.querySelector('#btnRegenerateImages').onclick = async () => {
         const capEl = ui.querySelector('#finalCaptionEdit');
-        if (capEl) selectedCaption = capEl.value;
-        let currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+        const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+        if (capEl) {
+            MISSION.currentCaptions[currentTab] = capEl.value.trim();
+        }
         const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
             ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t.replace(/^#/, '')).join(' ')
             : '';
@@ -482,6 +748,15 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
         }
 
+        const publishBatchPre = getPublishSelectedBatch();
+        const imgsPre = publishBatchPre?.images || [];
+        const maskPre = ensureSyntheticPublishMask(publishBatchPre?.id, imgsPre.length);
+        const synthSelPre = maskPre.filter(Boolean).length;
+        const attPre = normalizeAttachmentFilesForPublish().length;
+        if (synthSelPre + attPre > PUBLISH_MEDIA_MAX_TOTAL) {
+            return showError(`圖片太多了：合成 + 附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張，請調整勾選或附件。`);
+        }
+
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
         try {
@@ -493,6 +768,11 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 }
             });
 
+            const publishBatch = getPublishSelectedBatch();
+            const publishImagesAll = publishBatch?.images || [];
+            const publishMask = ensureSyntheticPublishMask(publishBatch?.id, publishImagesAll.length);
+            const publishImages = publishImagesAll.filter((_, i) => publishMask[i]);
+
             const response = await publishTaskAPI({ 
                 taskId: taskId, 
                 tenantId: STATE.uid, 
@@ -501,8 +781,8 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 multiCaptions: finalMultiCaptions, 
                 isIndependentPost: MISSION.isIndependentPost,
                 attachmentFiles: normalizeAttachmentFilesForPublish(),
-                selectedImageBatchId: selectedBatch?.id || null,
-                selectedImages: (selectedImages || []).map(img => ({
+                selectedImageBatchId: publishBatch?.id || null,
+                selectedImages: publishImages.map(img => ({
                     finalUrl: img.finalUrl || img.imageUrl || '',
                     prompt: img.prompt || ''
                 }))

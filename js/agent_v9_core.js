@@ -1,6 +1,6 @@
 // js/agent_v9_core.js
 import { STATE, CONFIG } from './config.js';
-import { APP_VERSION, MISSION, loadMissionFromDB, IS_EDIT_MODE } from './v9_state.js'; // 🚀 引入時光機引擎
+import { APP_VERSION, MISSION, loadMissionFromDB, IS_EDIT_MODE, resetMissionStateForLobby } from './v9_state.js'; // 🚀 引入時光機引擎
 import { updateStepHeader, addLog, showError } from './v9_ui.js';
 import * as API from './api.js';
 
@@ -47,22 +47,7 @@ function getTaskStatus(task) {
 // ==========================================
 function renderLobby() {
     const log = document.getElementById('funnelLog');
-    // 初始化 MISSION 暫存 (將平台清空，等待漏斗寫入)
-    Object.assign(MISSION, {
-        persona: '',
-        hookType: '',
-        platforms: [],
-        topic: '',
-        currentTaskId: null,
-        isIndependentPost: false,
-        taskMode: 'GENERATE',
-        plannedImageCount: 1,
-        isStoryMode: false,
-        generatedImageBatches: [],
-        selectedImageBatchId: null,
-        imageRegenerationRequired: false,
-        lastGeneratedContextKey: ''
-    });
+    resetMissionStateForLobby();
     IS_EDIT_MODE.value = false; // 確保回到大廳時關閉編輯模式
     
     log.innerHTML = `
@@ -72,14 +57,7 @@ function renderLobby() {
                 <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mb-8">
-                <div class="bg-slate-800/50 border border-indigo-500/30 rounded-3xl p-6 lg:p-8 hover:bg-slate-800 transition-all cursor-not-allowed group relative flex flex-col h-full opacity-60">
-                    <div class="absolute top-0 right-0 bg-indigo-600 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase">Auto-Pilot</div>
-                    <div class="text-4xl mb-4">🤖</div>
-                    <h3 class="text-lg font-black text-white mb-2">全自動巡航模式</h3>
-                    <p class="text-xs text-slate-400 leading-relaxed">Agent 根據品牌基因，自動抓取時事並生成草稿。(開發中)</p>
-                </div>
-
+            <div class="max-w-lg mx-auto mb-8">
                 <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
                     <h3 class="text-lg font-black text-white mb-2">發起實戰任務</h3>
