@@ -2,7 +2,7 @@
 import { CONFIG, STATE } from './config.js';
 import { MISSION, SYSTEM_DB } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
-import { applyPointDeduction } from './v9_finance.js';
+import { applyPointDeduction, getBillingActionDisplayName } from './v9_finance.js';
 
 // ==========================================
 // 🛠️ Agent 專屬武器庫 (Tools Schema)
@@ -136,7 +136,11 @@ export class AgentClient {
                 const costTwd = costUsd * 32 * 4; // 32匯率, 4倍毛利
                 const deductedPoints = Math.max(1, Math.ceil(costTwd * 100)); // 至少扣 1 點
                 
-                applyPointDeduction(deductedPoints, `大腦思考耗能 (${data.tokensUsed} 算力點)`);
+                const tokenLabel = ` (${data.tokensUsed} tokens)`;
+                await applyPointDeduction(
+                    deductedPoints,
+                    `${getBillingActionDisplayName('TOKEN_USAGE', '大腦思考耗能')}${tokenLabel}`
+                );
             }
 
             const agentReplyText = data.agentState?.reply || '[執行了系統自動化操作]';

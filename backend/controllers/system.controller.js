@@ -68,8 +68,23 @@ class SystemController {
             characters.sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
             personas.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-            // 💸 V10 核心：直接從 pricing.config.js 載入全站動態報價單 (0 成本，極速)
-            const pricingData = PRICING;
+            // 💸 以 Firestore global_pricing 為售價真相（actions.retailPoints），並用 pricing.config 補齊成本模型等
+            let pricingData = { ...PRICING };
+            try {
+                const gpSnap = await db.collection('system_configs').doc('global_pricing').get();
+                if (gpSnap.exists) {
+                    const g = gpSnap.data();
+                    pricingData = {
+                        ...PRICING,
+                        actions: g.actions || {},
+                        exchangeRate: g.exchangeRate,
+                        globalProfitMultiplier: g.globalProfitMultiplier,
+                        token_rates: g.token_rates
+                    };
+                }
+            } catch (pe) {
+                console.warn('[System API] global_pricing 讀取失敗，僅使用 pricing.config', pe.message);
+            }
 
             // 一次打包丟給前端！
             res.status(200).json({
@@ -186,7 +201,28 @@ class SystemController {
                 createdAt: new Date().toISOString()
             });
 
-            return res.status(200).json({ success: true, message: `🎉 已為 [${name}] 建立好專屬檔案，並鎖定視覺基因！` });
+            let billingResult;
+            try {
+                billingResult = await billingService.chargeAndLog({
+                    uid: tenantId,
+                    actionType: 'CREATE_CHARACTER',
+                    multiplier: 1,
+                    referenceId: charRef.id,
+                    req
+                });
+            } catch (billErr) {
+                console.error('❌ 角色建檔計費失敗，回滾資料與圖檔:', billErr.message);
+                try { await charRef.delete(); } catch (e) { /* ignore */ }
+                try { await bucket.file(gcsFilename).delete(); } catch (e) { /* ignore */ }
+                const code = (billErr.message && String(billErr.message).includes('算力不足')) ? 402 : 500;
+                return res.status(code).json({ success: false, message: billErr.message || '算力扣抵失敗' });
+            }
+
+            return res.status(200).json({
+                success: true,
+                message: `🎉 已為 [${name}] 建立好專屬檔案，並鎖定視覺基因！`,
+                chargedPoints: billingResult.cost
+            });
 
         } catch (error) {
             console.error('❌ 建立角色失敗:', error.message);
@@ -261,8 +297,28 @@ class SystemController {
                 createdAt: new Date().toISOString()
             });
 
+            let billingResult;
+            try {
+                billingResult = await billingService.chargeAndLog({
+                    uid: tenantId,
+                    actionType: 'CREATE_PERSONA',
+                    multiplier: 1,
+                    referenceId: personaRef.id,
+                    req
+                });
+            } catch (billErr) {
+                console.error('❌ 人設建檔計費失敗，回滾資料:', billErr.message);
+                try { await personaRef.delete(); } catch (e) { /* ignore */ }
+                const code = (billErr.message && String(billErr.message).includes('算力不足')) ? 402 : 500;
+                return res.status(code).json({ success: false, message: billErr.message || '算力扣抵失敗' });
+            }
+
             console.log(`✅ 品牌人設庫資料已建立: [${tenantId}] ${name}`);
-            return res.status(200).json({ success: true, message: '🎉 品牌人設已寫入神經網路！' });
+            return res.status(200).json({
+                success: true,
+                message: '🎉 品牌人設已寫入神經網路！',
+                chargedPoints: billingResult.cost
+            });
 
         } catch (error) {
             console.error('❌ 建立品牌人設失敗:', error.message);

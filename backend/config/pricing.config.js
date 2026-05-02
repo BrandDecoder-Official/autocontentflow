@@ -23,7 +23,8 @@ const PRICING = {
         TEXT_INPUT_PER_1K: 0.0005,   
         TEXT_OUTPUT_PER_1K: 0.003,   
         
-        // 🎨 AI_MODEL_IMAGE (gemini-3.1-flash-image) -> 負責生圖 (依解析度計費)
+        // 🎨 AI_MODEL_IMAGE (gemini-3.1-flash-image) -> 官方依「輸出／解析度」計價之單張美金參考值
+        // 見 https://ai.google.dev/gemini-api/docs/pricing （Image output / Gemini 3.1 Flash Image 等）
         IMAGE_PER_GEN: {
             "0.5K": 0.045,
             "1K": 0.067,
@@ -53,6 +54,28 @@ const PRICING = {
     // 🎁 系統初始化防線
     INITIAL_FREE_POINTS: 3000 // 配合 1:100 模式，送新用戶 30 台幣的算力
 };
+
+const IMAGE_GEN_PRICING_BASE_KEY = '1K';
+
+/** 對齊 API 的 imageSize：512 → 0.5K，其餘未知值 fallback 1K */
+function normalizeImageResolutionKey(label) {
+    const r = String(label || IMAGE_GEN_PRICING_BASE_KEY).trim().toUpperCase();
+    if (r === '512') return '0.5K';
+    const table = PRICING.COSTS_USD.IMAGE_PER_GEN;
+    if (Object.prototype.hasOwnProperty.call(table, r)) return r;
+    return IMAGE_GEN_PRICING_BASE_KEY;
+}
+
+/**
+ * 相對於 1K 的官方單張成本倍率；扣點時 effectiveMultiplier = 張數 × 本值（再 × DB 的 GENERATE_IMAGE retailPoints）
+ */
+function getImageGenBillingMultiplier(resolutionLabel) {
+    const key = normalizeImageResolutionKey(resolutionLabel);
+    const table = PRICING.COSTS_USD.IMAGE_PER_GEN;
+    const base = table[IMAGE_GEN_PRICING_BASE_KEY];
+    const c = table[key] ?? base;
+    return base > 0 ? c / base : 1;
+}
 
 // ==========================================
 // 🛠️ 算力自動換算引擎 (供後端 Controller 直接呼叫)
@@ -106,8 +129,8 @@ const Calculator = {
      * @param {number} imageCount - 產出的圖片張數
      */
     calculateImagePoints: (resolution = '1K', imageCount = 1) => {
-        // 防呆：如果傳入未知的解析度，預設用 1K 計價
-        const costPerImageUsd = PRICING.COSTS_USD.IMAGE_PER_GEN[resolution] || PRICING.COSTS_USD.IMAGE_PER_GEN['1K'];
+        const key = normalizeImageResolutionKey(resolution);
+        const costPerImageUsd = PRICING.COSTS_USD.IMAGE_PER_GEN[key] || PRICING.COSTS_USD.IMAGE_PER_GEN['1K'];
         const totalCostUsd = costPerImageUsd * imageCount;
         const priceTwd = totalCostUsd * USD_TO_TWD * PRICING.MARGINS.IMAGE;
         
@@ -119,5 +142,7 @@ module.exports = {
     PRICING,
     Calculator,
     USD_TO_TWD,
-    TWD_TO_POINTS
+    TWD_TO_POINTS,
+    normalizeImageResolutionKey,
+    getImageGenBillingMultiplier,
 };

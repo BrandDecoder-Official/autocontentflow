@@ -18,11 +18,9 @@ export async function triggerWalletSync() {
         });
         const res = await response.json();
         if (res && res.tenant && res.tenant.totalPoints !== undefined) {
-            // 1. 同步右上角拉霸
             updatePointsDisplay(res.tenant.totalPoints);
-            // 2. 同步側邊欄 Log (如果函數存在於全域)
             if (typeof window.refreshAuditLogs === 'function') {
-                window.refreshAuditLogs();
+                await window.refreshAuditLogs();
             }
         }
     } catch (e) {

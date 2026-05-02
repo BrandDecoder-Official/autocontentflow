@@ -15,6 +15,7 @@ try { aiService = require('../services/ai.service'); } catch (e) { console.error
 try { telegramService = require('../services/telegram.service'); } catch (e) { console.error("💥 Telegram 模組載入失敗:", e); }
 try { socialService = require('../services/social.service'); } catch (e) { console.error("💥 Social 模組載入失敗:", e); }
 try { billingService = require('../services/billingService'); } catch (e) { console.error("💥 計費模組載入失敗:", e); }
+const { getImageGenBillingMultiplier } = require('../config/pricing.config.js');
 
 // 🚀 雙軌大腦防禦性載入
 let comicDraftService, realisticDraftService;
@@ -65,6 +66,16 @@ async function verifyTenant(tenantId, requiredPoints = 0) {
 
 async function fetchImageUrlToBase64(url) {
     try {
+        if (typeof url === 'string' && url.startsWith('data:image')) {
+            const headerEnd = url.indexOf(',');
+            if (headerEnd === -1) throw new Error('Malformed data URL');
+            const header = url.slice(0, headerEnd);
+            const data = url.slice(headerEnd + 1);
+            const mimeMatch = header.match(/^data:(image\/[^;]+)/i);
+            const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+            if (!/;base64/i.test(header)) throw new Error('Expected base64 data URL');
+            return { data, mimeType };
+        }
         const response = await fetch(url);
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const arrayBuffer = await response.arrayBuffer();
@@ -159,9 +170,10 @@ async function generateDraft(req, res) {
  */
 async function generateImageFromDraft(req, res) {
     try {
-        const { taskId, tenantId, editedCaption, editedPanels, incomingImages, tgConfig } = req.body;
-        const imagesToProcess = (incomingImages?.length > 0) ? incomingImages.slice(0, 10) : [{ processType: 'AI_SYNTHESIS', originalUrl: '' }];
-        const aiCount = imagesToProcess.filter(img => img.processType === 'AI_SYNTHESIS').length;
+        const { taskId, tenantId, editedCaption, editedPanels, incomingImages, plannedImageCount, tgConfig } = req.body;
+        let imagesToProcess = (incomingImages?.length > 0)
+            ? incomingImages.slice(0, 10)
+            : [{ processType: 'AI_SYNTHESIS', originalUrl: '' }];
 
         await verifyTenant(tenantId, 0);
         const docRef = db.collection('tasks').doc(taskId);
@@ -171,7 +183,16 @@ async function generateImageFromDraft(req, res) {
         const taskData = docSnap.data();
         const mission = taskData.missionContext || taskData.payload;
         const isComicMode = mission.universe === 'COMIC';
-        const presentationMode = mission.presentationMode || 'CLASSIC'; 
+        const presentationMode = mission.presentationMode || 'CLASSIC';
+
+        // 寫實模式：前端 plannedImageCount 可對應多張 AI 合成；漫畫維持單次呼叫多格（避免 panel slice 錯位）
+        if ((!incomingImages || incomingImages.length === 0) && plannedImageCount && !isComicMode) {
+            const n = Math.min(10, Math.max(1, parseInt(plannedImageCount, 10) || 1));
+            if (n > 1) {
+                imagesToProcess = Array.from({ length: n }, () => ({ processType: 'AI_SYNTHESIS', originalUrl: '' }));
+            }
+        }
+        const aiCount = imagesToProcess.filter(img => img.processType === 'AI_SYNTHESIS').length; 
         
         let mergedPanels = [];
         if (isComicMode && taskData.draftContent.panels) {
@@ -234,7 +255,7 @@ async function generateImageFromDraft(req, res) {
             }
 
             if (sceneRefs.length > 0) {
-                baseImagePrompt += `[BACKGROUND STRUCTURE REFERENCE]: MUST strictly use the provided Scene Reference image as the foundation for the background environment and setting layout.\n\n`;
+                baseImagePrompt += `[SCENE REFERENCE]: Use it for background layout and setting. If it contains people, preserve their faces and identity; do not substitute different characters.\n\n`;
             }
         } else {
             baseImagePrompt = taskData.draftContent.visual_prompt || `A high-quality photograph. Scene: ${mission.topic}.`;
@@ -248,7 +269,7 @@ async function generateImageFromDraft(req, res) {
             }
 
             if (sceneRefs.length > 0) {
-                baseImagePrompt += `[BACKGROUND REFERENCE]: MUST strictly use the provided Scene Reference image as the foundation for the environment.\n\n`;
+                baseImagePrompt += `[REFERENCE IMAGE]: Use for environment, lighting, and composition. If it shows a person, depict the same individual—same face, apparent age, and build—not a different person.\n\n`;
             }
         }
 
@@ -313,7 +334,23 @@ async function generateImageFromDraft(req, res) {
         }
 
         if (billingService && billingService.chargeAndLog) {
-            if (aiCount > 0) await billingService.chargeAndLog({ uid: tenantId, actionType: 'GENERATE_IMAGE', multiplier: aiCount, referenceId: taskId, req });
+            if (aiCount > 0) {
+                const resolutionForBilling = taskData.image_options?.resolution || mission.resolution || '1K';
+                const resWeight = getImageGenBillingMultiplier(resolutionForBilling);
+                const imageBillingMultiplier = aiCount * resWeight;
+                await billingService.chargeAndLog({
+                    uid: tenantId,
+                    actionType: 'GENERATE_IMAGE',
+                    multiplier: imageBillingMultiplier,
+                    referenceId: taskId,
+                    metrics: {
+                        aiImageCount: aiCount,
+                        imageResolution: resolutionForBilling,
+                        resolutionBillingWeight: resWeight,
+                    },
+                    req,
+                });
+            }
             if (totalUploadedBytes > 0) await billingService.chargeAndLog({ uid: tenantId, actionType: 'UPLOAD_IMAGE', multiplier: 1, referenceId: taskId, metrics: { storageBytesUploaded: totalUploadedBytes }, req });
         }
 

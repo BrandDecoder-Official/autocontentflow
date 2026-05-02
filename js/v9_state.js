@@ -86,7 +86,7 @@ export function ensureSyntheticPublishMask(batchId, imageCount) {
 
 /**
  * 返回任務大廳時將 MISSION 還原為乾淨預設，避免上一筆任務殘留污染新任務。
- * 不替換 tgConfig 物件本體（側欄 input 綁定的是同一參考）。
+ * 不替換 tgConfig 物件本體（TG 推播設定彈窗 input 綁定同一參考）。
  */
 export function resetMissionStateForLobby() {
     const token = MISSION.tgConfig?.botToken ?? '';
@@ -275,12 +275,18 @@ export function loadMissionFromDB(taskData) {
  * ==========================================
  */
 export function updateSidebarCountUI() {
-    const countLabel = document.getElementById('charCountLabel');
-    if (countLabel) {
-        const charCount = SYSTEM_DB.characters.length;
-        const personaCount = SYSTEM_DB.personas.length;
-        countLabel.innerText = `已擁有 ${charCount} 組角色 / ${personaCount} 組人設模型`;
+    const charCount = SYSTEM_DB.characters.length;
+    const personaCount = SYSTEM_DB.personas.length;
+    const charLabel = document.getElementById('charCountLabel');
+    if (charLabel) charLabel.innerText = `已擁有 ${charCount} 組視覺角色`;
+    const personaLabel = document.getElementById('personaCountLabel');
+    if (personaLabel) {
+        personaLabel.innerText = `共 ${personaCount} 組品牌人設（含系統預設模版）`;
     }
+    const sidebarChar = document.getElementById('sidebarCharSummary');
+    if (sidebarChar) sidebarChar.textContent = `視覺角色 ${charCount} 組`;
+    const sidebarPersona = document.getElementById('sidebarPersonaSummary');
+    if (sidebarPersona) sidebarPersona.textContent = `品牌人設 ${personaCount} 組`;
 }
 
 export async function bootSystemData() {

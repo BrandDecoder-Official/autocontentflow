@@ -169,8 +169,8 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                     <button id="btnApplyAiSuggestion" class="text-[10px] px-2 py-1 rounded-lg border border-violet-400/40 text-violet-200 hover:bg-violet-600/30">一鍵套用</button>
                 </div>
                 <p class="text-[11px] text-slate-300 leading-relaxed">${suggestion.reason}</p>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
-                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議格數：<span id="aiPanelHint" class="text-violet-300 font-bold">${suggestion.panelCount} 格</span></div>
+                <div class="grid grid-cols-1 ${isComic ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2 text-[10px]">
+                    ${isComic ? `<div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議格數：<span id="aiPanelHint" class="text-violet-300 font-bold">${suggestion.panelCount} 格</span></div>` : ''}
                     <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議色系：<span id="aiColorHint" class="text-violet-300 font-bold">${suggestion.colorMode === 'BW' ? '黑白' : suggestion.colorMode}</span></div>
                     <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議張數：<span id="aiCountHint" class="text-violet-300 font-bold">${suggestion.imageCount} 張</span></div>
                 </div>
@@ -181,10 +181,10 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                             ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<option value="${n}" ${MISSION.plannedImageCount === n ? 'selected' : ''}>${n} 張</option>`).join('')}
                         </select>
                     </label>
-                    <label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
+                    ${isComic ? `<label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
                         <input id="storyModeToggle" type="checkbox" class="accent-violet-500" ${MISSION.isStoryMode ? 'checked' : ''}>
                         連續劇情模式（適合短篇漫畫）
-                    </label>
+                    </label>` : ''}
                 </div>
             </div>
             
@@ -293,18 +293,19 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
     ui.querySelector('#plannedImageCount').onchange = (e) => {
         MISSION.plannedImageCount = parseInt(e.target.value, 10);
     };
-    ui.querySelector('#storyModeToggle').onchange = (e) => {
-        MISSION.isStoryMode = !!e.target.checked;
-    };
+    const storyEl = ui.querySelector('#storyModeToggle');
+    if (storyEl) {
+        storyEl.onchange = (e) => { MISSION.isStoryMode = !!e.target.checked; };
+    }
     ui.querySelector('#btnApplyAiSuggestion').onclick = async () => {
         MISSION.plannedImageCount = suggestion.imageCount;
-        MISSION.isStoryMode = suggestion.imageCount >= 4;
+        if (isComic) MISSION.isStoryMode = suggestion.imageCount >= 4;
         if (MISSION.universe === 'COMIC') {
             MISSION.panelCount = suggestion.panelCount;
             MISSION.colorMode = suggestion.colorMode;
         }
         ui.querySelector('#plannedImageCount').value = String(MISSION.plannedImageCount);
-        ui.querySelector('#storyModeToggle').checked = MISSION.isStoryMode;
+        if (storyEl) storyEl.checked = MISSION.isStoryMode;
         await addLog("美術總監", "🧠", `已套用 AI 建議：${MISSION.universe === 'COMIC' ? `${MISSION.panelCount}格 / ${MISSION.colorMode === 'BW' ? '黑白' : '彩色'} / ` : ''}${MISSION.plannedImageCount} 張。`, true);
     };
 

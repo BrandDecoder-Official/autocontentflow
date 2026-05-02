@@ -20,34 +20,37 @@ export async function triggerTopicSkill() {
     await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
     
     const ui = createSkillUI(`
-        <div class="flex flex-col gap-3 relative">
-            <div class="flex justify-between items-end mb-1">
-                <label class="text-[10px] text-slate-400 font-bold">戰略主題與內容</label>
-                <button id="btnOpenRSS" class="bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-3 py-1.5 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all flex items-center gap-1 shadow-lg active:scale-95">
-                    📰 抓取熱門新聞
-                </button>
-            </div>
+        <div class="flex flex-col gap-4 relative">
+            <p class="text-[11px] text-slate-400 leading-relaxed px-0.5">請擇一或並用：左欄<strong class="text-slate-300">自填</strong>、右欄<strong class="text-slate-300">從 Google News 熱門帶入</strong>（帶入後請在左欄改寫）。</p>
 
-            <div id="rssPanel" class="hidden flex-col gap-3 bg-slate-800 border border-indigo-500/50 rounded-xl p-3 animate-fade-in shadow-2xl relative">
-                <div class="absolute -top-2 right-4 w-4 h-4 bg-slate-800 border-t border-l border-indigo-500/50 transform rotate-45"></div>
-                <div class="flex overflow-x-auto gap-2 pb-1 scrollbar-hide" id="rssCategoryTabs">
-                    <button class="rss-cat-btn px-3 py-1 bg-indigo-600 text-white border border-indigo-500 rounded-full text-[10px] font-bold whitespace-nowrap transition-all" data-cat="BUSINESS">財金</button>
-                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="POLITICS">政治</button>
-                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="WORLD">國際</button>
-                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="ENTERTAINMENT">娛樂</button>
-                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="SPORTS">運動</button>
-                    <button class="rss-cat-btn px-3 py-1 bg-slate-700 text-slate-300 border border-white/10 rounded-full text-[10px] font-bold whitespace-nowrap hover:bg-slate-600 transition-all" data-cat="LIFE">生活</button>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+                <div class="flex flex-col rounded-2xl border border-blue-500/35 bg-slate-900/60 p-4 shadow-inner min-h-[280px]">
+                    <label class="text-xs font-black text-blue-300 tracking-wide mb-1">✍️ 自行輸入主題</label>
+                    <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">直接寫推廣內容、產品、活動或 KPI；可貼長文，最終以左欄文字為準。</p>
+                    <div class="relative flex-1 flex flex-col min-h-[200px]">
+                        <textarea id="inlineTopicInput" maxlength="1000" class="w-full flex-1 min-h-[200px] bg-slate-950/80 border border-blue-500/25 rounded-xl p-4 pb-8 text-sm text-white focus:outline-none focus:border-blue-500 resize-y" placeholder="例：本週主打 OO 課程早鳥、限時優惠…">${decodeHTMLEntities(MISSION.topic || '')}</textarea>
+                        <div id="topicCharCount" class="absolute bottom-3 right-4 text-[10px] font-bold text-slate-500 bg-slate-950/90 px-1 rounded">0 / 1000 字</div>
+                    </div>
                 </div>
-                <div id="rssLoading" class="hidden text-center text-[10px] text-indigo-400 py-6 animate-pulse font-bold">📡 正在接收 Google News 衛星訊號...</div>
-                <div id="rssList" class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1 custom-scrollbar"></div>
+
+                <div id="rssPanel" class="flex flex-col rounded-2xl border border-indigo-500/40 bg-slate-900/60 p-4 shadow-inner min-h-[280px]">
+                    <label class="text-xs font-black text-indigo-300 tracking-wide mb-1">📰 熱門新聞靈感（Google News RSS）</label>
+                    <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">來源為<strong class="text-slate-400">Google News、央廣 RTI、自由時報</strong>等 RSS 合併；仍以摘要為主（非全文），但已優先挑<strong class="text-slate-400">內文較長</strong>的項目。點一則填入左欄後請再改寫。</p>
+                    <div class="flex overflow-x-auto gap-2 pb-2 scrollbar-hide shrink-0" id="rssCategoryTabs">
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-indigo-600 text-white border border-indigo-500 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all min-h-[40px]" data-cat="BUSINESS">財金</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="POLITICS">政治</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="WORLD">國際</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="ENTERTAINMENT">娛樂</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="SPORTS">運動</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="LIFE">生活</button>
+                    </div>
+                    <div id="rssLoading" class="hidden text-center text-[10px] text-indigo-400 py-8 animate-pulse font-bold shrink-0">📡 正在接收 Google News RSS…</div>
+                    <div id="rssList" class="flex flex-col gap-2 flex-1 min-h-[200px] max-h-[260px] overflow-y-auto pr-1 custom-scrollbar border border-white/5 rounded-xl bg-slate-950/40 p-2"></div>
+                </div>
             </div>
 
-            <div class="relative">
-                <textarea id="inlineTopicInput" maxlength="1000" class="w-full bg-slate-900 border border-blue-500/30 rounded-xl p-4 pb-8 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[140px] resize-y" placeholder="您可以自己輸入，或是點擊上方按鈕抓取新聞來生成..."> ${decodeHTMLEntities(MISSION.topic || '')}</textarea>
-                <div id="topicCharCount" class="absolute bottom-3 right-4 text-[10px] font-bold text-slate-500 bg-slate-900 px-1">0 / 1000 字</div>
-            </div>
-            <div class="flex justify-end mt-2">
-                <button id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認戰略方向</button>
+            <div class="flex justify-end mt-1">
+                <button type="button" id="btnConfirmTopic" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">✅ 確認戰略方向</button>
             </div>
         </div>
     `);
@@ -65,28 +68,18 @@ export async function triggerTopicSkill() {
     inputEl.addEventListener('input', updateCount);
     updateCount(); 
 
-    // 📡 RSS 模組互動邏輯
-    const btnOpenRSS = ui.querySelector('#btnOpenRSS');
-    const rssPanel = ui.querySelector('#rssPanel');
+    // 📡 RSS 模組（與自填並列，預設載入財金）
     const rssCategoryTabs = ui.querySelectorAll('.rss-cat-btn');
     const rssList = ui.querySelector('#rssList');
     const rssLoading = ui.querySelector('#rssLoading');
 
-    btnOpenRSS.onclick = () => {
-        rssPanel.classList.toggle('hidden');
-        if (!rssPanel.classList.contains('hidden') && rssList.innerHTML === '') {
-            loadRSSNews('BUSINESS'); // 預設載入財金
-        }
-    };
-
     rssCategoryTabs.forEach(btn => {
         btn.onclick = () => {
-            // 切換樣式
-            rssCategoryTabs.forEach(b => { 
-                b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500'); 
-                b.classList.add('bg-slate-700', 'text-slate-300', 'border-white/10'); 
+            rssCategoryTabs.forEach(b => {
+                b.classList.remove('bg-indigo-600', 'text-white', 'border-indigo-500');
+                b.classList.add('bg-slate-800', 'text-slate-300', 'border-white/10');
             });
-            btn.classList.remove('bg-slate-700', 'text-slate-300', 'border-white/10');
+            btn.classList.remove('bg-slate-800', 'text-slate-300', 'border-white/10');
             btn.classList.add('bg-indigo-600', 'text-white', 'border-indigo-500');
             loadRSSNews(btn.dataset.cat);
         };
@@ -109,16 +102,26 @@ export async function triggerTopicSkill() {
                 json.data.forEach(news => {
                     const div = document.createElement('div');
                     div.className = "p-3 bg-slate-900 border border-white/5 rounded-lg hover:bg-indigo-900/40 hover:border-indigo-500/50 cursor-pointer transition-all flex flex-col gap-1";
-                    div.innerHTML = `
-                        <span class="text-xs font-bold text-white line-clamp-1 leading-tight">${news.title}</span>
-                        <span class="text-[10px] text-slate-400 line-clamp-2 leading-tight">${news.content}</span>
-                    `;
+                    const srcEl = document.createElement('span');
+                    srcEl.className = 'text-[9px] font-bold text-indigo-400/90 tracking-wide';
+                    srcEl.textContent = news.source || 'RSS';
+                    const titleEl = document.createElement('span');
+                    titleEl.className = 'text-xs font-bold text-white line-clamp-2 leading-tight';
+                    titleEl.textContent = news.title || '';
+                    const bodyEl = document.createElement('span');
+                    bodyEl.className = 'text-[10px] text-slate-400 line-clamp-4 leading-snug';
+                    bodyEl.textContent = news.content || '';
+                    div.appendChild(srcEl);
+                    div.appendChild(titleEl);
+                    div.appendChild(bodyEl);
                     div.onclick = async () => {
-                        // 自動填入，並加上排版
-                        inputEl.value = `【今日熱門話題】\n${news.title}\n\n【情報摘要】\n${news.content}`;
+                        const summary = (news.content || '').trim() || '（此則 RSS 未附摘要，僅標題）';
+                        const linkLine = (news.link || '').trim() ? `${news.link}` : '（無連結）';
+                        const srcLine = (news.source || '').trim() || 'RSS';
+                        inputEl.value = `【今日熱門話題】\n${news.title}\n\n【來源】\n${srcLine}\n\n【RSS 摘要（非全文）】\n${summary}\n\n【原文／追蹤連結】\n${linkLine}`;
                         updateCount();
-                        rssPanel.classList.add('hidden');
-                        await addLog("情報官", "📡", `已載入情報：<b>${news.title.substring(0, 15)}...</b>`);
+                        inputEl.focus();
+                        await addLog("情報官", "📡", `已帶入左欄：<b>${news.title.substring(0, 18)}...</b>（可再編輯）`);
                     };
                     rssList.appendChild(div);
                 });
@@ -133,6 +136,7 @@ export async function triggerTopicSkill() {
         }
     }
 
+    loadRSSNews('BUSINESS');
     setTimeout(() => { inputEl.focus(); }, 100);
     
     ui.querySelector('#btnConfirmTopic').onclick = async () => { 

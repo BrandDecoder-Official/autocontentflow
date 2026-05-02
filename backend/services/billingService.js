@@ -1,6 +1,7 @@
 // services/billing.service.js
 const firestoreService = require('./firestore.service');
 const db = firestoreService.db || firestoreService;
+const { PRICING } = require('../config/pricing.config');
 
 /**
  * 📊 從資料庫抓取最新的定價設定 (上帝視角 - V10 完全體)
@@ -60,7 +61,23 @@ async function chargeAndLog({ uid, actionType, multiplier = 1, payload = {}, ref
     
     // 如果是單純的大腦對話扣點 (前端 Agent 聊天)，可以直接傳入 TOKEN_USAGE，不需要定義在 actions 裡
     const isPureTokenBilling = (actionType === 'TOKEN_USAGE');
-    const configData = isPureTokenBilling ? { name: "大腦對話思考", isActive: true, retailPoints: 0 } : pricingTable.actions[actionType];
+    let configData = isPureTokenBilling ? { name: "大腦對話思考", isActive: true, retailPoints: 0 } : pricingTable.actions[actionType];
+
+    // global_pricing 未配置時，角色／人設建檔費 fallback 至 pricing.config.js BASE_FEES
+    if (!configData && !isPureTokenBilling) {
+        const feePts = PRICING.BASE_FEES[actionType];
+        if (feePts != null) {
+            const labels = {
+                CREATE_CHARACTER: '建立專屬角色（視覺基因）',
+                CREATE_PERSONA: '訓練品牌人設'
+            };
+            configData = {
+                name: labels[actionType] || actionType,
+                isActive: true,
+                retailPoints: feePts
+            };
+        }
+    }
 
     if (!configData) throw new Error(`系統錯誤：未知的計費動作 [${actionType}]`);
     if (!configData.isActive) throw new Error(`功能 [${configData.name}] 維護中`);

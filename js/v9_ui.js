@@ -1,4 +1,5 @@
 // js/v9_ui.js
+import { STATE } from './config.js';
 
 /**
  * ==========================================
@@ -75,6 +76,33 @@ export function releaseUI(ui) {
  * 🚀 優化情境：改用 Mobile-First 滿版卡片式排版，收納 Icon 至頂部 Header，徹底釋放手機寬度。字體升級至 14px/16px。
  * ==========================================
  */
+/**
+ * 漏斗對話區：扣點摘要橫條（原因 + 點數）
+ */
+export function appendBillingNotice(reason, points) {
+    const log = document.getElementById('funnelLog');
+    if (!log) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'w-full mb-2 animate-fade-in';
+    const bar = document.createElement('div');
+    bar.className = 'flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-950/50 to-slate-900/90 border border-amber-500/25 text-[10px] shadow-sm';
+    const tag = document.createElement('span');
+    tag.className = 'flex-shrink-0 font-black text-amber-400 tracking-tight';
+    tag.textContent = '🪙 扣點';
+    const mid = document.createElement('span');
+    mid.className = 'flex-1 min-w-0 truncate text-slate-300';
+    mid.textContent = reason || '算力扣除';
+    const pts = document.createElement('span');
+    pts.className = 'flex-shrink-0 font-mono font-black text-red-300 tabular-nums';
+    pts.textContent = `−${Number(points).toLocaleString()} PTS`;
+    bar.append(tag, mid, pts);
+    wrap.appendChild(bar);
+    const activeCard = document.getElementById('activeControlCard');
+    if (activeCard) log.insertBefore(wrap, activeCard);
+    else log.appendChild(wrap);
+    scrollDown();
+}
+
 export async function addLog(role, icon, msg, skipTyping = false) {
     const log = document.getElementById('funnelLog');
     const div = document.createElement('div');
@@ -146,6 +174,7 @@ export function updatePointsDisplay(newPoints) {
     const currentStr = ptsEl.innerText.replace(/,/g, '').replace(/---/g, '0');
     const currentPts = parseInt(currentStr, 10) || 0;
     const targetPts = parseInt(newPoints, 10) || 0;
+    STATE.userPoints = targetPts;
 
     parentEl.classList.add('px-4', 'py-2', 'shadow-md');
     ptsEl.classList.add('text-sm', 'lg:text-base', 'font-black');

@@ -4,54 +4,41 @@ import * as API from './api.js';
 import { SYSTEM_DB, compressImage, bootSystemData, updateSidebarCountUI } from './v9_state.js';
 
 // 🚀 引入統一計費防護網
-import { getPricingConfig, validatePoints, applyPointDeduction } from './v9_finance.js';
+import { getPricingConfig, validatePoints, applyPointDeduction, getBillingActionDisplayName } from './v9_finance.js';
 
 let tempCharBase64 = null;
 
 // ==========================================
 // 🧬 側邊欄全域管理與頁籤切換
 // ==========================================
-window.openCharManager = function() { 
-    const modal = document.getElementById('charManageModal'); 
-    modal.classList.remove('hidden'); 
-    setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10); 
-    
-    renderCharGrid(); 
-    renderPersonaList(); 
-    
-    // 呼叫唯一的 UI 更新樞紐，絕不自己拼湊字串
-    updateSidebarCountUI(); 
+window.openCharManager = function() {
+    const modal = document.getElementById('charManageModal');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
+    renderCharGrid();
+    updateSidebarCountUI();
 };
 
-window.closeCharManager = function() { 
-    const modal = document.getElementById('charManageModal'); 
-    modal.classList.remove('show'); 
-    setTimeout(() => { modal.classList.add('hidden'); }, 300); 
-    window.cancelNewChar(); 
+window.closeCharManager = function() {
+    const modal = document.getElementById('charManageModal');
+    modal.classList.remove('show');
+    setTimeout(() => { modal.classList.add('hidden'); }, 300);
+    window.cancelNewChar();
+};
+
+window.openPersonaManager = function() {
+    const modal = document.getElementById('personaManageModal');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.add('show'); modal.classList.remove('opacity-0'); }, 10);
+    renderPersonaList();
+    updateSidebarCountUI();
+};
+
+window.closePersonaManager = function() {
+    const modal = document.getElementById('personaManageModal');
+    modal.classList.remove('show');
+    setTimeout(() => { modal.classList.add('hidden'); }, 300);
     window.cancelNewPersona();
-};
-
-window.switchVaultTab = function(tabName) {
-    const tabVisual = document.getElementById('tabVisual');
-    const tabText = document.getElementById('tabText');
-    const contentVisual = document.getElementById('vaultVisualContent');
-    const contentText = document.getElementById('vaultTextContent');
-
-    if (tabName === 'VISUAL') {
-        tabVisual.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-blue-400 border-blue-500 bg-slate-800/50";
-        tabText.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-slate-500 border-transparent hover:bg-slate-800/30";
-        contentVisual.classList.remove('hidden');
-        contentVisual.classList.add('block');
-        contentText.classList.remove('block');
-        contentText.classList.add('hidden');
-    } else {
-        tabText.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-pink-400 border-pink-500 bg-slate-800/50";
-        tabVisual.className = "flex-1 py-3 text-sm font-black border-b-2 transition-all text-slate-500 border-transparent hover:bg-slate-800/30";
-        contentText.classList.remove('hidden');
-        contentText.classList.add('block');
-        contentVisual.classList.remove('block');
-        contentVisual.classList.add('hidden');
-    }
 };
 
 
@@ -120,9 +107,12 @@ window.submitNewChar = async function() {
         const res = await API.createCharacterAPI({ tenantId: STATE.uid, name, type, persona, imageBase64: tempCharBase64, mimeType: 'image/jpeg' }); 
         if(res.success) { 
             alert('🎉 角色基因註冊成功！'); 
-            
-            // 💸 財務展演：成功後觸發拉霸扣點與 Log 紀錄
-            await applyPointDeduction(cost, "註冊角色特徵萃取");
+            // 後端已實際扣點並寫入 transactions；前端僅展演動畫並拉最新餘額
+            const charged = Number(res.chargedPoints);
+            await applyPointDeduction(
+                Number.isFinite(charged) && charged > 0 ? charged : cost,
+                getBillingActionDisplayName('CREATE_CHARACTER', '註冊視覺角色')
+            );
             
             await bootSystemData(); 
             window.cancelNewChar(); 
@@ -211,9 +201,11 @@ window.submitNewPersona = async function() {
         const res = await API.createPersonaAPI({ tenantId: STATE.uid, icon, name, desc, taboos });
         if(res.success) {
             alert('🎉 品牌人設已寫入神經網絡！');
-            
-            // 💸 財務展演：成功後觸發拉霸扣點與 Log 紀錄
-            await applyPointDeduction(cost, "神經網路人設寫入");
+            const charged = Number(res.chargedPoints);
+            await applyPointDeduction(
+                Number.isFinite(charged) && charged > 0 ? charged : cost,
+                getBillingActionDisplayName('CREATE_PERSONA', '品牌人設')
+            );
 
             await bootSystemData(); 
             window.cancelNewPersona();

@@ -1,7 +1,8 @@
 // js/v9_finance.js
 import { STATE } from './config.js';
-import { addLog, showError, updatePointsDisplay } from './v9_ui.js';
+import { appendBillingNotice, showError } from './v9_ui.js';
 import { SYSTEM_DB } from './v9_state.js';
+import { triggerWalletSync } from './api.js';
 
 /**
  * ==========================================
@@ -9,19 +10,67 @@ import { SYSTEM_DB } from './v9_state.js';
  * 💡 功能說明：安全獲取系統動態報價表 (Config as Code)
  * ==========================================
  */
+/**
+ * 生圖扣點倍率（相對 1K），需與 backend/config/pricing.config.js 之 IMAGE_PER_GEN 比例一致。
+ * 官方說明：https://ai.google.dev/gemini-api/docs/pricing
+ */
+export function getImageGenBillingMultiplier(resolution) {
+    const table = { '0.5K': 0.045, '1K': 0.067, '2K': 0.101, '4K': 0.151 };
+    const base = 0.067;
+    let key = String(resolution || '1K').trim().toUpperCase();
+    if (key === '512') key = '0.5K';
+    const c = table[key] ?? base;
+    return base > 0 ? c / base : 1;
+}
+
+/**
+ * 與後端 billingService 一致：優先使用 Firestore global_pricing.actions[actionKey].retailPoints（經 system-options 下發），
+ * 否則退回 pricing.config 的 BASE_FEES。
+ */
 export function getPricingConfig() {
-    // 確保 SYSTEM_DB 裡面有 pricing 屬性，若無則提供安全預設值
-    if (SYSTEM_DB && SYSTEM_DB.pricing && SYSTEM_DB.pricing.BASE_FEES) {
-        return SYSTEM_DB.pricing;
+    const p = SYSTEM_DB?.pricing;
+    const actions = p?.actions || {};
+    const base = p?.BASE_FEES || {};
+
+    function fee(actionKey, hardFallback) {
+        const row = actions[actionKey];
+        if (row && row.isActive !== false && row.retailPoints != null && row.retailPoints !== '') {
+            const n = Number(row.retailPoints);
+            if (Number.isFinite(n)) return n;
+        }
+        if (base[actionKey] != null) return Number(base[actionKey]);
+        return hardFallback;
     }
-    // 預防萬一後端沒傳回來，給予保底設定
+
+    if (!p) {
+        return {
+            BASE_FEES: {
+                CREATE_PERSONA: 500,
+                CREATE_CHARACTER: 800,
+                GENERATE_DRAFT: 200
+            }
+        };
+    }
+
     return {
+        ...p,
         BASE_FEES: {
-            CREATE_PERSONA: 500,
-            CREATE_CHARACTER: 800,
-            GENERATE_DRAFT: 200
+            ...base,
+            CREATE_CHARACTER: fee('CREATE_CHARACTER', 800),
+            CREATE_PERSONA: fee('CREATE_PERSONA', 500),
+            GENERATE_DRAFT: fee('GENERATE_DRAFT', base.GENERATE_DRAFT ?? 200)
         }
     };
+}
+
+/**
+ * 與 Firestore global_pricing.actions[actionKey].name 一致，供漏斗扣點橫條顯示。
+ */
+export function getBillingActionDisplayName(actionKey, fallback = '算力扣除') {
+    if (!actionKey) return fallback;
+    const raw = SYSTEM_DB?.pricing?.actions?.[actionKey]?.name;
+    const s = typeof raw === 'string' ? raw.trim() : '';
+    return s || fallback;
 }
 
 /**
@@ -44,29 +93,20 @@ export function validatePoints(requiredPoints, actionName = "此操作") {
 /**
  * ==========================================
  * 📌 函數名稱：applyPointDeduction
- * 💡 功能說明：前端虛擬扣點展演 (真正的扣點由後端執行)。
- * 🚀 優化情境：將拉霸動畫統一委派給 v9_ui.js 的 updatePointsDisplay。
+ * 💡 功能說明：扣點後立即與後端錢包同步，避免右上角與側欄紀錄脫鉤；漏斗內顯示扣點橫條。
  * ==========================================
  */
 export async function applyPointDeduction(deducted, reason = "") {
     if (deducted <= 0) return;
 
-    // 1. 扣除本地狀態的數字
-    STATE.userPoints = (STATE.userPoints || 0) - deducted;
-    
-    // 2. 呼叫 UI 統一重力拉霸更新
-    updatePointsDisplay(STATE.userPoints);
-    
-    // 3. 顯示靈魂上飄 (這裡我們保留您原本喜歡的上飄設計，做為局部回饋)
+    appendBillingNotice(reason || '算力扣除', deducted);
     showPointDeductionEffect(deducted, 'userPoints');
 
-    if (reason) {
-        await addLog("計費系統", "🪙", `<span class="text-[10px] text-red-400 font-bold border border-red-500/30 bg-red-500/10 px-2 py-1 rounded shadow-inner">本次消耗 ${deducted} 點 (${reason})</span>`);
-    }
+    await triggerWalletSync();
 }
 
 /**
- * 私有函數：靈魂慢飄特效 (局部點數回饋)
+ * 扣點數字「重力下墜」至餘額附近再淡出（相對於往上飄出畫面）
  */
 function showPointDeductionEffect(points, targetElementId) {
     const target = document.getElementById(targetElementId);
@@ -74,18 +114,23 @@ function showPointDeductionEffect(points, targetElementId) {
 
     const rect = target.getBoundingClientRect();
     const soul = document.createElement('div');
-    soul.innerText = `-${points}`;
-    soul.className = 'fixed font-black text-red-500 pointer-events-none z-[9999] text-2xl drop-shadow-[0_0_12px_rgba(239,68,68,1)]';
-    soul.style.left = `${rect.left + (rect.width / 2) - 15}px`;
-    soul.style.top = `${rect.top - 5}px`;
+    soul.textContent = `−${Number(points).toLocaleString()}`;
+    soul.className = 'fixed font-black text-red-400 pointer-events-none z-[9999] text-base sm:text-lg drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]';
+    soul.style.left = `${rect.left + rect.width / 2}px`;
+    soul.style.top = `${rect.top - 24}px`;
+    soul.style.transform = 'translateX(-50%)';
     document.body.appendChild(soul);
 
-    const animation = soul.animate([
-        { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-        { transform: 'translate(-15px, -30px) scale(1.4)', opacity: 0.9, offset: 0.3 }, 
-        { transform: 'translate(10px, -60px) scale(1.1)', opacity: 0.7, offset: 0.6 },  
-        { transform: 'translate(-5px, -100px) scale(0.8)', opacity: 0 }                 
-    ], { duration: 2500, easing: 'ease-out', fill: 'forwards' });
-
-    animation.onfinish = () => soul.remove();
+    // 下墜距離約為先前版本的兩倍、總時長約 1s，曲線前段緩、後段加速模擬重力
+    soul.animate(
+        [
+            { transform: 'translateX(-50%) translateY(0) scale(1)', opacity: 1 },
+            { transform: 'translateX(-50%) translateY(16px) scale(1.08)', opacity: 1, offset: 0.12 },
+            { transform: 'translateX(-50%) translateY(44px) scale(1.02)', opacity: 0.95, offset: 0.35 },
+            { transform: 'translateX(-50%) translateY(84px) scale(0.98)', opacity: 0.55, offset: 0.62 },
+            { transform: 'translateX(-50%) translateY(118px) scale(0.92)', opacity: 0.22, offset: 0.82 },
+            { transform: 'translateX(-50%) translateY(128px) scale(0.88)', opacity: 0 },
+        ],
+        { duration: 1000, easing: 'cubic-bezier(0.33, 0.02, 0.45, 1)', fill: 'forwards' }
+    ).onfinish = () => soul.remove();
 }

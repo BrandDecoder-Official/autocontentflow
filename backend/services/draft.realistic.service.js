@@ -31,7 +31,7 @@ async function processDraft(req, res, payloadRaw, tools) {
         const normalizedSceneRefs = sceneFiles.map(f => ({
             type: 'scene',
             name: f.name || 'realistic_bg_ref',
-            imageUrl: f.imageUrl || f.dataUrl || ''
+            imageUrl: f.imageUrl || f.dataUrl || f.data || ''
         }));
         const allReferenceImages = [...rawRefs, ...normalizedSceneRefs];
 
@@ -70,7 +70,7 @@ async function processDraft(req, res, payloadRaw, tools) {
         // 🌟 3. 免洗筷模式：將圖片轉 Base64 供 AI 分析特徵 (不存入 DB)
         const tempRefsForAI = [];
         for (let img of allReferenceImages) {
-            const url = img.imageUrl || img.dataUrl;
+            const url = img.imageUrl || img.dataUrl || img.data;
             if (url && url.startsWith('http')) {
                 const converted = await fetchImageUrlToBase64(url);
                 if (converted) tempRefsForAI.push({ ...img, data: converted.data, mimeType: converted.mimeType });
@@ -150,12 +150,12 @@ async function processDraft(req, res, payloadRaw, tools) {
             referenceImages: allReferenceImages.map(img => ({
                 type: String(img.type || "scene"),
                 name: String(img.name || ""),
-                imageUrl: String(img.imageUrl || img.dataUrl || "")
+                imageUrl: String(img.imageUrl || img.dataUrl || img.data || "")
             })),
             // 🚀 關鍵：將 9 張附加圖路徑存入，供發包生圖 API 使用
             attachmentFiles: attachmentFiles.map(img => ({
                 name: String(img.name || ""),
-                imageUrl: String(img.imageUrl || img.dataUrl || "")
+                imageUrl: String(img.imageUrl || img.dataUrl || img.data || "")
             }))
         };
 

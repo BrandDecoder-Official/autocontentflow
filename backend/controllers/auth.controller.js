@@ -41,9 +41,11 @@ async function verifyLogin(req, res) {
                 name: name,
                 status: 'PENDING', // ⚠️ 鎖定狀態
                 totalPoints: 0,    // 審核通過後 Super Admin 再發放點數
+                totalComputeUsed: 0, // 與 Guardrail / 儀表板累計一致，便於多租戶報表
                 role: 'USER',
                 createdAt: new Date().toISOString(),
-                lastLoginAt: new Date().toISOString()
+                lastLoginAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
             });
 
             // 🚨 發送 Telegram 警報給總編 (Super Admin)

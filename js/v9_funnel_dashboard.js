@@ -297,7 +297,7 @@ export async function triggerMissionSummary() {
                             <span class="text-indigo-300 font-black dash-val-visual-specs">${MISSION.ratio || '9:16'} / ${isComic ? (MISSION.panelCount || 4) + '格' : ''} ✎</span>
                         </button>
                         <div id="dash-visual-specs" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
-                            ${!isEnhance ? `
+                            ${!isEnhance && isComic ? `
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">漫畫格數</label>
                                 <div class="grid grid-cols-4 gap-2">

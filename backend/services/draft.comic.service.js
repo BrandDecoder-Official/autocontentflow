@@ -32,7 +32,7 @@ async function processDraft(req, res, payloadRaw, tools) {
         const normalizedSceneRefs = sceneFiles.map(f => ({
             type: 'scene',
             name: f.name || 'reference_bg',
-            imageUrl: f.imageUrl || f.dataUrl || ''
+            imageUrl: f.imageUrl || f.dataUrl || f.data || ''
         }));
         const allReferenceImages = [...rawRefs, ...normalizedSceneRefs];
 
@@ -52,7 +52,7 @@ async function processDraft(req, res, payloadRaw, tools) {
         // 🌟 3. 處理提供給 AI 分析的免洗筷 Base64 圖片
         const tempRefsForAI = [];
         for (let img of allReferenceImages) {
-            const url = img.imageUrl || img.dataUrl;
+            const url = img.imageUrl || img.dataUrl || img.data;
             if (url && url.startsWith('http')) {
                 const converted = await fetchImageUrlToBase64(url);
                 if (converted) tempRefsForAI.push({ ...img, data: converted.data, mimeType: converted.mimeType });
@@ -126,11 +126,11 @@ async function processDraft(req, res, payloadRaw, tools) {
             referenceImages: allReferenceImages.map(img => ({
                 type: String(img.type || "scene"),
                 name: String(img.name || ""),
-                imageUrl: String(img.imageUrl || img.dataUrl || "")
+                imageUrl: String(img.imageUrl || img.dataUrl || img.data || "")
             })),
             attachmentFiles: attachmentFiles.map(img => ({
                 name: String(img.name || ""),
-                imageUrl: String(img.imageUrl || img.dataUrl || "")
+                imageUrl: String(img.imageUrl || img.dataUrl || img.data || "")
             }))
         };
 

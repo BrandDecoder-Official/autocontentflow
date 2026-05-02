@@ -2,7 +2,7 @@
 import { STATE } from './config.js'; 
 import { MISSION, SYSTEM_DB, recordGeneratedImageBatch, getMissionCharacterNames } from './v9_state.js';
 import { addLog, releaseUI, showError } from './v9_ui.js';
-import { applyPointDeduction, validatePoints } from './v9_finance.js';
+import { applyPointDeduction, validatePoints, getImageGenBillingMultiplier, getBillingActionDisplayName } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI } from './api.js'; 
 import { renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel_editor.js';
 
@@ -99,7 +99,7 @@ window.FunnelActions = {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
                 // 動態扣除草稿底價的 UI 動畫
-                await applyPointDeduction(draftPrice, "產出草稿底價");
+                await applyPointDeduction(draftPrice, getBillingActionDisplayName('GENERATE_DRAFT', '產出草稿'));
                 
                 MISSION.currentTaskId = response.taskId;
                 MISSION.currentDraft = response.draftContent; 
@@ -123,8 +123,13 @@ window.FunnelActions = {
         // 💸 V10 動態計費：抓取雲端生圖底價
         const actionsPricing = SYSTEM_DB.pricing?.actions || {};
         const imgPrice = actionsPricing['GENERATE_IMAGE']?.retailPoints || 50;
+        const plannedN = MISSION.universe === 'COMIC'
+            ? 1
+            : Math.max(1, MISSION.plannedImageCount || 1);
+        const resW = getImageGenBillingMultiplier(MISSION.resolution);
+        const estImageCost = Math.ceil(imgPrice * plannedN * resW);
 
-        if (!validatePoints(imgPrice, "影像合成")) return;
+        if (!validatePoints(estImageCost, "影像合成")) return;
         
         const oldActive = document.getElementById('activeControlCard');
         if (oldActive) releaseUI(oldActive);
@@ -161,7 +166,7 @@ window.FunnelActions = {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 
                 // 動態扣除生圖算力的 UI 動畫
-                await applyPointDeduction(imgPrice, "影像合成算力");
+                await applyPointDeduction(estImageCost, getBillingActionDisplayName('GENERATE_IMAGE', '影像合成'));
                 
                 // 保留舊狀態 (向下相容)
                 MISSION.currentCaption = editedCaption; 
