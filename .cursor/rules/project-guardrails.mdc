@@ -6,31 +6,87 @@ alwaysApply: true
 # Project Guardrails
 
 - Do not modify unrelated code or "optimize" outside the approved scope.
+  - 只改這次同意的範圍，其他地方先不要動。
 - Before every code change:
   1) analyze current behavior and impact,
   2) report current status and proposed direction,
   3) get user approval, then edit.
+  - 每次下手前，先說明現況和要怎麼改，得到同意再改。
 - Keep changes minimal and clean; avoid extra features, refactors, or speculative improvements.
+  - 能小改就不要大改，不順便加功能、不順便重構。
 - UI must follow existing design language (layout, colors, spacing, interaction patterns). Do not change visual style arbitrarily.
+  - 介面照原本風格做，不要突然換版型或配色。
 - Security is top priority in every change. Proactively prevent injection, XSS/CSRF/auth bypass, unsafe DOM rendering, and other exploit paths.
+  - 每次修改都先顧安全，避免注入、權限繞過、危險渲染等問題。
 - Treat bug-prevention as security work: avoid risky shortcuts that could allow malicious payload planting through data or UI flows.
+  - 不要走危險捷徑，避免 bug 變成安全漏洞。
 
 # Product Context
 
 - This project is a SaaS multi-tenant content platform.
+  - 這是一個 SaaS 多租戶內容平台。
 - Multi-platform publishing exists; some multi-platform parts are still in progress.
+  - 專案已有多平台發布，但還有一些功能還在做。
 - Preserve tenant isolation assumptions in all changes.
+  - 任何改動都不能破壞租戶隔離。
 
 # Dual-Product Architecture Rules
 
 - Keep clear product boundaries: Meta platform workflow and platform-agnostic content generation are separate product lines.
+  - Meta 流程和通用內容生成要分開，不要混在一起。
 - Build reusable capabilities (scripting, storyboarding, generation orchestration, asset lifecycle) as modular services that can be invoked by internal APIs/agents.
+  - 可重用能力要模組化，之後才能被 API 或 Agent 重複使用。
 - Enforce tenant isolation at data/model/query boundaries whenever features touch task, asset, credential, or publish records.
+  - 只要碰到任務、素材、憑證、發布資料，都要確保租戶資料不會串到別人。
 - Isolate platform-specific logic (Meta tokens, publish policies, endpoint contracts) behind adapter-style modules; do not leak it into core generation logic.
+  - 平台專屬邏輯要收在 adapter，不要寫進核心生成流程。
 - Require traceability and rollback safety for task-critical flows (taskId-based state transitions, audit logs, and idempotent operations for publish/billing-sensitive actions).
+  - 關鍵流程要可追蹤、可回滾，重試也不能造成重複扣費或重複發布。
 
 # Point Deduction Rule
 
 - Point deduction and pricing logic is backend-owned.
+  - 扣點和定價以後端規則為準。
 - If deduction behavior is involved, request backend code/context first.
+  - 只要碰到扣點，先看後端邏輯再動手。
 - Do not make frontend-only assumptions or unilateral point-rule changes.
+  - 不要只靠前端猜規則，也不要自己改點數規則。
+
+# Anti-Drift Execution Rules
+
+- Outcome lock before implementation: define one measurable outcome and explicit non-goals for each task before coding.
+  - 開始前先說清楚這次要完成什麼，也要說這次不做什麼。
+- Mini-spec gate for cross-flow work: if a change touches multiple modules or workflow stages, require a mini spec (goal, boundaries, acceptance, risks) first.
+  - 只要跨多個模組或流程，先寫一份迷你規格再開始做。
+- Plan as execution contract: list touched modules, data flow, failure handling, and rollback path before implementation.
+  - 先寫好會改哪裡、資料怎麼走、失敗怎麼補救、怎麼回滾。
+- Acceptance-first delivery: define test/verification steps with pass criteria before coding; implementation must map back to acceptance items.
+  - 先訂驗收和測試，再開發；做完要能對照驗收條件。
+- Escalate ambiguity early: if requirements conflict, constraints are missing, or risk is unclear, pause and ask for clarification before editing.
+  - 如果需求有衝突或不清楚，先問清楚再改，不要硬做。
+
+# Glossary (Beginner-Friendly)
+
+- BMad (Breakthrough Method for Agile AI-Driven Development)
+  - 白話：把 AI 當成一個小團隊來合作（像 PM、工程師、QA 分工），一步一步完成需求。
+- SpecKit
+  - 白話：把需求寫清楚再開工的流程（Rules -> Spec -> Plan -> Tasks），避免 AI 做偏。
+- Rule
+  - 白話：先訂好「不能踩線」與「一定要做」的原則。
+- Spec
+  - 白話：這次功能要做什麼、不做什麼、什麼算完成。
+- Plan
+  - 白話：技術上要改哪裡、資料怎麼走、失敗怎麼補救。
+- Tasks
+  - 白話：把工作拆成可以一條一條完成的小步驟。
+
+# Onion Theory Execution Rule
+
+- Work from core goal outward in layers; do not force one-shot, all-in changes.
+  - 先抓核心目標，再一層一層完成；不要一次大改想一步到位。
+- Each layer must be small, testable, and reversible before moving deeper.
+  - 每一層都要小、可驗收、可回退，確認穩定後再進下一層。
+- If a proposed change risks architecture stability, split it into smaller iterations first.
+  - 只要改動可能影響架構穩定，就先拆小步驟迭代，不要硬切。
+- Prioritize direction correctness over raw speed; avoid "fast but fragile" delivery.
+  - 先確保方向正確，再追求速度，避免「快但脆弱」的交付。
