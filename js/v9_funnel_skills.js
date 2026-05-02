@@ -1,5 +1,5 @@
 // js/v9_funnel_skills.js
-import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired, getMissionCharacterNames } from './v9_state.js';
+import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired, getMissionCharacterNames, bootSystemData } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
@@ -366,11 +366,22 @@ export async function triggerStyleSkill() {
         await addLog("攝影總監", "📸", "進入寫實攝影棚！請選擇這張圖的「核心對焦與合成模式」：", true);
         
         let modes = SYSTEM_DB.styles.filter(s => s.category === 'REALISTIC_MODE');
-        if(modes.length === 0) modes = [
-            {name: '人物優先', icon: '👤', desc: '聚焦模特表情與姿態'},
-            {name: '商品優先', icon: '🛍️', desc: '強化產品光影與細節'},
-            {name: '整體構圖優化', icon: '🖼️', desc: '平衡人景物完美氛圍'}
-        ]; 
+        if (modes.length === 0) {
+            await addLog('攝影總監', '⚠️', '寫實合成模式尚未從後台載入，已暫停選項（避免錯誤扣點）。', true);
+            const ui = createSkillUI(`
+                <div class="flex flex-col gap-4 p-2">
+                    <p class="text-sm font-bold text-amber-200 leading-relaxed">風格整理中或尚未開放，請稍待…</p>
+                    <p class="text-xs text-slate-400 leading-relaxed">目前沒有可用的「寫實合成模式」（<code class="text-slate-500">REALISTIC_MODE</code>）。請確認管理後台已啟用對應風格，或稍後再試。不會套用任何預設選項。</p>
+                    <button type="button" id="btnRetryRealisticModes" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-black active:scale-[0.99]">重新載入選項</button>
+                </div>`);
+            ui.querySelector('#btnRetryRealisticModes').onclick = async () => {
+                await addLog('系統', '⏳', '正在重新同步雲端風格資料…', true);
+                await bootSystemData();
+                releaseUI(ui);
+                await triggerStyleSkill();
+            };
+            return;
+        }
 
         let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-3">`; 
         modes.forEach(m => { 
@@ -395,7 +406,22 @@ export async function triggerStyleSkill() {
             const sCat = String(s.category || '').trim().toUpperCase();
             return sCat === 'ANIME' || sCat === 'ANIME_STYLE';
         });
-        if(availableStyles.length === 0) availableStyles = [{id: 'MANGA_BW', name: '預設風格', icon: '🎨'}];
+        if (availableStyles.length === 0) {
+            await addLog('美術總監', '⚠️', '動漫風格尚未從後台載入，已暫停選項（避免錯誤扣點）。', true);
+            const ui = createSkillUI(`
+                <div class="flex flex-col gap-4 p-2">
+                    <p class="text-sm font-bold text-amber-200 leading-relaxed">風格整理中或尚未開放，請稍待…</p>
+                    <p class="text-xs text-slate-400 leading-relaxed">目前沒有可用的動漫風格（<code class="text-slate-500">ANIME</code> / <code class="text-slate-500">ANIME_STYLE</code>）。請確認管理後台已啟用對應風格，或稍後再試。不會套用任何預設選項。</p>
+                    <button type="button" id="btnRetryAnimeStyles" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-black active:scale-[0.99]">重新載入選項</button>
+                </div>`);
+            ui.querySelector('#btnRetryAnimeStyles').onclick = async () => {
+                await addLog('系統', '⏳', '正在重新同步雲端風格資料…', true);
+                await bootSystemData();
+                releaseUI(ui);
+                await triggerStyleSkill();
+            };
+            return;
+        }
         
         let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-3">`; 
         availableStyles.forEach(s => { 
@@ -424,7 +450,27 @@ export async function triggerRealisticFilterSkill() {
     await addLog("攝影總監", "🎞️", "請選擇這組照片的「濾鏡氛圍」：", true);
     
     let filters = SYSTEM_DB.styles.filter(s => s.category === 'REALISTIC_FILTER');
-    if(filters.length === 0) filters = [{name: '原色直出', icon: '📷'}, {name: '商業廣告', icon: '✨'}]; 
+    if (filters.length === 0) {
+        await addLog('攝影總監', '⚠️', '寫實濾鏡尚未從後台載入，已暫停選項（避免錯誤扣點）。', true);
+        const ui = createSkillUI(`
+            <div class="flex flex-col gap-4 p-2">
+                <p class="text-sm font-bold text-amber-200 leading-relaxed">濾鏡資料整理中或尚未開放，請稍待…</p>
+                <p class="text-xs text-slate-400 leading-relaxed">目前沒有可用的攝影濾鏡（<code class="text-slate-500">REALISTIC_FILTER</code>）。請確認管理後台已啟用對應項目，或稍後再試。不會套用任何預設濾鏡。</p>
+                <button type="button" id="btnRetryRealisticFilters" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-black active:scale-[0.99]">重新載入選項</button>
+                <button type="button" id="btnBackToRealisticMode" class="w-full border border-white/15 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-xl text-xs font-bold active:scale-[0.99]">返回上一步（重選合成模式）</button>
+            </div>`);
+        ui.querySelector('#btnRetryRealisticFilters').onclick = async () => {
+            await addLog('系統', '⏳', '正在重新同步雲端風格資料…', true);
+            await bootSystemData();
+            releaseUI(ui);
+            await triggerRealisticFilterSkill();
+        };
+        ui.querySelector('#btnBackToRealisticMode').onclick = async () => {
+            releaseUI(ui);
+            await triggerStyleSkill();
+        };
+        return;
+    }
 
     let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">`;
     filters.forEach(f => {
