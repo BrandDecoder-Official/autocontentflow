@@ -1,0 +1,77 @@
+# Deploy Node backend to Cloud Run (Artifact Registry image → same service as frontend CONFIG.CLOUD_RUN_URL).
+#
+# One-time GitHub repo setup (choose Workload Identity Federation — no JSON key in repo):
+#   https://github.com/google-github-actions/auth#setting-up-workload-identity-federation
+# Repository secrets:
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  e.g. projects/123/locations/global/workloadIdentityPools/pool/providers/gh
+#   GCP_SERVICE_ACCOUNT_EMAIL       e.g. deployer@lllcnd.iam.gserviceaccount.com
+#
+# Cloud Run env vars stay in console (this workflow only updates the container image).
+
+name: Deploy backend (Cloud Run)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+
+concurrency:
+  group: deploy-backend-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GCP_PROJECT_ID: lllcnd
+  GCP_REGION: asia-east1
+  ARTIFACT_REGISTRY_REPO: cloud-run-source-deploy
+  CLOUD_RUN_SERVICE: bd-autocontentflow
+  IMAGE: asia-east1-docker.pkg.dev/lllcnd/cloud-run-source-deploy/bd-autocontentflow
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate backend layout
+        run: |
+          test -f backend/package.json || { echo "::error::backend/package.json is required"; exit 1; }
+          test -f backend/Dockerfile || { echo "::error::backend/Dockerfile is required"; exit 1; }
+          test -f backend/index.js || { echo "::error::backend/index.js is required"; exit 1; }
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker asia-east1-docker.pkg.dev --quiet
+
+      - name: Build and push image
+        working-directory: backend
+        run: |
+          IMG_SHA="${{ env.IMAGE }}:${GITHUB_SHA}"
+          docker build -t "$IMG_SHA" .
+          docker push "$IMG_SHA"
+          docker tag "$IMG_SHA" "${{ env.IMAGE }}:latest"
+          docker push "${{ env.IMAGE }}:latest"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.CLOUD_RUN_SERVICE }} \
+            --image "${{ env.IMAGE }}:${GITHUB_SHA}" \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --quiet
