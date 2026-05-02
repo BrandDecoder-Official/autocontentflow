@@ -35,9 +35,11 @@ export async function triggerTopicSkill() {
 
                 <div id="rssPanel" class="flex flex-col rounded-2xl border border-indigo-500/40 bg-slate-900/60 p-4 shadow-inner min-h-[280px]">
                     <label class="text-xs font-black text-indigo-300 tracking-wide mb-1">📰 熱門新聞靈感（Google News RSS）</label>
-                    <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">來源為<strong class="text-slate-400">Google News、央廣 RTI、自由時報</strong>等 RSS 合併；仍以摘要為主（非全文），但已優先挑<strong class="text-slate-400">內文較長</strong>的項目。點一則填入左欄後請再改寫。</p>
+                    <p class="text-[10px] text-slate-500 mb-3 leading-relaxed">來源為<strong class="text-slate-400">Google News、央廣 RTI、自由時報</strong>等 RSS 合併；<strong class="text-slate-400">房市／投資</strong>為 Google 關鍵字 RSS 細分（仍非全文摘要）。已優先挑<strong class="text-slate-400">內文較長</strong>的項目。點一則填入左欄後請再改寫。</p>
                     <div class="flex overflow-x-auto gap-2 pb-2 scrollbar-hide shrink-0" id="rssCategoryTabs">
                         <button type="button" class="rss-cat-btn px-3 py-2 bg-indigo-600 text-white border border-indigo-500 rounded-xl text-[10px] font-bold whitespace-nowrap transition-all min-h-[40px]" data-cat="BUSINESS">財金</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="REAL_ESTATE">房市</button>
+                        <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="INVESTMENT">投資</button>
                         <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="POLITICS">政治</button>
                         <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="WORLD">國際</button>
                         <button type="button" class="rss-cat-btn px-3 py-2 bg-slate-800 text-slate-300 border border-white/10 rounded-xl text-[10px] font-bold whitespace-nowrap hover:bg-slate-700 transition-all min-h-[40px]" data-cat="ENTERTAINMENT">娛樂</button>
@@ -91,7 +93,7 @@ export async function triggerTopicSkill() {
         try {
             // 💡 修正：換成系統標準的 CLOUD_RUN_URL，並確保沒有多餘的斜線
             const baseUrl = (typeof CONFIG !== 'undefined' && CONFIG.CLOUD_RUN_URL) ? CONFIG.CLOUD_RUN_URL.replace(/\/$/, '') : '';
-            const res = await fetch(`${baseUrl}/api/rss/news?category=${category}`);
+            const res = await fetch(`${baseUrl}/api/rss/news?category=${encodeURIComponent(category)}`);
             const json = await res.json();
             
             if (json.success && json.data) {

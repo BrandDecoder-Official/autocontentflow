@@ -34,6 +34,29 @@ const LTN_FEEDS = {
 // 央廣 — 綜合稿，RSS 常含較長導讀／內文片段（繁中），可補 Google 過短摘要
 const RTI_MAIN_FEED = 'https://www.rti.org.tw/rss';
 
+/** Google News 依關鍵字搜尋的 RSS（台灣繁中）— 用於房市、投資等細分主題 */
+function googleNewsSearchRssUrl(query) {
+    const q = encodeURIComponent(String(query || '').trim());
+    return `https://news.google.com/rss/search?q=${q}&hl=zh-TW&gl=TW&ceid=TW:zh-Hant`;
+}
+
+/**
+ * 細分主題：多組關鍵字 RSS + 可選自由時報分類 + 可選央廣（rtiCap=0 則不拉央廣，減少離題）
+ * googleQueries：每組會各打一條 Google News search RSS，再合併去重。
+ */
+const NICHE_CATEGORY = {
+    REAL_ESTATE: {
+        googleQueries: ['房市 台灣', '不動產 台灣'],
+        ltnKey: null,
+        rtiCap: 0,
+    },
+    INVESTMENT: {
+        googleQueries: ['投資理財 台灣', '台股 股市'],
+        ltnKey: 'BUSINESS',
+        rtiCap: 28,
+    },
+};
+
 function stripHtml(html) {
     if (!html) return '';
     return String(html)
@@ -92,23 +115,12 @@ function mergeNewsPreferLonger(entries) {
 }
 
 /**
- * 合併多路 RSS：Google News（話題）+ 央廣（長文摘要）+ 自由時報（分類）
+ * 合併多路 RSS：Google News（話題或關鍵字）+ 央廣 + 自由時報（分類）
  * 同標題保留較長內文，再依內文長度排序，降低「只有標題一句」對生成的影響。
  */
 async function fetchTrendingNews(category = 'BUSINESS', limit = 20) {
     try {
         const cat = (category || 'BUSINESS').toUpperCase();
-        const topicId = CATEGORY_MAP[cat] || 'NATION';
-        const googleUrl = `${GOOGLE_NEWS_BASE}/${topicId}${PARAMS}`;
-        const ltnUrl = LTN_FEEDS[cat];
-
-        const feedResults = await Promise.all([
-            parseFeedSafe(googleUrl),
-            parseFeedSafe(RTI_MAIN_FEED),
-            ltnUrl ? parseFeedSafe(ltnUrl) : Promise.resolve({ items: [] }),
-        ]);
-        const [googleFeed, rtiFeed, ltnFeed] = feedResults;
-
         const raw = [];
         const push = (items, label, cap) => {
             for (const item of (items || []).slice(0, cap)) {
@@ -117,9 +129,44 @@ async function fetchTrendingNews(category = 'BUSINESS', limit = 20) {
             }
         };
 
-        push(googleFeed.items, 'Google News', 30);
-        push(rtiFeed.items, '央廣 RTI', 70);
-        push(ltnFeed.items, '自由時報', 45);
+        const niche = NICHE_CATEGORY[cat];
+        if (niche) {
+            const tasks = niche.googleQueries.map((q) => parseFeedSafe(googleNewsSearchRssUrl(q)));
+            const labels = niche.googleQueries.map((q) => `Google News（${q}）`);
+
+            if (niche.ltnKey && LTN_FEEDS[niche.ltnKey]) {
+                tasks.push(parseFeedSafe(LTN_FEEDS[niche.ltnKey]));
+                labels.push('自由時報');
+            }
+            if (niche.rtiCap > 0) {
+                tasks.push(parseFeedSafe(RTI_MAIN_FEED));
+                labels.push('央廣 RTI');
+            }
+
+            const feedResults = await Promise.all(tasks);
+            feedResults.forEach((feed, i) => {
+                const label = labels[i];
+                let cap = 32;
+                if (label === '央廣 RTI') cap = niche.rtiCap;
+                else if (label === '自由時報') cap = 45;
+                push(feed.items, label, cap);
+            });
+        } else {
+            const topicId = CATEGORY_MAP[cat] || 'NATION';
+            const googleUrl = `${GOOGLE_NEWS_BASE}/${topicId}${PARAMS}`;
+            const ltnUrl = LTN_FEEDS[cat];
+
+            const feedResults = await Promise.all([
+                parseFeedSafe(googleUrl),
+                parseFeedSafe(RTI_MAIN_FEED),
+                ltnUrl ? parseFeedSafe(ltnUrl) : Promise.resolve({ items: [] }),
+            ]);
+            const [googleFeed, rtiFeed, ltnFeed] = feedResults;
+
+            push(googleFeed.items, 'Google News', 30);
+            push(rtiFeed.items, '央廣 RTI', 70);
+            push(ltnFeed.items, '自由時報', 45);
+        }
 
         const merged = mergeNewsPreferLonger(raw);
         merged.sort((a, b) => (b.content || '').length - (a.content || '').length);
