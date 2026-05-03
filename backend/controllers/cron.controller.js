@@ -3,6 +3,7 @@ const firestoreService = require('../services/firestore.service');
 const socialService = require('../services/social.service');
 const telegramService = require('../services/telegram.service'); 
 const env = require('../config/env.config.js');
+const { resolvePlatformsFromTask, resolveImageUrlsFromTask } = require('../utils/publishResolve.js');
 
 const db = firestoreService.db || firestoreService;
 
@@ -90,28 +91,9 @@ async function executeScheduledTask(taskId, taskData) {
         // 1. 取得文案：優先取校稿後的 final，若無則取初稿 draft
         const captionToPublish = taskData.social_post_final || taskData.social_post_draft;
         
-        // 2. 鎖定 V10 核心內容包 (missionContext)
-        const mission = taskData.missionContext || {};
-        const platforms = mission.platforms || [];
-
-        // 3. 組合 1+9 圖片陣列 (AI主圖 + 附加輪播圖)
-        const imageUrlsToPublish = [];
-        
-        // [主圖] 加入 AI 生成的主視覺
-        if (taskData.generated_image_url) {
-            imageUrlsToPublish.push(taskData.generated_image_url);
-        }
-        
-        // [附加圖] 加入 V10 標準附件陣列 (attachmentFiles)
-        if (mission.attachmentFiles && Array.isArray(mission.attachmentFiles)) {
-            mission.attachmentFiles.forEach(file => {
-                // 僅過濾出已成功上傳至雲端並取得網址 (http) 的檔案
-                const url = file.url || file.dataUrl;
-                if (typeof url === 'string' && url.startsWith('http')) {
-                    imageUrlsToPublish.push(url);
-                }
-            });
-        }
+        // 2–3. 平台與圖片：與 publish API 同一套解析（含 payload.platforms、task.images、附件）
+        const platforms = resolvePlatformsFromTask(taskData);
+        const imageUrlsToPublish = resolveImageUrlsFromTask(taskData, {});
 
         // 🛡️ 發射前檢查：確保有平台且有圖，否則 Meta API 會噴錯
         if (platforms.length === 0 || imageUrlsToPublish.length === 0) {

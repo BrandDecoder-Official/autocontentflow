@@ -4,8 +4,9 @@
 // 這樣就完美繼承了您設定的 databaseId: 'bd-autocontentflow-db'
 const { db } = require('../services/firestore.service'); 
 
-// 我們在您的資料庫中開一個全新的獨立資料夾給 AI 代理人專用
-const COLLECTION_NAME = 'agent_tasks';
+// V10 正式任務一律存在 `tasks`（見 firestore.service / draft / publish）。
+// 舊版曾使用 `agent_tasks`，已廢止；此模組改與主流程共用同一集合以免資料分裂。
+const COLLECTION_NAME = 'tasks';
 
 /**
  * 💾 讀取記憶 (讀取任務狀態)
@@ -53,7 +54,7 @@ exports.saveState = async (state) => {
 exports.getTasksByTenant = async (tenantId, limitCount = 10) => {
     try {
         const { db } = require('../services/firestore.service');
-        const snapshot = await db.collection('agent_tasks') // 🚀 修正幻覺：精準指向 agent_tasks 表！
+        const snapshot = await db.collection(COLLECTION_NAME)
             .where('tenantId', '==', tenantId)
             .orderBy('updatedAt', 'desc')
             .limit(limitCount)

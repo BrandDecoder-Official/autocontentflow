@@ -267,23 +267,15 @@ export async function triggerHookSkill() {
     await addLog("社群總監", "🎣", "人設鎖定！那麼開頭的第一句，我們打算怎麼抓住眼球？", true);
     const strategyPanelHTML = `
         <div class="flex flex-col gap-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="flex flex-col gap-2">
-                    <label class="text-[10px] font-bold text-slate-400">🎣 開場勾子 (Hook)</label>
-                    <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
-                        <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option>
-                        <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option>
-                        <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option>
-                        <option value="溫情故事" ${MISSION.hookType === '溫情故事' ? 'selected' : ''}>📖 溫情故事</option>
-                    </select>
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label class="text-[10px] font-bold text-slate-400">📏 文案長度節奏</label>
-                    <select id="selLength" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
-                        <option value="短平快 (約150字)" ${MISSION.contentLength === '短平快 (約150字)' ? 'selected' : ''}>⚡ 短平快 (150字)</option>
-                        <option value="深度文 (約300字)" ${MISSION.contentLength === '深度文 (約300字)' ? 'selected' : ''}>📖 深度文 (300字)</option>
-                    </select>
-                </div>
+            <p class="text-[10px] text-slate-500 leading-relaxed">文案篇幅請在儀表板的「發文戰術」依平台設定；此步僅鎖定開場勾子類型。</p>
+            <div class="flex flex-col gap-2">
+                <label class="text-[10px] font-bold text-slate-400">🎣 開場勾子 (Hook)</label>
+                <select id="selHookType" class="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-3 text-xs text-white focus:border-indigo-500 outline-none cursor-pointer">
+                    <option value="痛點提問" ${MISSION.hookType === '痛點提問' ? 'selected' : ''}>❓ 痛點提問</option>
+                    <option value="反直覺爆點" ${MISSION.hookType === '反直覺爆點' ? 'selected' : ''}>💥 反直覺爆點</option>
+                    <option value="利益誘惑" ${MISSION.hookType === '利益誘惑' ? 'selected' : ''}>🎁 利益誘惑</option>
+                    <option value="溫情故事" ${MISSION.hookType === '溫情故事' ? 'selected' : ''}>📖 溫情故事</option>
+                </select>
             </div>
             <div class="flex justify-end border-t border-white/10 pt-4">
                 <button id="btnConfirmHook" class="w-full sm:w-auto bg-indigo-600 text-white px-8 py-3 rounded-xl font-black text-xs shadow-lg active:scale-95 transition-all">🧠 鎖定戰術</button>
@@ -293,9 +285,8 @@ export async function triggerHookSkill() {
     const ui = createSkillUI(strategyPanelHTML);
     ui.querySelector('#btnConfirmHook').onclick = async () => { 
         MISSION.hookType = ui.querySelector('#selHookType').value; 
-        MISSION.contentLength = ui.querySelector('#selLength').value; 
         releaseUI(ui); 
-        await addLog("社群總監", "✅", `戰術配置：${MISSION.hookType} / ${MISSION.contentLength.split(' ')[0]}`); 
+        await addLog("社群總監", "✅", `開場勾子已鎖定：<b>${MISSION.hookType}</b>（字數節奏請依儀表板各平台設定）`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
         else { await triggerUniverseSkill(); }
     };

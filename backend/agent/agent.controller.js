@@ -18,6 +18,16 @@ try {
 // 初始化 Gemini 官方最新 SDK
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+/** Firestore Timestamp / ISO / Date → sortable ms */
+function taskTimeMs(val) {
+    if (val == null) return 0;
+    if (typeof val === 'object' && val._seconds != null) {
+        return val._seconds * 1000 + Math.floor((val._nanoseconds || 0) / 1e6);
+    }
+    const t = new Date(val).getTime();
+    return Number.isFinite(t) ? t : 0;
+}
+
 class AgentController {
 
     // ==========================================
@@ -147,10 +157,13 @@ ${JSON.stringify(currentMissionState || {}, null, 2)}
                 tasks.push({ id: doc.id, ...doc.data() });
             });
 
-            // 記憶體內排序：最新的在上面
-            tasks.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-            // 只取前 20 筆
-            tasks = tasks.slice(0, 20);
+            // 記憶體內排序：优先 updatedAt（與 Firestore Timestamp / ISO 相容），最新的在上面
+            tasks.sort((a, b) => {
+                const tb = taskTimeMs(b.updatedAt) || taskTimeMs(b.createdAt);
+                const ta = taskTimeMs(a.updatedAt) || taskTimeMs(a.createdAt);
+                return tb - ta;
+            });
+            tasks = tasks.slice(0, 50);
 
             return res.status(200).json({ success: true, tasks });
 

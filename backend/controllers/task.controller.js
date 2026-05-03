@@ -16,6 +16,7 @@ try { telegramService = require('../services/telegram.service'); } catch (e) { c
 try { socialService = require('../services/social.service'); } catch (e) { console.error("💥 Social 模組載入失敗:", e); }
 try { billingService = require('../services/billingService'); } catch (e) { console.error("💥 計費模組載入失敗:", e); }
 const { getImageGenBillingMultiplier } = require('../config/pricing.config.js');
+const { resolvePlatformsFromTask, resolveImageUrlsFromTask } = require('../utils/publishResolve.js');
 
 // 🚀 雙軌大腦防禦性載入
 let comicDraftService, realisticDraftService;
@@ -394,40 +395,79 @@ async function compressComicPanels(req, res) {
 // ==========================================
 async function publishTask(req, res) {
     try {
-        const { taskId, tenantId, scheduledAt, finalCaption } = req.body; 
+        const { taskId, tenantId, scheduledAt, finalCaption, multiCaptions, isIndependentPost } = req.body;
         const docRef = db.collection('tasks').doc(taskId);
         const docSnap = await docRef.get();
         if (!docSnap.exists) throw new Error("找不到任務");
         if (tenantId) await verifyTenant(tenantId, 0);
 
         const taskData = docSnap.data();
-        const captionToPublish = finalCaption || taskData.social_post_draft;
-        const platforms = taskData.payload.platforms || [];
-        let imageUrlsToPublish = taskData.images?.length > 0 ? taskData.images.map(img => img.finalUrl).filter(Boolean) : (taskData.generated_image_url ? [taskData.generated_image_url] : []);
+        const captionBase = finalCaption || taskData.social_post_final || taskData.social_post_draft;
+        const platforms = resolvePlatformsFromTask(taskData);
+        const rawHadPlatforms =
+            (Array.isArray(taskData.payload?.platforms) && taskData.payload.platforms.length > 0) ||
+            (Array.isArray(taskData.missionContext?.platforms) && taskData.missionContext.platforms.length > 0);
 
-        if (platforms.length === 0) throw new Error("中斷：未選擇平台！");
-        if (imageUrlsToPublish.length === 0) throw new Error("中斷：沒有圖片！");
+        if (platforms.length === 0) {
+            throw new Error(rawHadPlatforms ? '中斷：平台代碼無法辨識（請使用 FB / IG / THREADS）' : '中斷：未選擇平台！');
+        }
+
+        const imageUrlsToPublish = resolveImageUrlsFromTask(taskData, req.body);
+        if (imageUrlsToPublish.length === 0) throw new Error('中斷：沒有可發佈的圖片網址（請確認已生圖或附件已上傳）。');
+
         if (tenantId && billingService && billingService.chargeAndLog) await billingService.chargeAndLog({ uid: tenantId, actionType: 'PUBLISH_POST', multiplier: 1, referenceId: taskId, req });
 
         if (scheduledAt) {
-            await docRef.update({ status: 'SCHEDULED', scheduledAt, social_post_final: captionToPublish, updatedAt: new Date().toISOString() });
+            await docRef.update({
+                status: 'SCHEDULED',
+                scheduledAt,
+                social_post_final: captionBase,
+                updatedAt: new Date().toISOString(),
+            });
             return res.status(200).json({ success: true, message: "已寫入排程！" });
         }
 
         await docRef.update({ status: 'PUBLISHING' });
-        
-        if (platforms.includes('FB')) await socialService.publishToFacebookAPI(imageUrlsToPublish, captionToPublish);
-        if (platforms.includes('IG')) await socialService.publishToInstagramAPI(imageUrlsToPublish, captionToPublish);
-        if (platforms.includes('THREADS')) await socialService.publishToThreadsAPI(imageUrlsToPublish, captionToPublish);
 
-        await docRef.update({ status: 'PUBLISHED', social_post_final: captionToPublish, publishedAt: new Date().toISOString() });
-        
-        await sendClientTelegram(taskData.payload.tgConfig, `🚀 <b>發佈成功！</b>\n您的貼文已成功投遞至 ${platforms.join(', ')}。`);
+        let apiCalls = 0;
+        for (const plat of platforms) {
+            const caption =
+                isIndependentPost && multiCaptions && typeof multiCaptions === 'object' && multiCaptions[plat]
+                    ? multiCaptions[plat]
+                    : captionBase;
+            if (plat === 'FB') {
+                await socialService.publishToFacebookAPI(imageUrlsToPublish, caption);
+                apiCalls++;
+            } else if (plat === 'IG') {
+                await socialService.publishToInstagramAPI(imageUrlsToPublish, caption);
+                apiCalls++;
+            } else if (plat === 'THREADS') {
+                await socialService.publishToThreadsAPI(imageUrlsToPublish, caption);
+                apiCalls++;
+            }
+        }
+        if (apiCalls === 0) throw new Error('中斷：沒有任何平台完成 Meta 發佈呼叫（請檢查平台設定）。');
+
+        await docRef.update({
+            status: 'PUBLISHED',
+            social_post_final: captionBase,
+            publishedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        });
+
+        await sendClientTelegram(taskData.payload?.tgConfig, `🚀 <b>發佈成功！</b>\n您的貼文已成功投遞至 ${platforms.join(', ')}。`);
 
         return res.status(200).json({ success: true, message: "發布成功！" });
-
     } catch (error) {
-        try { await db.collection('tasks').doc(req.body.taskId).update({ status: 'PUBLISH_FAILED' }); } catch (e) { /* ignore */ }
+        try {
+            await db.collection('tasks').doc(req.body.taskId).update({
+                status: 'PUBLISH_FAILED',
+                errorMsg: error.message,
+                updatedAt: new Date().toISOString(),
+            });
+        } catch (e) {
+            /* ignore */
+        }
         return res.status(500).json({ success: false, message: error.message });
     }
 }
