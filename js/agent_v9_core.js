@@ -42,6 +42,15 @@ function getTaskStatus(task) {
     return task?.status || task?.currentStatus || task?.agentData?.status || 'UNKNOWN';
 }
 
+/** 已結束或無需再佔用「進行中」分頁的狀態（含發佈失敗 → 改列歷史／錯誤） */
+const TERMINAL_OR_HISTORICAL_STATUSES = new Set([
+    'COMPLETED',
+    'PUBLISHED',
+    'SCHEDULED',
+    'PUBLISH_FAILED',
+    'ERROR',
+]);
+
 // ==========================================
 // 🎨 大廳畫面渲染
 // ==========================================
@@ -137,18 +146,21 @@ window.renderTaskDashboard = async function() {
             return !!(topic || (t.taskId || t.id) || status !== 'UNKNOWN');
         });
 
-        // 💡 2. 依照當前頁籤進行狀態過濾 (精準對齊後端狀態碼)
+        // 💡 2. 依照當前頁籤進行狀態過濾
         if (window.currentTaskTab === 'PENDING') {
-            // 進行中：DRAFTING (草稿完成待生圖), IMAGE_READY (圖片完成待發佈), AWAITING_APPROVAL
-            validTasks = validTasks.filter(t => {
-                const s = getTaskStatus(t);
-                return s !== 'COMPLETED' && s !== 'PUBLISHED' && s !== 'SCHEDULED';
-            });
+            // 進行中：排除已結束 / 已排程 / 發佈失敗 / 錯誤（避免「垃圾列」假裝運算中）
+            validTasks = validTasks.filter((t) => !TERMINAL_OR_HISTORICAL_STATUSES.has(getTaskStatus(t)));
         } else {
-            // 已完成：PUBLISHED, COMPLETED, SCHEDULED
-            validTasks = validTasks.filter(t => {
+            // 歷史：成功、排程、發佈失敗、流程錯誤（可檢視／重試發佈）
+            validTasks = validTasks.filter((t) => {
                 const s = getTaskStatus(t);
-                return s === 'COMPLETED' || s === 'PUBLISHED' || s === 'SCHEDULED';
+                return (
+                    s === 'COMPLETED' ||
+                    s === 'PUBLISHED' ||
+                    s === 'SCHEDULED' ||
+                    s === 'PUBLISH_FAILED' ||
+                    s === 'ERROR'
+                );
             });
         }
         
@@ -193,8 +205,12 @@ window.renderTaskDashboard = async function() {
                     statusColor = 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20'; statusText = '圖片已產出 (待確認)'; actionText = '預覽與發佈'; icon = '🖼️'; progressPct = 85; barColor = 'bg-indigo-500'; break;
                 case 'DRAFTING': 
                     statusColor = 'text-orange-400 bg-orange-400/10 border-orange-400/20'; statusText = '草稿已建立 (待生圖)'; actionText = '強制載入編輯'; icon = '🟠'; progressPct = 50; barColor = 'bg-orange-500'; break;
-                case 'ERROR': 
+                case 'ERROR':
                     statusColor = 'text-red-400 bg-red-400/10 border-red-400/20'; statusText = '發生錯誤中斷'; actionText = '重試任務'; icon = '🔴'; progressPct = 100; barColor = 'bg-red-500'; break;
+                case 'PUBLISH_FAILED':
+                    statusColor = 'text-red-400 bg-red-400/10 border-red-400/20'; statusText = '發佈失敗'; actionText = '重新發佈'; icon = '⚠️'; progressPct = 90; barColor = 'bg-red-500'; break;
+                case 'PUBLISHING':
+                    statusColor = 'text-amber-400 bg-amber-400/10 border-amber-400/20'; statusText = '發佈處理中…'; actionText = '查看進度'; icon = '⏳'; progressPct = 92; barColor = 'bg-amber-500'; break;
                 default: 
                     statusColor = 'text-purple-400 bg-purple-400/10 border-purple-400/20'; statusText = '大腦運算中...'; actionText = '強制載入'; icon = '🧠'; progressPct = 25; barColor = 'bg-purple-500 animate-pulse'; break;
             }
@@ -279,7 +295,7 @@ window.resumeTask = async function(taskIndex) {
     const status = loadMissionFromDB(task);
     IS_EDIT_MODE.value = true; // 開啟編輯模式，讓漏斗知道我們是從中途插入的
 
-    await addLog("系統", "🔄", `正在為您恢復任務：<b>${MISSION.topic.substring(0, 15)}...</b>`, true);
+    await addLog('系統', '🔄', `正在為您恢復任務：<b>${(MISSION.topic || '（未命名）').substring(0, 15)}...</b>`, true);
     const chatBar = document.getElementById('agentChatBar');
 
     // 🚀 2. 狀態分流時光機 (精準跳轉)
@@ -293,11 +309,24 @@ window.resumeTask = async function(taskIndex) {
         };
         await renderDraftEditorCard(MISSION.currentTaskId, draftFromTask, MISSION.universe === 'COMIC');
 
-    } else if (status === 'IMAGE_READY' || status === 'IMAGES_GENERATED') {
-        // 情況 B：圖片已經生好了！跳轉到最終的預覽發佈卡片
-        if(chatBar) chatBar.classList.remove('translate-y-full');
+    } else if (
+        status === 'IMAGE_READY' ||
+        status === 'IMAGES_GENERATED' ||
+        status === 'PUBLISH_FAILED' ||
+        status === 'PUBLISHING'
+    ) {
+        // 情況 B：圖已齊或上次發佈失敗／進行中 → 進最終發佈卡（可重試）
+        if (chatBar) chatBar.classList.remove('translate-y-full');
+        if (status === 'PUBLISH_FAILED' && task.errorMsg) {
+            await addLog('系統', '⚠️', `上次錯誤：${task.errorMsg}`, true);
+        }
         const imgs = task.images || task.agentData?.generatedImages || [];
-        const caption = task.social_post_draft || task.draftContent?.post_caption || task.agentData?.draftContent?.post_caption || '';
+        const caption =
+            task.social_post_final ||
+            task.social_post_draft ||
+            task.draftContent?.post_caption ||
+            task.agentData?.draftContent?.post_caption ||
+            '';
         await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
 
     } else if (status === 'COMPLETED' || status === 'PUBLISHED' || status === 'SCHEDULED') {
@@ -307,6 +336,27 @@ window.resumeTask = async function(taskIndex) {
         const imgs = task.images || task.agentData?.generatedImages || [];
         const caption = task.social_post_draft || task.draftContent?.post_caption || task.agentData?.draftContent?.post_caption || '';
         await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
+
+    } else if (status === 'ERROR') {
+        // 流程錯誤：若有草稿則回編輯，否則提示新任務
+        if (chatBar) chatBar.classList.remove('translate-y-full');
+        const draftFromTask =
+            task.draftContent ||
+            task.agentData?.draftContent ||
+            (task.social_post_draft
+                ? {
+                      post_caption: task.social_post_draft,
+                      hashtags: task.hashtags || [],
+                      panels: task.panels || task.agentData?.panels || MISSION.currentPanels || [],
+                  }
+                : null);
+        if (draftFromTask && (draftFromTask.post_caption || (draftFromTask.panels && draftFromTask.panels.length))) {
+            await renderDraftEditorCard(MISSION.currentTaskId, draftFromTask, MISSION.universe === 'COMIC');
+        } else {
+            if (chatBar) chatBar.classList.add('translate-y-full');
+            showError('此任務已標記錯誤且缺少可還原草稿，請發起新任務或刪除此筆。');
+            setTimeout(() => initAgentFunnel(), 2000);
+        }
 
     } else {
         if(chatBar) chatBar.classList.add('translate-y-full');

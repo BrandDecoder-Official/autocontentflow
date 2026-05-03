@@ -23,7 +23,15 @@ async function publishToFacebookAPI(imageInput, message) {
 
         const response = await fetch(url, { method: 'POST', body: params });
         const data = await response.json();
-        if (data.error) throw new Error(`FB 錯誤: ${data.error.message}`);
+        if (data.error) {
+            const m = data.error.message || '';
+            let extra = '';
+            if (/publish_actions/i.test(m)) {
+                extra =
+                    ' 請確認使用「粉絲專頁」長效權杖（Page Access Token），且 App 具備 pages_manage_posts；已廢止的 publish_actions / 使用者發文流程無法再發 Page 貼文。';
+            }
+            throw new Error(`FB 錯誤: ${m}${extra}`);
+        }
         return data;
     } else {
         console.log(`📘 [Social Service] FB 輪播多圖模式發佈中 (共 ${images.length} 張)...`);
@@ -39,7 +47,13 @@ async function publishToFacebookAPI(imageInput, message) {
             
             const res = await fetch(url, { method: 'POST', body: params });
             const data = await res.json();
-            if (data.error) throw new Error(`FB 圖片隱藏上傳失敗: ${data.error.message}`);
+            if (data.error) {
+                const m = data.error.message || '';
+                const extra = /publish_actions/i.test(m)
+                    ? '（請改用 Page Access Token + pages_manage_posts）'
+                    : '';
+                throw new Error(`FB 圖片隱藏上傳失敗: ${m}${extra}`);
+            }
             mediaIds.push(data.id); 
             
             // 🌟 防擋冷卻
@@ -63,7 +77,13 @@ async function publishToFacebookAPI(imageInput, message) {
         
         const res = await fetch(feedUrl, { method: 'POST', body: feedParams });
         const data = await res.json();
-        if (data.error) throw new Error(`FB 多圖貼文發佈失敗: ${data.error.message}`);
+        if (data.error) {
+            const m = data.error.message || '';
+            const extra = /publish_actions/i.test(m)
+                ? ' 請使用粉絲專頁長效權杖並具 pages_manage_posts。'
+                : '';
+            throw new Error(`FB 多圖貼文發佈失敗: ${m}${extra}`);
+        }
         return data;
     }
 }

@@ -215,11 +215,12 @@ export function loadMissionFromDB(taskData) {
     if (!taskData) return null;
 
     // 1. 抓取核心 Context (相容新舊資料結構)
-    const ctx = taskData.missionContext || taskData.payload?.missionContext || taskData.payload || {};
+    const payloadRoot = taskData.payload || {};
+    const ctx = taskData.missionContext || payloadRoot.missionContext || payloadRoot || {};
 
     // 2. 還原基礎參數
     MISSION.currentTaskId = taskData.taskId || taskData.id;
-    MISSION.topic = ctx.topic || '';
+    MISSION.topic = ctx.topic || payloadRoot.topic || '';
     const legacyUniverse = ctx.universe || '';
     MISSION.universe = legacyUniverse === 'ENHANCE' ? 'REALISTIC' : legacyUniverse;
     MISSION.taskMode = ctx.taskMode || (legacyUniverse === 'ENHANCE' ? 'ENHANCE' : 'GENERATE');
@@ -234,8 +235,8 @@ export function loadMissionFromDB(taskData) {
     MISSION.persona = ctx.persona || '';
     MISSION.hookType = ctx.hookType || '痛點提問';
     MISSION.contentLength = ctx.contentLength || '深度文 (約300字)';
-    MISSION.platforms = ctx.platforms || [];
-    MISSION.isIndependentPost = ctx.isIndependentPost || false;
+    MISSION.platforms = ctx.platforms?.length ? ctx.platforms : payloadRoot.platforms || [];
+    MISSION.isIndependentPost = ctx.isIndependentPost || payloadRoot.isIndependentPost || false;
     
     if (ctx.platformStrategies) {
         MISSION.platformStrategies = JSON.parse(JSON.stringify(ctx.platformStrategies));
