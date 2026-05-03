@@ -394,7 +394,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     if (!MISSION.selectedImageBatchId && batches.length > 0) {
         MISSION.selectedImageBatchId = batches[0].id;
     }
-    let slotsInit = buildFlatImageSlots();
+    let slotsInit = buildFlatPublishSlots();
     if (MISSION.selectedImageBatchId && slotsInit.length) {
         const at = slotsInit.findIndex((s) => s.batchId === MISSION.selectedImageBatchId);
         if (at >= 0) MISSION.selectedImagePreviewIndex = at;
@@ -407,7 +407,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     } else {
         MISSION.selectedImagePreviewIndex = 0;
     }
-    slotsInit = buildFlatImageSlots();
+    slotsInit = buildFlatPublishSlots();
     const curSlot = nFlat ? slotsInit[MISSION.selectedImagePreviewIndex] : null;
     const displayImgUrl = curSlot ? (curSlot.img.finalUrl || curSlot.img.imageUrl || '') : '';
     const captionBatch = curSlot?.batch || batches.find((b) => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
@@ -530,7 +530,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         const lb = ui.querySelector('#finalPublishLightbox');
         const lbImg = ui.querySelector('#finalLbImg');
         const lbIdx = ui.querySelector('#finalLbIdx');
-        const slots = buildFlatImageSlots();
+        const slots = buildFlatPublishSlots();
         const n = slots.length;
         let idx = MISSION.selectedImagePreviewIndex || 0;
         if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
@@ -543,7 +543,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     }
 
     function openPublishLightbox() {
-        const slots = buildFlatImageSlots();
+        const slots = buildFlatPublishSlots();
         if (!slots.length) return;
         lightboxOpen = true;
         const lb = ui.querySelector('#finalPublishLightbox');
@@ -562,7 +562,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     }
 
     function stepFlatPreview(delta) {
-        const slots = buildFlatImageSlots();
+        const slots = buildFlatPublishSlots();
         const n = slots.length;
         if (n <= 0) return;
         let idx = MISSION.selectedImagePreviewIndex || 0;
@@ -576,7 +576,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
 
     function syncFinalPreview() {
         const rows = MISSION.generatedImageBatches || [];
-        const slots = buildFlatImageSlots();
+        const slots = buildFlatPublishSlots();
         const n = slots.length;
         let idx = MISSION.selectedImagePreviewIndex || 0;
         if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
@@ -677,7 +677,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                         const i = parseInt(btn.dataset.flatIdx, 10);
                         if (!Number.isNaN(i)) {
                             MISSION.selectedImagePreviewIndex = i;
-                            const sl = buildFlatImageSlots()[i];
+                            const sl = buildFlatPublishSlots()[i];
                             if (sl) MISSION.selectedImageBatchId = sl.batchId;
                             syncFinalPreview();
                         }
@@ -768,7 +768,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelectorAll('.batch-chip').forEach(btn => {
         btn.onclick = () => {
             MISSION.selectedImageBatchId = btn.dataset.batchId;
-            const slots = buildFlatImageSlots();
+            const slots = buildFlatPublishSlots();
             const at = slots.findIndex((s) => s.batchId === btn.dataset.batchId);
             MISSION.selectedImagePreviewIndex = at >= 0 ? at : 0;
             const b = getPublishSelectedBatch();
@@ -833,7 +833,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     const publishCbEl = ui.querySelector('#finalPublishIncludeCb');
     if (publishCbEl) {
         publishCbEl.addEventListener('change', () => {
-            const slots = buildFlatImageSlots();
+            const slots = buildFlatPublishSlots();
             const flatI = MISSION.selectedImagePreviewIndex || 0;
             const slot = slots[flatI];
             if (!slot) return;
