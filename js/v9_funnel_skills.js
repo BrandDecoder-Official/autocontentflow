@@ -307,6 +307,10 @@ export async function triggerUniverseSkill() {
             </div>
             <div class="bg-slate-900/60 border border-white/10 rounded-xl p-3 space-y-2">
                 <label class="text-[10px] text-slate-400 font-bold">子項模式</label>
+                <p class="text-[9px] text-slate-500 leading-relaxed">
+                    <strong class="text-slate-400">新生成</strong>：從風格／格數／素材全流程產出（與上方「寫實／動漫」一致）。<br>
+                    <strong class="text-slate-400">無損美化</strong>：略過風格卡，改以上傳<strong>原圖</strong>為主做精修或改畫；寫實與動漫皆可用，並非與「動漫」互斥。
+                </p>
                 <div class="grid grid-cols-2 gap-2">
                     <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'GENERATE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="GENERATE">新生成</button>
                     <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'ENHANCE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="ENHANCE">無損美化</button>
@@ -533,7 +537,16 @@ export async function triggerCharacterSkill() {
 
 /**
  * ==========================================
- * 📌 函數名稱：triggerVisualSkill
+ * 📌 triggerVisualSkill — VISUAL & ATTACHMENTS
+ *
+ * ⚠️【無損美化 ENHANCE】與「原圖」文案的重要事實（維護者必讀）
+ * ------------------------------------------------------------------
+ * 流程上**沒有獨立的「原圖上傳」表單或第二個檔案欄位**。
+ * ENHANCE 與 GENERATE 共用同一套 UI：`#btnUploadScene` → `MISSION.sceneFiles`
+ *（畫面上按鈕文案為「點此上傳 AI 參考圖」）。也就是說，無損模式所謂的「原圖」
+ * 在實作上**就是**這張「AI 參考主圖」，僅語意上稱為來源圖／待美化圖。
+ * 若日誌仍寫「請上傳原圖」而未指向下方按鈕，使用者會以為流程漏了欄位——
+ * 請同步維護本函式內之對話文案與（若有）畫面提示列。
  * ==========================================
  */
 export async function triggerVisualSkill() { 
@@ -542,7 +555,15 @@ export async function triggerVisualSkill() {
     const isComic = MISSION.universe === 'COMIC'; 
     const isRealistic = MISSION.universe === 'REALISTIC';
     
-    await addLog("影像總監", "📸", isEnhance ? "美化模式：請上傳原圖。" : "請確認畫面參數，並上傳參考圖與社群附加圖：", true);
+    // ENHANCE：勿再只說「原圖」而不指明入口——入口即下方「AI 參考圖」按鈕（見函式頭部註解）
+    await addLog(
+        "影像總監",
+        "📸",
+        isEnhance
+            ? "無損美化：請用下方「上傳無損來源圖」按鈕選檔（無獨立原圖欄；與新生成共用主參考圖流程）。"
+            : "請確認畫面參數，並上傳參考圖與社群附加圖：",
+        true
+    );
     
     let currentRatio = MISSION.ratio || '9:16'; 
     let currentRes = MISSION.resolution || '1K'; 
@@ -569,7 +590,8 @@ export async function triggerVisualSkill() {
             
             <div class="border-t border-white/10 pt-4">
                 ${warningHtml}
-                <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-900/40 active:scale-95 transition-all text-indigo-300 shadow-lg"><span class="text-lg">📸</span> 點此上傳 AI 參考圖 <span class="text-indigo-400/50 font-normal">(限 1 張)</span></button>
+                ${isEnhance ? `<p class="text-[10px] text-amber-200/90 leading-relaxed mb-2 px-1">無損美化沒有獨立的「原圖」上傳區：請用下列按鈕上傳來源圖（與新生成共用同一張<strong class="text-amber-100">主參考圖</strong>）。</p>` : ''}
+                <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-900/40 active:scale-95 transition-all text-indigo-300 shadow-lg"><span class="text-lg">📸</span> ${isEnhance ? '上傳無損來源圖（主參考）' : '點此上傳 AI 參考圖'} <span class="text-indigo-400/50 font-normal">(限 1 張)</span></button>
                 <div id="dynamicAssetsArea" class="flex flex-col gap-2 empty:hidden w-full mt-2"></div>
             </div>
 

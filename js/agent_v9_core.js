@@ -42,14 +42,8 @@ function getTaskStatus(task) {
     return task?.status || task?.currentStatus || task?.agentData?.status || 'UNKNOWN';
 }
 
-/** 已結束或無需再佔用「進行中」分頁的狀態（含發佈失敗 → 改列歷史／錯誤） */
-const TERMINAL_OR_HISTORICAL_STATUSES = new Set([
-    'COMPLETED',
-    'PUBLISHED',
-    'SCHEDULED',
-    'PUBLISH_FAILED',
-    'ERROR',
-]);
+/** 僅「成功上架／完成」才進歷史；其餘（含發佈失敗）留在進行中以便重試或刪除 */
+const SUCCESS_HISTORY_STATUSES = new Set(['COMPLETED', 'PUBLISHED', 'SCHEDULED']);
 
 // ==========================================
 // 🎨 大廳畫面渲染
@@ -148,20 +142,11 @@ window.renderTaskDashboard = async function() {
 
         // 💡 2. 依照當前頁籤進行狀態過濾
         if (window.currentTaskTab === 'PENDING') {
-            // 進行中：排除已結束 / 已排程 / 發佈失敗 / 錯誤（避免「垃圾列」假裝運算中）
-            validTasks = validTasks.filter((t) => !TERMINAL_OR_HISTORICAL_STATUSES.has(getTaskStatus(t)));
+            // 進行中：剔除「已成功／已排程已完成」；發佈失敗仍列於此（可重新發佈）
+            validTasks = validTasks.filter((t) => !SUCCESS_HISTORY_STATUSES.has(getTaskStatus(t)));
         } else {
-            // 歷史：成功、排程、發佈失敗、流程錯誤（可檢視／重試發佈）
-            validTasks = validTasks.filter((t) => {
-                const s = getTaskStatus(t);
-                return (
-                    s === 'COMPLETED' ||
-                    s === 'PUBLISHED' ||
-                    s === 'SCHEDULED' ||
-                    s === 'PUBLISH_FAILED' ||
-                    s === 'ERROR'
-                );
-            });
+            // 歷史紀錄：僅顯示已成功送出（含排程寫入）；失敗不進此頁
+            validTasks = validTasks.filter((t) => SUCCESS_HISTORY_STATUSES.has(getTaskStatus(t)));
         }
         
         if (validTasks.length === 0) {
