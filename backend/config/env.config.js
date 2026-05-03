@@ -8,25 +8,17 @@ requiredEnvs.forEach((env) => {
     }
 });
 
-/** FB / IG Graph 共用 Page Access Token — 僅來自 .env / 程序環境（勿再寫死在程式内） */
+/** 暫時單租戶：Meta / Threads 預設寫在本檔；若設了環境變數則優先覆寫。多租戶時改由 DB 讀取即可移除此備援。 */
 const META_PAGE_ACCESS_TOKEN =
     process.env.PAGE_ACCESS_TOKEN ||
     process.env.FB_PAGE_TOKEN ||
     process.env.META_PAGE_ACCESS_TOKEN ||
-    '';
+    'EAAiWsrJrH9kBRZAwxI4Gn91ckbhrBZC8u36FYdQwZB559bHcNYoUEr2spawSBoFdBNUqAN0AfzpGCqRpCtFA8AqfZBCXbcZBSr4cDOctffZBJjuAKMDKBKFnZALiTMt82WhsKmOSr4cSzZC8S7sC4aJpCbeDuRLA9NtZAndkJVU6AsghZBlMhZCZCiMjqXBitrI4lQ9Ge45qNpQkoSFs';
 
-/** Threads 發佈 — 僅來自環境變數 */
 const THREADS_ACCESS_TOKEN =
     process.env.THREADS_TOKEN ||
     process.env.THREADS_ACCESS_TOKEN ||
-    '';
-
-if (!META_PAGE_ACCESS_TOKEN) {
-    console.warn('⚠️ 警告: 未設定 PAGE_ACCESS_TOKEN / FB_PAGE_TOKEN（Meta 發佈將無法使用）');
-}
-if (!THREADS_ACCESS_TOKEN) {
-    console.warn('⚠️ 警告: 未設定 THREADS_TOKEN（Threads 發佈將無法使用）');
-}
+    'THAAMMD5n4QFxBUVNnd3VVdDg5RE4tTzhUSS0xZAzZAFbzc1d09sU3NPeHJrazlVN0pWWTBoQUY1MWtGaE82T0wwN1VITkdLOXpzclJLVW9kaXNZATENiX01JbmVUUWdGb1VlRW9yaEd0bTNiWTJYcmJJWlRnVUp6M3EwZADk4OTBnc1lpOGY4WVlBSTZAPdUZALSFEZD';
 
 module.exports = {
     // 🛡️ 這裡加上了 'lllcnd' 終極防護，Vertex AI 絕對不會再迷路了
@@ -37,10 +29,10 @@ module.exports = {
     TG_BOT_TOKEN: process.env.TG_BOT_TOKEN,
     TG_ADMIN_CHAT_ID: process.env.TG_ADMIN_CHAT_ID,
 
-    FB_PAGE_ID: process.env.FB_PAGE_ID || '',
+    FB_PAGE_ID: process.env.FB_PAGE_ID || '757950400744695',
     FB_PAGE_TOKEN: META_PAGE_ACCESS_TOKEN,
     PAGE_ACCESS_TOKEN: META_PAGE_ACCESS_TOKEN,
-    IG_USER_ID: process.env.IG_USER_ID || '',
+    IG_USER_ID: process.env.IG_USER_ID || '17841466353046590',
     THREADS_TOKEN: THREADS_ACCESS_TOKEN,
     
     // 備用圖床與儲存桶
