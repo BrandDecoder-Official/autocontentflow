@@ -150,8 +150,9 @@ async function processDraft(req, res, payloadRaw, tools) {
             createdAt: new Date().toISOString()
         };
 
-        // 🌟 9. 寫入任務卷宗
+        // 🌟 9. 寫入任務卷宗（成功後才會向下回傳 persistence，供前端顯示「已寫入雲端」）
         await db.collection('tasks').doc(taskId).set(JSON.parse(JSON.stringify(finalDocData)));
+        const taskDocumentPersistedAt = new Date().toISOString();
 
         // 🌟 10. 計費與通知
         if (billingService && billingService.chargeAndLog) {
@@ -159,7 +160,13 @@ async function processDraft(req, res, payloadRaw, tools) {
         }
         await sendClientTelegram(payloadRaw.tgConfig, `🎨 <b>動漫草稿產出完畢！</b>\n任務主題：${topic}`);
 
-        return res.status(200).json({ success: true, taskId, draftContent, isComicMode: true });
+        return res.status(200).json({
+            success: true,
+            taskId,
+            draftContent,
+            isComicMode: true,
+            persistence: { taskDocumentSaved: true, persistedAt: taskDocumentPersistedAt },
+        });
 
     } catch (error) {
         console.error("🔥 [動漫大腦] 生成草稿崩潰: ", error);

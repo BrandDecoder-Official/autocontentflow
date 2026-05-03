@@ -23,18 +23,57 @@ function getPublishSelectedBatch() {
     return rows.find(b => b.id === MISSION.selectedImageBatchId) || rows[0] || null;
 }
 
+/** 批次順序：unshift 後 [最新,…,最舊]，發佈與預覽條帶用「最舊→最新」較直覺 */
+function getBatchesOldestFirst() {
+    const rows = MISSION.generatedImageBatches || [];
+    return rows.length ? [...rows].reverse() : [];
+}
+
+/** 扁平化：每個 slot 對應一張圖（跨批次），供預覽／燈箱／縮圖列 */
+function buildFlatPublishSlots() {
+    const slots = [];
+    for (const batch of getBatchesOldestFirst()) {
+        const imgs = batch?.images || [];
+        imgs.forEach((img, imageIndex) => {
+            slots.push({ batch, batchId: batch.id, imageIndex, img });
+        });
+    }
+    return slots;
+}
+
+function countSelectedSynthExcludingBatch(excludeBatchId) {
+    let sum = 0;
+    for (const b of MISSION.generatedImageBatches || []) {
+        if (b.id === excludeBatchId) continue;
+        const imgs = b.images || [];
+        const mask = ensureSyntheticPublishMask(b.id, imgs.length);
+        sum += mask.filter(Boolean).length;
+    }
+    return sum;
+}
+
+function totalSelectedSynthCount() {
+    let sum = 0;
+    for (const b of MISSION.generatedImageBatches || []) {
+        const imgs = b.images || [];
+        const mask = ensureSyntheticPublishMask(b.id, imgs.length);
+        sum += mask.filter(Boolean).length;
+    }
+    return sum;
+}
+
 function synthPlusAttachmentsWithinCap(nextSynthCount) {
     const att = normalizeAttachmentFilesForPublish().length;
     return nextSynthCount + att <= PUBLISH_MEDIA_MAX_TOTAL;
 }
 
-/** 設定某張合成圖是否納入發佈；失敗時回 false（超過 10 張） */
+/** 設定某張合成圖是否納入發佈；失敗時回 false（全任務合成圖 + 附件超過 10 張） */
 function trySetPublishInclusion(batch, imageIndex, want) {
     if (!batch || !Array.isArray(batch.images)) return false;
     const n = batch.images.length;
     if (imageIndex < 0 || imageIndex >= n) return false;
     const mask = ensureSyntheticPublishMask(batch.id, n);
-    let nextSynth = 0;
+    let nextSynth = countSelectedSynthExcludingBatch(batch.id);
     for (let j = 0; j < n; j++) {
         const on = (j === imageIndex) ? want : !!mask[j];
         if (on) nextSynth++;
@@ -44,6 +83,19 @@ function trySetPublishInclusion(batch, imageIndex, want) {
     return true;
 }
 
+/** 發佈 API：依「最舊批次→最新」順序收集所有已勾選的合成圖 */
+function collectSelectedPublishImagesMerged() {
+    const out = [];
+    for (const batch of getBatchesOldestFirst()) {
+        const imgs = batch.images || [];
+        const mask = ensureSyntheticPublishMask(batch.id, imgs.length);
+        imgs.forEach((img, i) => {
+            if (mask[i]) out.push(img);
+        });
+    }
+    return out;
+}
+
 function getImagePlanSuggestion() {
     const topic = (MISSION.topic || '').toLowerCase();
     const hasStoryIntent = /劇情|連載|短篇漫畫|分鏡|故事|系列|episode|story/.test(topic);
@@ -51,18 +103,18 @@ function getImagePlanSuggestion() {
 
     if (MISSION.universe === 'COMIC') {
         if (hasStoryIntent) {
-            return { panelCount: 2, colorMode: 'Color', imageCount: 4, reason: '主題具連續敘事傾向，建議彩色雙格搭配 4 張，兼顧節奏與成本。' };
+            return { panelCount: 2, colorMode: 'Color', imageCount: 1, reason: '敘事主題建議雙格分鏡；每次仍只合成 1 張輸出，可重複生圖累積連貫畫面後一併發佈。' };
         }
         if (hasCompareIntent) {
-            return { panelCount: 2, colorMode: 'Color', imageCount: 3, reason: '主題偏資訊呈現，2 格有利於對比與重點拆解。' };
+            return { panelCount: 2, colorMode: 'Color', imageCount: 1, reason: '對比型主題可用 2 格分鏡；每次 1 張，多次生圖後在發佈卡跨批次勾選。' };
         }
-        return { panelCount: 1, colorMode: 'Color', imageCount: 2, reason: '一般主題先用 1 格主視覺 + 1 張補圖，重複風險較低。' };
+        return { panelCount: 1, colorMode: 'Color', imageCount: 1, reason: '單格主視覺每次 1 張；要補圖請按「重算」，發佈時可勾多批結果（≤10 張含附件）。' };
     }
 
     if (hasCompareIntent) {
-        return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 3, reason: '資訊型主題建議 3 張內，避免相似圖造成算力浪費。' };
+        return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 1, reason: '每次生圖 1 張；資訊型可多按幾次「重算」累積對比圖（同一 PO 最多 10 張含附件）。' };
     }
-    return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 2, reason: '寫實主題通常 2 張即可覆蓋主視覺與情境補圖。' };
+    return { panelCount: MISSION.panelCount || 1, colorMode: MISSION.colorMode || '原色直出', imageCount: 1, reason: '每次生圖 1 張；需要更多視角請重複生圖，最終發佈可跨批次勾選合併。' };
 }
 
 export async function renderDraftEditorCard(taskId, draftContent, isComic, options = {}) {
@@ -176,12 +228,9 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                     <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議張數：<span id="aiCountHint" class="text-violet-300 font-bold">${suggestion.imageCount} 張</span></div>
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <label class="text-[10px] text-slate-400 font-bold flex items-center justify-between bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
-                        <span>本次生圖張數</span>
-                        <select id="plannedImageCount" class="bg-slate-800 border border-white/10 rounded px-2 py-1 text-[10px] text-white">
-                            ${Array.from({ length: 10 }, (_, i) => i + 1).map(n => `<option value="${n}" ${MISSION.plannedImageCount === n ? 'selected' : ''}>${n} 張</option>`).join('')}
-                        </select>
-                    </label>
+                    <div class="text-[10px] text-slate-300 leading-relaxed bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
+                        每次按下「開始生圖／重算」僅產出 <strong class="text-violet-300">1</strong> 張；可重複生圖累積，最後在發佈卡<strong class="text-rose-300">跨批次勾選</strong>一併上傳（合成＋附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張）。
+                    </div>
                     ${isComic ? `<label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
                         <input id="storyModeToggle" type="checkbox" class="accent-violet-500" ${MISSION.isStoryMode ? 'checked' : ''}>
                         連續劇情模式（適合短篇漫畫）
@@ -291,9 +340,7 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
         input.addEventListener('input', updateCounter); updateCounter();
     });
 
-    ui.querySelector('#plannedImageCount').onchange = (e) => {
-        MISSION.plannedImageCount = parseInt(e.target.value, 10);
-    };
+    MISSION.plannedImageCount = 1;
     const storyEl = ui.querySelector('#storyModeToggle');
     if (storyEl) {
         storyEl.onchange = (e) => { MISSION.isStoryMode = !!e.target.checked; };
@@ -305,7 +352,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
             MISSION.panelCount = suggestion.panelCount;
             MISSION.colorMode = suggestion.colorMode;
         }
-        ui.querySelector('#plannedImageCount').value = String(MISSION.plannedImageCount);
         if (storyEl) storyEl.checked = MISSION.isStoryMode;
         await addLog("美術總監", "🧠", `已套用 AI 建議：${MISSION.universe === 'COMIC' ? `${MISSION.panelCount}格 / ${MISSION.colorMode === 'BW' ? '黑白' : '彩色'} / ` : ''}${MISSION.plannedImageCount} 張。`, true);
     };
@@ -348,17 +394,24 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     if (!MISSION.selectedImageBatchId && batches.length > 0) {
         MISSION.selectedImageBatchId = batches[0].id;
     }
-    let selectedBatch = batches.find(b => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
-    const selectedImages = selectedBatch?.images || [];
-    const nImg = selectedImages.length;
-    if (nImg > 0) {
-        MISSION.selectedImagePreviewIndex = Math.max(0, Math.min(MISSION.selectedImagePreviewIndex || 0, nImg - 1));
+    let slotsInit = buildFlatImageSlots();
+    if (MISSION.selectedImageBatchId && slotsInit.length) {
+        const at = slotsInit.findIndex((s) => s.batchId === MISSION.selectedImageBatchId);
+        if (at >= 0) MISSION.selectedImagePreviewIndex = at;
+    }
+    const nFlat = slotsInit.length;
+    if (nFlat > 0) {
+        MISSION.selectedImagePreviewIndex = Math.max(0, Math.min(MISSION.selectedImagePreviewIndex || 0, nFlat - 1));
+        const cur = slotsInit[MISSION.selectedImagePreviewIndex];
+        if (cur) MISSION.selectedImageBatchId = cur.batchId;
     } else {
         MISSION.selectedImagePreviewIndex = 0;
     }
-    const pi = MISSION.selectedImagePreviewIndex;
-    const displayImgUrl = nImg > 0 ? (selectedImages[pi].finalUrl || selectedImages[pi].imageUrl || '') : '';
-    let selectedCaption = selectedBatch?.caption || finalCaption || '';
+    slotsInit = buildFlatImageSlots();
+    const curSlot = nFlat ? slotsInit[MISSION.selectedImagePreviewIndex] : null;
+    const displayImgUrl = curSlot ? (curSlot.img.finalUrl || curSlot.img.imageUrl || '') : '';
+    const captionBatch = curSlot?.batch || batches.find((b) => b.id === MISSION.selectedImageBatchId) || batches[0] || null;
+    let selectedCaption = captionBatch?.caption || finalCaption || '';
     let btnText = "🚀 立即發佈至社群"; let btnColor = "from-green-600 to-emerald-600";
     if(MISSION.scheduledAt) { const dateStr = new Date(MISSION.scheduledAt).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); btnText = `⏰ 寫入排程 (${dateStr})`; btnColor = "from-orange-500 to-red-500"; }
 
@@ -384,15 +437,15 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     <span class="text-base leading-none" aria-hidden="true">💡</span> 第一次用？照這三步
                 </div>
                 <ol class="list-decimal pl-[1.35rem] space-y-1.5 text-[11px] sm:text-sm text-slate-300 leading-snug">
-                    <li><strong class="text-slate-200">小圖</strong>可左右滑動（手機）或點按；大圖兩側<strong class="text-slate-200">箭頭</strong>也可換張。</li>
-                    <li>勾<strong class="text-rose-300">選入發佈</strong>或每張小圖下的勾選，决定要帶哪幾張（<strong class="text-white">0～10 張</strong>，含附件）。</li>
+                    <li><strong class="text-slate-200">小圖</strong>可左右滑；<strong class="text-slate-200">大圖</strong>點一下<strong class="text-indigo-300">放大預覽</strong>，放大後可左右滑換張、再點大圖關閉。</li>
+                    <li>勾<strong class="text-rose-300">選入發佈</strong>可<strong class="text-white">跨批次</strong>複選（<strong class="text-white">0～10 張</strong>合成＋附件）。</li>
                     <li>改好文字後，按最下方綠色<strong class="text-emerald-300">發佈</strong>按鈕。</li>
                 </ol>
             </div>
 
             <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div id="finalPreviewFrame" class="relative w-full aspect-square bg-black flex items-center justify-center touch-pan-y ring-2 ring-inset ring-transparent transition-shadow duration-150">
-                    <img id="finalPreviewImg" src="${displayImgUrl}" alt="預覽" class="max-w-full max-h-full object-contain transition-opacity duration-150">
+                    <img id="finalPreviewImg" src="${displayImgUrl}" alt="預覽" class="max-w-full max-h-full object-contain transition-opacity duration-150 cursor-zoom-in touch-manipulation">
                     <button type="button" id="finalImgPrev" class="absolute left-0 sm:left-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="上一張">‹</button>
                     <button type="button" id="finalImgNext" class="absolute right-0 sm:right-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="下一張">›</button>
                     <div id="finalBatchMetaBadge" class="absolute top-2 left-2 bg-black/75 text-white text-[10px] sm:text-[11px] px-2.5 py-1 rounded-full border border-white/25 font-bold pointer-events-none max-w-[50%] sm:max-w-[55%] truncate"></div>
@@ -403,7 +456,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     <div id="finalImageIdxBadge" class="absolute bottom-2 right-2 bg-black/85 text-white text-xs font-black px-2.5 py-1.5 sm:py-1 rounded-lg border border-white/30 min-w-[2.75rem] text-center pointer-events-none shadow-lg"></div>
                 </div>
                 <div id="finalThumbScrollWrap" class="hidden border-t border-white/10 bg-slate-900/95 px-2 pt-3 pb-2 sm:px-3">
-                    <p class="text-[10px] sm:text-[11px] text-slate-400 mb-2 px-1 leading-snug font-bold">相簿縮圖：<span class="font-normal text-slate-500">手機可<strong class="text-slate-300">左右滑</strong> · 點小圖換大圖 · 勾「發佈」決定是否帶這張</span></p>
+                    <p class="text-[10px] sm:text-[11px] text-slate-400 mb-2 px-1 leading-snug font-bold">相簿縮圖：<span class="font-normal text-slate-500">含<strong class="text-slate-300">所有批次</strong> · 左右滑 · 勾「發佈」跨批合併</span></p>
                     <div id="finalThumbStrip" class="flex gap-3 sm:gap-3.5 overflow-x-auto overflow-y-hidden pb-1.5 pt-0.5 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] scrollbar-thin" style="scrollbar-width: thin;"></div>
                 </div>
                 <div class="p-3 sm:p-4 border-t border-white/5 bg-slate-800/50 shadow-inner">
@@ -439,7 +492,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                         </div>
                     </div>
                     <div class="mt-3 pt-3 border-t border-white/10 space-y-2">
-                        <div class="text-[11px] sm:text-[10px] text-slate-400 font-bold leading-snug">🗂️ 生圖批次（扣點產生的結果，可切換）</div>
+                        <div class="text-[11px] sm:text-[10px] text-slate-400 font-bold leading-snug">🗂️ 生圖批次（跳至該批第一張；發佈可跨批勾選）</div>
                         <div id="batchSelector" class="flex flex-wrap gap-2">
                             ${batches.map((b, idx) => `<button type="button" class="batch-chip min-h-[44px] sm:min-h-0 px-3 py-2.5 sm:px-2 sm:py-1 rounded-xl sm:rounded-lg text-xs sm:text-[10px] font-bold border touch-manipulation active:scale-[0.98] ${b.id === MISSION.selectedImageBatchId ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-900 text-slate-400'}" data-batch-id="${b.id}">第 ${batches.length - idx} 批</button>`).join('')}
                         </div>
@@ -457,20 +510,85 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             <button type="button" id="btnBottomReturnLobbyFinal" class="w-full min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 mt-1 touch-manipulation">
                 🔙 先離開，之後從大廳繼續
             </button>
+
+            <div id="finalPublishLightbox" class="hidden fixed inset-0 z-[400] flex flex-col bg-black/92" aria-hidden="true">
+                <button type="button" id="finalLbClose" class="absolute top-3 right-3 z-20 min-h-[44px] min-w-[44px] rounded-full bg-white/15 text-white text-lg font-black border border-white/35 active:scale-95 touch-manipulation">✕</button>
+                <div id="finalLbStage" class="flex-1 flex items-center justify-center relative px-2 min-h-0 touch-pan-y">
+                    <button type="button" id="finalLbPrev" class="absolute left-1 z-10 min-h-[44px] min-w-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl font-bold border border-white/30 active:scale-95 touch-manipulation" aria-label="上一張">‹</button>
+                    <img id="finalLbImg" src="" alt="放大預覽" class="max-w-full max-h-[85vh] object-contain cursor-zoom-out select-none touch-manipulation">
+                    <button type="button" id="finalLbNext" class="absolute right-1 z-10 min-h-[44px] min-w-[44px] w-11 h-11 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl font-bold border border-white/30 active:scale-95 touch-manipulation" aria-label="下一張">›</button>
+                </div>
+                <p id="finalLbIdx" class="text-center text-white text-xs font-bold pb-4 shrink-0"></p>
+            </div>
         </div>
     `);
 
+    let lightboxOpen = false;
+
+    function syncLightboxContent() {
+        if (!lightboxOpen) return;
+        const lb = ui.querySelector('#finalPublishLightbox');
+        const lbImg = ui.querySelector('#finalLbImg');
+        const lbIdx = ui.querySelector('#finalLbIdx');
+        const slots = buildFlatImageSlots();
+        const n = slots.length;
+        let idx = MISSION.selectedImagePreviewIndex || 0;
+        if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
+        if (lb) lb.setAttribute('aria-hidden', n === 0 ? 'true' : 'false');
+        if (lbImg) {
+            const url = n > 0 ? (slots[idx].img.finalUrl || slots[idx].img.imageUrl || '') : '';
+            lbImg.src = url || '';
+        }
+        if (lbIdx) lbIdx.textContent = n === 0 ? '' : `${idx + 1} / ${n}`;
+    }
+
+    function openPublishLightbox() {
+        const slots = buildFlatImageSlots();
+        if (!slots.length) return;
+        lightboxOpen = true;
+        const lb = ui.querySelector('#finalPublishLightbox');
+        if (lb) {
+            lb.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+        }
+        syncLightboxContent();
+    }
+
+    function closePublishLightbox() {
+        lightboxOpen = false;
+        const lb = ui.querySelector('#finalPublishLightbox');
+        if (lb) lb.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    function stepFlatPreview(delta) {
+        const slots = buildFlatImageSlots();
+        const n = slots.length;
+        if (n <= 0) return;
+        let idx = MISSION.selectedImagePreviewIndex || 0;
+        idx = (idx + delta + n) % n;
+        MISSION.selectedImagePreviewIndex = idx;
+        const slot = slots[idx];
+        if (slot) MISSION.selectedImageBatchId = slot.batchId;
+        syncFinalPreview();
+        syncLightboxContent();
+    }
+
     function syncFinalPreview() {
         const rows = MISSION.generatedImageBatches || [];
-        const batch = rows.find(b => b.id === MISSION.selectedImageBatchId) || rows[0] || null;
-        const imgs = batch?.images || [];
-        const n = imgs.length;
+        const slots = buildFlatImageSlots();
+        const n = slots.length;
         let idx = MISSION.selectedImagePreviewIndex || 0;
         if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
         else idx = 0;
         MISSION.selectedImagePreviewIndex = idx;
+        const slot = n > 0 ? slots[idx] : null;
+        if (slot) MISSION.selectedImageBatchId = slot.batchId;
+        const batch = slot?.batch || null;
+        const imgs = batch?.images || [];
+        const imageIndexInBatch = slot?.imageIndex ?? 0;
 
-        const url = n > 0 ? (imgs[idx].finalUrl || imgs[idx].imageUrl || '') : '';
+        const url = slot ? (slot.img.finalUrl || slot.img.imageUrl || '') : '';
         const imgEl = ui.querySelector('#finalPreviewImg');
         const idxBadge = ui.querySelector('#finalImageIdxBadge');
         const batchBadge = ui.querySelector('#finalBatchMetaBadge');
@@ -482,8 +600,8 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         const prev = ui.querySelector('#finalImgPrev');
         const next = ui.querySelector('#finalImgNext');
 
-        const mask = batch && n > 0 ? ensureSyntheticPublishMask(batch.id, n) : [];
-        const included = n > 0 ? !!mask[idx] : false;
+        const mask = batch && imgs.length > 0 ? ensureSyntheticPublishMask(batch.id, imgs.length) : [];
+        const included = batch && imgs.length > 0 ? !!mask[imageIndexInBatch] : false;
 
         if (imgEl) {
             imgEl.classList.add('opacity-80');
@@ -493,9 +611,9 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         if (idxBadge) idxBadge.textContent = n === 0 ? '—' : `${idx + 1} / ${n}`;
         if (batchBadge) {
             if (batch && rows.length) {
-                const ord = rows.findIndex(b => b.id === batch.id);
+                const ord = rows.findIndex((b) => b.id === batch.id);
                 const numFromNewest = ord >= 0 ? rows.length - ord : 0;
-                batchBadge.textContent = `第 ${numFromNewest} 批 · ${n} 張`;
+                batchBadge.textContent = `第 ${numFromNewest} 批 · 此批 ${imgs.length} 張`;
             } else {
                 batchBadge.textContent = '';
             }
@@ -510,11 +628,11 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         }
         if (pickTools) pickTools.classList.toggle('hidden', n === 0);
         if (hint) {
-            if (n > 0 && batch) {
+            if (n > 0) {
                 hint.classList.remove('hidden');
                 const att = normalizeAttachmentFilesForPublish().length;
-                const selSynth = mask.filter(Boolean).length;
-                hint.innerHTML = `<strong class="text-slate-200">目前張數：</strong>已選 <span class="text-rose-300 font-bold">${selSynth}</span> 張合成圖 + <span class="text-indigo-300 font-bold">${att}</span> 張附件 = <span class="text-white font-black">${selSynth + att}</span> / ${PUBLISH_MEDIA_MAX_TOTAL} 張。可全部不選圖，只發文字也行。`;
+                const selSynth = totalSelectedSynthCount();
+                hint.innerHTML = `<strong class="text-slate-200">目前張數（跨批次）：</strong>已選 <span class="text-rose-300 font-bold">${selSynth}</span> 張合成圖 + <span class="text-indigo-300 font-bold">${att}</span> 張附件 = <span class="text-white font-black">${selSynth + att}</span> / ${PUBLISH_MEDIA_MAX_TOTAL} 張。可全部不選圖，只發文字也行。`;
             } else {
                 hint.classList.add('hidden');
                 hint.textContent = '';
@@ -529,23 +647,26 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 thumbStrip.innerHTML = '';
             } else {
                 thumbWrap.classList.remove('hidden');
-                thumbStrip.innerHTML = imgs.map((img, i) => {
-                    const u = img.finalUrl || img.imageUrl || '';
-                    const on = !!mask[i];
-                    const isCur = i === idx;
+                thumbStrip.innerHTML = slots.map((s, flatI) => {
+                    const u = s.img.finalUrl || s.img.imageUrl || '';
+                    const m = ensureSyntheticPublishMask(s.batchId, (s.batch.images || []).length);
+                    const on = !!m[s.imageIndex];
+                    const isCur = flatI === idx;
                     const curRing = isCur ? 'border-indigo-400 ring-2 ring-indigo-500/60' : 'border-white/20';
+                    const ord = rows.findIndex((b) => b.id === s.batchId);
+                    const batchNum = ord >= 0 ? rows.length - ord : 0;
                     const checkMark = on
                         ? '<span class="pointer-events-none absolute bottom-1 right-1 min-w-[1.5rem] h-6 px-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md" aria-hidden="true">✓</span>'
                         : '';
                     return `
                     <div class="snap-start shrink-0 flex flex-col items-center gap-1 w-[4.85rem] sm:w-[5.35rem]">
-                        <button type="button" class="thumb-preview-btn relative w-[4.25rem] h-[4.25rem] sm:w-[4.75rem] sm:h-[4.75rem] rounded-xl overflow-hidden border-[3px] ${curRing} touch-manipulation active:opacity-90 shadow-md bg-slate-800" data-idx="${i}" aria-label="看第 ${i + 1} 張大圖" aria-current="${isCur ? 'true' : 'false'}">
+                        <button type="button" class="thumb-preview-btn relative w-[4.25rem] h-[4.25rem] sm:w-[4.75rem] sm:h-[4.75rem] rounded-xl overflow-hidden border-[3px] ${curRing} touch-manipulation active:opacity-90 shadow-md bg-slate-800" data-flat-idx="${flatI}" aria-label="第${batchNum}批 第 ${s.imageIndex + 1} 張" aria-current="${isCur ? 'true' : 'false'}">
                             <img src="${u}" alt="" class="w-full h-full object-cover pointer-events-none" loading="lazy" decoding="async">
-                            <span class="pointer-events-none absolute top-0.5 left-0.5 min-w-[1.1rem] h-5 flex items-center justify-center bg-black/80 text-[10px] font-black text-white px-1 rounded border border-white/20">${i + 1}</span>
+                            <span class="pointer-events-none absolute top-0.5 left-0.5 min-w-[1.1rem] h-5 flex items-center justify-center bg-black/80 text-[9px] font-black text-white px-1 rounded border border-white/20 leading-none">B${batchNum}</span>
                             ${checkMark}
                         </button>
                         <label class="flex items-center justify-center gap-1.5 w-full min-h-[40px] py-1 rounded-lg active:bg-white/5 touch-manipulation cursor-pointer select-none">
-                            <input type="checkbox" class="final-thumb-pub w-[18px] h-[18px] sm:w-4 sm:h-4 accent-rose-500 shrink-0 touch-manipulation" data-idx="${i}" ${on ? 'checked' : ''}>
+                            <input type="checkbox" class="final-thumb-pub w-[18px] h-[18px] sm:w-4 sm:h-4 accent-rose-500 shrink-0 touch-manipulation" data-batch-id="${s.batchId}" data-img-idx="${s.imageIndex}" ${on ? 'checked' : ''}>
                             <span class="text-[10px] sm:text-[10px] text-slate-400 font-bold">發佈</span>
                         </label>
                     </div>`;
@@ -553,18 +674,21 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
 
                 thumbStrip.querySelectorAll('.thumb-preview-btn').forEach((btn) => {
                     btn.onclick = () => {
-                        const i = parseInt(btn.dataset.idx, 10);
+                        const i = parseInt(btn.dataset.flatIdx, 10);
                         if (!Number.isNaN(i)) {
                             MISSION.selectedImagePreviewIndex = i;
+                            const sl = buildFlatImageSlots()[i];
+                            if (sl) MISSION.selectedImageBatchId = sl.batchId;
                             syncFinalPreview();
                         }
                     };
                 });
                 thumbStrip.querySelectorAll('.final-thumb-pub').forEach((cb) => {
                     cb.onchange = () => {
-                        const batchNow = getPublishSelectedBatch();
-                        if (!batchNow) return;
-                        const ii = parseInt(cb.dataset.idx, 10);
+                        const bid = cb.dataset.batchId;
+                        const ii = parseInt(cb.dataset.imgIdx, 10);
+                        const batchNow = rows.find((b) => b.id === bid);
+                        if (!batchNow || Number.isNaN(ii)) return;
                         const want = cb.checked;
                         if (!trySetPublishInclusion(batchNow, ii, want)) {
                             cb.checked = !want;
@@ -595,10 +719,13 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             chip.classList.toggle('bg-slate-900', !on);
             chip.classList.toggle('text-slate-400', !on);
         });
+
+        syncLightboxContent();
     }
 
     // 🔙 綁定返回大廳事件
     const returnToLobbyHandler = () => {
+        closePublishLightbox();
         releaseUI(ui);
         window.dispatchEvent(new CustomEvent('reloadLobby', { detail: { preserveMission: true } }));
         // 恢復聊天室視窗狀態
@@ -641,7 +768,9 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelectorAll('.batch-chip').forEach(btn => {
         btn.onclick = () => {
             MISSION.selectedImageBatchId = btn.dataset.batchId;
-            MISSION.selectedImagePreviewIndex = 0;
+            const slots = buildFlatImageSlots();
+            const at = slots.findIndex((s) => s.batchId === btn.dataset.batchId);
+            MISSION.selectedImagePreviewIndex = at >= 0 ? at : 0;
             const b = getPublishSelectedBatch();
             const ta = ui.querySelector('#finalCaptionEdit');
             if (ta && b && typeof b.caption === 'string') ta.value = b.caption;
@@ -652,31 +781,65 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     const prevImgBtn = ui.querySelector('#finalImgPrev');
     const nextImgBtn = ui.querySelector('#finalImgNext');
     if (prevImgBtn) {
-        prevImgBtn.onclick = () => {
-            const imgs = getPublishSelectedBatch()?.images || [];
-            if (imgs.length <= 1) return;
-            MISSION.selectedImagePreviewIndex = (MISSION.selectedImagePreviewIndex + imgs.length - 1) % imgs.length;
-            syncFinalPreview();
+        prevImgBtn.onclick = (e) => {
+            e.stopPropagation();
+            stepFlatPreview(-1);
         };
     }
     if (nextImgBtn) {
-        nextImgBtn.onclick = () => {
-            const imgs = getPublishSelectedBatch()?.images || [];
-            if (imgs.length <= 1) return;
-            MISSION.selectedImagePreviewIndex = (MISSION.selectedImagePreviewIndex + 1) % imgs.length;
-            syncFinalPreview();
+        nextImgBtn.onclick = (e) => {
+            e.stopPropagation();
+            stepFlatPreview(1);
         };
+    }
+
+    const previewImgEl = ui.querySelector('#finalPreviewImg');
+    if (previewImgEl) {
+        previewImgEl.onclick = (e) => {
+            e.stopPropagation();
+            openPublishLightbox();
+        };
+    }
+
+    const lbClose = ui.querySelector('#finalLbClose');
+    const lbImg = ui.querySelector('#finalLbImg');
+    const lbPrev = ui.querySelector('#finalLbPrev');
+    const lbNext = ui.querySelector('#finalLbNext');
+    const lbStage = ui.querySelector('#finalLbStage');
+    if (lbClose) lbClose.onclick = (e) => { e.stopPropagation(); closePublishLightbox(); };
+    if (lbImg) {
+        lbImg.onclick = (e) => {
+            e.stopPropagation();
+            closePublishLightbox();
+        };
+    }
+    if (lbPrev) lbPrev.onclick = (e) => { e.stopPropagation(); stepFlatPreview(-1); };
+    if (lbNext) lbNext.onclick = (e) => { e.stopPropagation(); stepFlatPreview(1); };
+
+    let lbTouchX0 = 0;
+    if (lbStage) {
+        lbStage.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) lbTouchX0 = e.touches[0].clientX;
+        }, { passive: true });
+        lbStage.addEventListener('touchend', (e) => {
+            if (!lightboxOpen || !e.changedTouches.length) return;
+            const dx = e.changedTouches[0].clientX - lbTouchX0;
+            if (Math.abs(dx) < 56) return;
+            if (dx < 0) stepFlatPreview(1);
+            else stepFlatPreview(-1);
+        }, { passive: true });
     }
 
     const publishCbEl = ui.querySelector('#finalPublishIncludeCb');
     if (publishCbEl) {
         publishCbEl.addEventListener('change', () => {
-            const batch = getPublishSelectedBatch();
-            const n = batch?.images?.length || 0;
-            if (!batch || n < 1) return;
-            const idx = MISSION.selectedImagePreviewIndex;
+            const slots = buildFlatImageSlots();
+            const flatI = MISSION.selectedImagePreviewIndex || 0;
+            const slot = slots[flatI];
+            if (!slot) return;
+            const batch = slot.batch;
             const want = publishCbEl.checked;
-            if (!trySetPublishInclusion(batch, idx, want)) {
+            if (!trySetPublishInclusion(batch, slot.imageIndex, want)) {
                 publishCbEl.checked = !want;
                 return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
             }
@@ -691,8 +854,10 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             const batch = getPublishSelectedBatch();
             const n = batch?.images?.length || 0;
             if (!batch || n < 1) return;
-            if (!synthPlusAttachmentsWithinCap(n)) {
-                return showError(`本批 ${n} 張全選會超過 ${PUBLISH_MEDIA_MAX_TOTAL} 張（含附件）。請先減少附件，或不要全選。`);
+            const att = normalizeAttachmentFilesForPublish().length;
+            const others = countSelectedSynthExcludingBatch(batch.id);
+            if (others + n + att > PUBLISH_MEDIA_MAX_TOTAL) {
+                return showError(`本批全選後合計會超過 ${PUBLISH_MEDIA_MAX_TOTAL} 張（含附件與其他批次已勾選）。請調整。`);
             }
             const mask = ensureSyntheticPublishMask(batch.id, n);
             for (let i = 0; i < n; i++) mask[i] = true;
@@ -726,6 +891,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     };
 
     ui.querySelector('#btnBackToDraft').onclick = async () => {
+        closePublishLightbox();
         releaseUI(ui);
         markImageRegenerationRequired('退回修改草稿');
         const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
@@ -750,15 +916,14 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
         }
 
-        const publishBatchPre = getPublishSelectedBatch();
-        const imgsPre = publishBatchPre?.images || [];
-        const maskPre = ensureSyntheticPublishMask(publishBatchPre?.id, imgsPre.length);
-        const synthSelPre = maskPre.filter(Boolean).length;
+        const mergedPre = collectSelectedPublishImagesMerged();
+        const synthSelPre = mergedPre.length;
         const attPre = normalizeAttachmentFilesForPublish().length;
         if (synthSelPre + attPre > PUBLISH_MEDIA_MAX_TOTAL) {
             return showError(`圖片太多了：合成 + 附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張，請調整勾選或附件。`);
         }
 
+        closePublishLightbox();
         releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
         await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
         try {
@@ -770,10 +935,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 }
             });
 
-            const publishBatch = getPublishSelectedBatch();
-            const publishImagesAll = publishBatch?.images || [];
-            const publishMask = ensureSyntheticPublishMask(publishBatch?.id, publishImagesAll.length);
-            const publishImages = publishImagesAll.filter((_, i) => publishMask[i]);
+            const publishImages = collectSelectedPublishImagesMerged();
 
             const response = await publishTaskAPI({ 
                 taskId: taskId, 
@@ -783,7 +945,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 multiCaptions: finalMultiCaptions, 
                 isIndependentPost: MISSION.isIndependentPost,
                 attachmentFiles: normalizeAttachmentFilesForPublish(),
-                selectedImageBatchId: publishBatch?.id || null,
+                selectedImageBatchId: null,
                 selectedImages: publishImages.map(img => ({
                     finalUrl: img.finalUrl || img.imageUrl || '',
                     prompt: img.prompt || ''

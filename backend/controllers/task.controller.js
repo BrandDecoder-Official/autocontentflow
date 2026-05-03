@@ -359,9 +359,14 @@ async function generateImageFromDraft(req, res) {
         const defaultUrl = validImages.length > 0 ? validImages[0].finalUrl : '';
 
         await docRef.update({ status: 'IMAGE_READY', images: finalImagesArray, imageCount: finalImagesArray.length, generated_image_url: defaultUrl });
+        const taskDocumentPersistedAt = new Date().toISOString();
         await sendClientTelegram(tgConfig, `🎨 <b>生圖發包完成！</b>\n合成已完畢，請至系統檢查最終圖文。`);
         
-        return res.status(200).json({ success: true, images: validImages });
+        return res.status(200).json({
+            success: true,
+            images: validImages,
+            persistence: { taskDocumentSaved: true, persistedAt: taskDocumentPersistedAt },
+        });
 
     } catch (error) { 
         await sendErrorAlert('生圖 API', error, `任務 ID: ${req.body.taskId}`, '回傳 500');

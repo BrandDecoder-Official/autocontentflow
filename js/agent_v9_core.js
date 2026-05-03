@@ -8,7 +8,7 @@ import * as API from './api.js';
 import { initAgentChatBar } from './v9_chat.js';
 import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js'; // 🚀 引入跳轉目的地
-import { resumeFunnelFromCheckpoint, canShowResumeFunnelButton, canPreserveFunnelOnHome } from './v9_funnel_resume.js';
+import { canPreserveFunnelOnHome } from './v9_funnel_resume.js';
 import './v9_sidebar.js'; // 側欄
 
 export { bootSystemData } from './v9_state.js';
@@ -20,7 +20,7 @@ export async function goFunnelHome() {
     const preserve = canPreserveFunnelOnHome();
     if (preserve) {
         const ok = await window.showConfirm(
-            '將暫存目前進度並返回大廳。您可點「接續漏斗斷點」從上次步驟繼續，或從下方「進行中任務」載入雲端任務。確定嗎？',
+            '將返回大廳。若有雲端任務，請在下方「進行中任務」點「載入／繼續」接續。確定嗎？',
             { title: '返回漏斗首頁', confirmText: '確定返回' }
         );
         if (!ok) return;
@@ -91,17 +91,11 @@ function renderLobby(preserveMission = false) {
         IS_EDIT_MODE.value = true;
     }
 
-    const showProgressHint =
-        preserveMission && (MISSION.currentTaskId || canShowResumeFunnelButton());
-    const resumeHint = showProgressHint
-        ? `<div class="max-w-lg mx-auto mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/35 text-[11px] text-amber-100/95 leading-relaxed shadow-inner">
-                進度已暫存在此瀏覽器：可點下方<strong class="text-amber-50">接續漏斗斷點</strong>從上次步驟繼續；有雲端任務時請一併查看<strong class="text-amber-50">進行中任務</strong>。全新開始請點「啟動全新漏斗」。
+    const cloudResumeHint =
+        preserveMission && MISSION.currentTaskId
+            ? `<div class="max-w-lg mx-auto mb-4 px-4 py-3 rounded-2xl bg-indigo-950/40 border border-indigo-500/35 text-[11px] text-slate-200 leading-relaxed shadow-inner">
+                    此筆已綁定<strong class="text-indigo-200">雲端任務</strong>。請在下方<strong class="text-white">進行中任務</strong>找到相同主題，點<strong class="text-emerald-300">載入／繼續</strong>即可接續（與裝置無關）。
                </div>`
-        : '';
-
-    const resumeCheckpointRow =
-        preserveMission && canShowResumeFunnelButton()
-            ? `<div class="max-w-lg mx-auto mb-4"><button type="button" id="btnResumeFunnelCheckpoint" class="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg border border-indigo-400/40 active:scale-[0.99] transition-all">🔗 接續漏斗斷點（從上次進度繼續）</button></div>`
             : '';
 
     log.innerHTML = `
@@ -110,8 +104,7 @@ function renderLobby(preserveMission = false) {
                 <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">讓夢想在對話中落地</h2>
                 <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
-            ${resumeHint}
-            ${resumeCheckpointRow}
+            ${cloudResumeHint}
             <div class="max-w-lg mx-auto mb-8">
                 <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
@@ -129,6 +122,13 @@ function renderLobby(preserveMission = false) {
                     </div>
                     <button onclick="renderTaskDashboard()" class="text-xs text-slate-400 hover:text-white flex items-center gap-1"><i class="fa-solid fa-rotate"></i> <span class="hidden sm:inline">刷新</span></button>
                 </div>
+                <div class="px-4 lg:px-6 py-2.5 border-b border-white/5 bg-slate-950/50">
+                    <p class="text-[10px] text-slate-500 leading-relaxed">
+                        <span class="font-bold text-slate-400">儲存時機：</span>
+                        產稿／生圖成功時，伺服器會先將資料<strong class="text-slate-300">寫入 Firestore</strong>，回應成功後首頁扣點列才會附「已寫入雲端」說明；任務亦會出現在下方清單。
+                        未完成產稿前若返回首頁，主題／人設等<strong class="text-amber-500/90">不會保留</strong>。
+                    </p>
+                </div>
 
                 <div id="taskListContainer" class="p-4 lg:p-6 space-y-4 min-h-[300px]">
                     <div class="text-center py-10"><div class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin inline-block"></div></div>
@@ -145,9 +145,6 @@ function renderLobby(preserveMission = false) {
         await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
     };
-
-    const resumeCk = document.getElementById('btnResumeFunnelCheckpoint');
-    if (resumeCk) resumeCk.onclick = () => { resumeFunnelFromCheckpoint(); };
 
     renderTaskDashboard();
 }

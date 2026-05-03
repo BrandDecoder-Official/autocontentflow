@@ -45,6 +45,28 @@ function buildAttachmentFiles() {
         .filter(item => item.imageUrl || item.data);
 }
 
+/** 僅在後端回傳 persistence（Firestore 寫入後才帶上）時組出附註，避免先顯示「已儲存」再失敗 */
+function formatPersistNoteFromApi(persistence, kind) {
+    if (!persistence || !persistence.taskDocumentSaved || !persistence.persistedAt) return null;
+    let timeStr = '';
+    try {
+        timeStr = new Date(persistence.persistedAt).toLocaleString('zh-TW', {
+            timeZone: 'Asia/Taipei',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+    } catch (_) {
+        timeStr = '';
+    }
+    if (kind === 'draft') {
+        return `伺服器已確認：任務與草稿已寫入雲端（${timeStr}）。之後請從首頁「進行中任務」載入接續。`;
+    }
+    return `伺服器已確認：生圖結果已寫入雲端（${timeStr}）。可從首頁「進行中任務」繼續編輯或發佈。`;
+}
+
 window.FunnelActions = {
     generateDraft: async () => {
         // 💸 V10 動態計費：抓取雲端產草稿底價
@@ -98,12 +120,16 @@ window.FunnelActions = {
             if (response && response.success) {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "劇本產出完畢"; }
                 
-                // 動態扣除草稿底價的 UI 動畫
-                await applyPointDeduction(draftPrice, getBillingActionDisplayName('GENERATE_DRAFT', '產出草稿'));
-                
                 MISSION.currentTaskId = response.taskId;
                 MISSION.currentDraft = response.draftContent;
                 MISSION.funnelNextStep = 'draft';
+
+                const draftPersistNote = formatPersistNoteFromApi(response.persistence, 'draft');
+                await applyPointDeduction(
+                    draftPrice,
+                    getBillingActionDisplayName('GENERATE_DRAFT', '產出草稿'),
+                    draftPersistNote ? { persistNote: draftPersistNote } : {}
+                );
                 
                 // 保留舊邏輯，詳細的資料承接會在 v9_funnel_editor.js 裡處理
                 MISSION.currentHashtags = response.draftContent.hashtags || []; 
@@ -124,9 +150,7 @@ window.FunnelActions = {
         // 💸 V10 動態計費：抓取雲端生圖底價
         const actionsPricing = SYSTEM_DB.pricing?.actions || {};
         const imgPrice = actionsPricing['GENERATE_IMAGE']?.retailPoints || 50;
-        const plannedN = MISSION.universe === 'COMIC'
-            ? 1
-            : Math.max(1, MISSION.plannedImageCount || 1);
+        const plannedN = 1;
         const resW = getImageGenBillingMultiplier(MISSION.resolution);
         const estImageCost = Math.ceil(imgPrice * plannedN * resW);
 
@@ -151,7 +175,7 @@ window.FunnelActions = {
                 ratio: MISSION.ratio,
                 resolution: MISSION.resolution,
                 panelCount: MISSION.panelCount,
-                plannedImageCount: MISSION.plannedImageCount || 1,
+                plannedImageCount: 1,
                 isStoryMode: !!MISSION.isStoryMode,
                 characters: getMissionCharacterNames(),
                 image_options: {
@@ -166,8 +190,12 @@ window.FunnelActions = {
             if (response && response.success) {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 
-                // 動態扣除生圖算力的 UI 動畫
-                await applyPointDeduction(estImageCost, getBillingActionDisplayName('GENERATE_IMAGE', '影像合成'));
+                const imagePersistNote = formatPersistNoteFromApi(response.persistence, 'image');
+                await applyPointDeduction(
+                    estImageCost,
+                    getBillingActionDisplayName('GENERATE_IMAGE', '影像合成'),
+                    imagePersistNote ? { persistNote: imagePersistNote } : {}
+                );
                 
                 // 保留舊狀態 (向下相容)
                 MISSION.currentCaption = editedCaption; 

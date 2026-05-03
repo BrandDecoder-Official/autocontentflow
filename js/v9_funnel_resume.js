@@ -57,26 +57,22 @@ export function resolveResumeStep() {
     return s || 'topic';
 }
 
-/** 頂部「返回漏斗首頁」是否應保留 MISSION（可再接斷點或從任務列表續） */
+/**
+ * 頂部「返回漏斗首頁」是否應保留 MISSION。
+ * 政策：僅在已建立雲端任務（首次產稿扣點後會有 taskId）時保留，避免「未扣點卻假裝已儲存」；
+ * 未建任務前離開首頁等同放棄本輪設定（與「進行中任務」單一入口一致）。
+ */
 export function canPreserveFunnelOnHome() {
-    if (MISSION.currentTaskId) return true;
-    if (MISSION.generatedImageBatches?.length) return true;
-    if (MISSION.currentDraft) return true;
-    const step = MISSION.funnelNextStep;
-    if (step && step !== 'topic') return true;
-    if (MISSION.topic?.trim()) return true;
+    return !!MISSION.currentTaskId;
+}
+
+/** @deprecated 大廳已改為僅從「進行中任務」續接，不再顯示本機「接續漏斗斷點」按鈕。 */
+export function canShowResumeFunnelButton() {
     return false;
 }
 
-/** 大廳是否顯示「接續漏斗斷點」按鈕 */
-export function canShowResumeFunnelButton() {
-    if (MISSION.currentTaskId && MISSION.currentDraft) return true;
-    const r = resolveResumeStep();
-    return r !== 'topic';
-}
-
 /**
- * 清空漏斗區並接續當前斷點（由大廳按鈕呼叫）
+ * 清空漏斗區並接續當前斷點（舊版大廳按鈕；UI 已移除，保留供除錯或日後內部呼叫）
  */
 export async function resumeFunnelFromCheckpoint() {
     const log = document.getElementById('funnelLog');

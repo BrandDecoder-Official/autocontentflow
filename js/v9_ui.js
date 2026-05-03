@@ -58,6 +58,7 @@ export function createSkillUI(html) {
  * ==========================================
  */
 export function releaseUI(ui) {
+    document.body.style.overflow = '';
     lockUI(ui);
     ui.removeAttribute('id');
     ui.querySelectorAll('button').forEach(b => b.disabled = true);
@@ -79,7 +80,10 @@ export function releaseUI(ui) {
 /**
  * 漏斗對話區：扣點摘要橫條（原因 + 點數）
  */
-export function appendBillingNotice(reason, points) {
+/**
+ * @param {string} [opts.persistNote] 扣點後附註（例如雲端任務已儲存）
+ */
+export function appendBillingNotice(reason, points, opts = {}) {
     const log = document.getElementById('funnelLog');
     if (!log) return;
     const wrap = document.createElement('div');
@@ -97,6 +101,12 @@ export function appendBillingNotice(reason, points) {
     pts.textContent = `−${Number(points).toLocaleString()} PTS`;
     bar.append(tag, mid, pts);
     wrap.appendChild(bar);
+    if (opts.persistNote && String(opts.persistNote).trim()) {
+        const note = document.createElement('div');
+        note.className = 'mt-1.5 mx-0.5 px-2 py-1.5 rounded-md bg-slate-900/80 border border-emerald-500/20 text-[10px] text-emerald-200/95 leading-snug';
+        note.textContent = String(opts.persistNote).trim();
+        wrap.appendChild(note);
+    }
     const activeCard = document.getElementById('activeControlCard');
     if (activeCard) log.insertBefore(wrap, activeCard);
     else log.appendChild(wrap);

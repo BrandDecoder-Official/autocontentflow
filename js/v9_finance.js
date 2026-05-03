@@ -96,10 +96,11 @@ export function validatePoints(requiredPoints, actionName = "此操作") {
  * 💡 功能說明：扣點後立即與後端錢包同步，避免右上角與側欄紀錄脫鉤；漏斗內顯示扣點橫條。
  * ==========================================
  */
-export async function applyPointDeduction(deducted, reason = "") {
+/** @param {{ persistNote?: string }} [opts] 漏斗扣點時可附「已儲存至雲端任務」說明 */
+export async function applyPointDeduction(deducted, reason = "", opts = {}) {
     if (deducted <= 0) return;
 
-    appendBillingNotice(reason || '算力扣除', deducted);
+    appendBillingNotice(reason || '算力扣除', deducted, opts);
     showPointDeductionEffect(deducted, 'userPoints');
 
     await triggerWalletSync();

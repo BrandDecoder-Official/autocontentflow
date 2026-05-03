@@ -174,8 +174,9 @@ async function processDraft(req, res, payloadRaw, tools) {
             createdAt: new Date().toISOString()
         };
 
-        // 🌟 9. 執行入庫
+        // 🌟 9. 執行入庫（成功後才會向下回傳 persistence，供前端顯示「已寫入雲端」）
         await db.collection('tasks').doc(taskId).set(JSON.parse(JSON.stringify(finalDocData)));
+        const taskDocumentPersistedAt = new Date().toISOString();
 
         // 🌟 10. 計費與通知
         if (billingService && billingService.chargeAndLog) {
@@ -183,7 +184,13 @@ async function processDraft(req, res, payloadRaw, tools) {
         }
         await sendClientTelegram(payloadRaw.tgConfig, `📷 <b>攝影企劃產出完畢！</b>\n任務主題：${topic}`);
 
-        return res.status(200).json({ success: true, taskId, draftContent, isComicMode: false });
+        return res.status(200).json({
+            success: true,
+            taskId,
+            draftContent,
+            isComicMode: false,
+            persistence: { taskDocumentSaved: true, persistedAt: taskDocumentPersistedAt },
+        });
 
     } catch (error) { 
         console.error("🔥 [寫實大腦] 生成草稿崩潰: ", error);
