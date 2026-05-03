@@ -15,6 +15,7 @@ import { STATE } from './config.js';
  */
 export async function triggerMissionSummary() {
     try {
+        MISSION.funnelNextStep = 'dashboard';
         updateStepHeader("MISSION CONTROL");
         await addLog("專案總監", "📋", "總編，這是目前的任務總表。您可以自由點開各項進行微調，確認無誤後即可發包給大腦。", true);
 

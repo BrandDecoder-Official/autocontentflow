@@ -49,6 +49,7 @@ export const MISSION = {
     currentCaption: '',
     currentHashtagsArray: [],
     currentPanels: null,
+    currentDraft: null,
     plannedImageCount: 1,
     isStoryMode: false,
 
@@ -61,7 +62,13 @@ export const MISSION = {
     lastGeneratedContextKey: '',
 
     /** 發佈時是否納入各批次的合成圖：batchId -> boolean[]（與該批 images 對齊） */
-    publishSyntheticMaskByBatch: {}
+    publishSyntheticMaskByBatch: {},
+
+    /**
+     * 漏斗斷點：下一步要接續的畫面（由每一步 confirm 寫入；reset 時回到 topic）
+     * topic → platforms → persona → hook → universe → style → character → visual → schedule → dashboard → draft
+     */
+    funnelNextStep: 'topic'
 };
 
 /** 發佈媒體上限：使用者勾選的合成圖 + 非合成附件圖合計（相簿式 0～10 張，可多選） */
@@ -129,6 +136,7 @@ export function resetMissionStateForLobby() {
     MISSION.imageRegenerationRequired = false;
     MISSION.lastGeneratedContextKey = '';
     MISSION.publishSyntheticMaskByBatch = {};
+    MISSION.funnelNextStep = 'topic';
 
     MISSION.tgConfig.botToken = token;
     MISSION.tgConfig.chatId = chatId;
@@ -266,6 +274,12 @@ export function loadMissionFromDB(taskData) {
 
     // 4. 回傳當前任務狀態，讓外層決定要跳轉到漏斗的哪一步
     const finalStatus = taskData.status || taskData.currentStatus || 'UNKNOWN';
+    if (taskData.draftContent) {
+        MISSION.currentDraft = taskData.draftContent;
+    }
+    if (finalStatus === 'DRAFTING') {
+        MISSION.funnelNextStep = 'draft';
+    }
     console.log(`[State] 任務 ${MISSION.currentTaskId} 已成功還原，當前狀態：${finalStatus}`);
     return finalStatus;
 }

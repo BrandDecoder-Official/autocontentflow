@@ -8,9 +8,41 @@ import * as API from './api.js';
 import { initAgentChatBar } from './v9_chat.js';
 import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js'; // 🚀 引入跳轉目的地
+import { resumeFunnelFromCheckpoint, canShowResumeFunnelButton, canPreserveFunnelOnHome } from './v9_funnel_resume.js';
 import './v9_sidebar.js'; // 側欄
 
 export { bootSystemData } from './v9_state.js';
+
+/**
+ * 側邊／頂部「返回漏斗首頁」：若進度可安全保留（含雲端 taskId、漏斗斷點、已產草稿），則與字卡「暫存回大廳」一致—不清 MISSION。
+ */
+export async function goFunnelHome() {
+    const preserve = canPreserveFunnelOnHome();
+    if (preserve) {
+        const ok = await window.showConfirm(
+            '將暫存目前進度並返回大廳。您可點「接續漏斗斷點」從上次步驟繼續，或從下方「進行中任務」載入雲端任務。確定嗎？',
+            { title: '返回漏斗首頁', confirmText: '確定返回' }
+        );
+        if (!ok) return;
+        document.getElementById('agentChatBar')?.classList.add('translate-y-full');
+        await initAgentFunnel({ preserveMission: true });
+        return;
+    }
+    const hasUnsavedProgress = !!(
+        MISSION.currentTaskId ||
+        (MISSION.topic && MISSION.topic.trim()) ||
+        (MISSION.generatedImageBatches && MISSION.generatedImageBatches.length)
+    );
+    if (hasUnsavedProgress) {
+        const ok = await window.showConfirm(
+            '目前有未完成內容，確定要回到漏斗首頁嗎？（將清空本次暫存）',
+            { title: '返回漏斗首頁' }
+        );
+        if (!ok) return;
+    }
+    document.getElementById('agentChatBar')?.classList.add('translate-y-full');
+    await initAgentFunnel();
+}
 
 // ==========================================
 // 🚀 核心入口：初始化 (Lobby 渲染) - 被首頁呼叫
@@ -59,11 +91,17 @@ function renderLobby(preserveMission = false) {
         IS_EDIT_MODE.value = true;
     }
 
-    const resumeHint =
-        preserveMission && MISSION.currentTaskId
-            ? `<div class="max-w-lg mx-auto mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/35 text-[11px] text-amber-100/95 leading-relaxed shadow-inner">
-                您有待處理的任務進度（追蹤碼已保留）。請從下方<strong class="text-amber-50">進行中任務</strong>繼續編輯或發佈；若要<strong class="text-amber-50">全新任務</strong>，請點「啟動全新漏斗」（會清空目前暫存設定）。
+    const showProgressHint =
+        preserveMission && (MISSION.currentTaskId || canShowResumeFunnelButton());
+    const resumeHint = showProgressHint
+        ? `<div class="max-w-lg mx-auto mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/35 text-[11px] text-amber-100/95 leading-relaxed shadow-inner">
+                進度已暫存在此瀏覽器：可點下方<strong class="text-amber-50">接續漏斗斷點</strong>從上次步驟繼續；有雲端任務時請一併查看<strong class="text-amber-50">進行中任務</strong>。全新開始請點「啟動全新漏斗」。
                </div>`
+        : '';
+
+    const resumeCheckpointRow =
+        preserveMission && canShowResumeFunnelButton()
+            ? `<div class="max-w-lg mx-auto mb-4"><button type="button" id="btnResumeFunnelCheckpoint" class="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-lg border border-indigo-400/40 active:scale-[0.99] transition-all">🔗 接續漏斗斷點（從上次進度繼續）</button></div>`
             : '';
 
     log.innerHTML = `
@@ -73,6 +111,7 @@ function renderLobby(preserveMission = false) {
                 <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
             ${resumeHint}
+            ${resumeCheckpointRow}
             <div class="max-w-lg mx-auto mb-8">
                 <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
@@ -106,6 +145,9 @@ function renderLobby(preserveMission = false) {
         await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
     };
+
+    const resumeCk = document.getElementById('btnResumeFunnelCheckpoint');
+    if (resumeCk) resumeCk.onclick = () => { resumeFunnelFromCheckpoint(); };
 
     renderTaskDashboard();
 }

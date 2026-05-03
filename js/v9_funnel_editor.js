@@ -66,6 +66,7 @@ function getImagePlanSuggestion() {
 }
 
 export async function renderDraftEditorCard(taskId, draftContent, isComic, options = {}) {
+    MISSION.funnelNextStep = 'draft';
     updateStepHeader("DRAFT EDITOR"); 
 
     // 💡 1. 強化 V10 資料結構初始化

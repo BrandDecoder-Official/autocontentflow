@@ -298,7 +298,7 @@
     <script type="module">
         import { CONFIG, STATE } from './js/config.js';
         import * as API from './js/api.js';
-        import { initAgentFunnel } from './js/agent_v9_core.js';
+        import { initAgentFunnel, goFunnelHome } from './js/agent_v9_core.js';
         
         // 🆕 V10 匯入狀態機
         import { MISSION, bootSystemData } from './js/v9_state.js'; // 💡 確保 bootSystemData 從這裡引入
@@ -436,23 +436,10 @@
             });
         };
 
-        window.goFunnelHome = async function() {
-            const hasUnsavedProgress = !!(
-                MISSION.currentTaskId ||
-                (MISSION.topic && MISSION.topic.trim()) ||
-                (MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0)
-            );
-            if (hasUnsavedProgress) {
-                const ok = await window.showConfirm('目前有未完成內容，確定要回到漏斗首頁嗎？', { title: '返回漏斗首頁' });
-                if (!ok) return;
-            }
-            const chatBar = document.getElementById('agentChatBar');
-            if (chatBar) chatBar.classList.add('translate-y-full');
-            initAgentFunnel();
-        };
+        window.goFunnelHome = goFunnelHome;
 
         const homeBtn = document.getElementById('btnBackHome');
-        if (homeBtn) homeBtn.onclick = window.goFunnelHome;
+        if (homeBtn) homeBtn.onclick = () => window.goFunnelHome();
     </script>
 </body>
 </html>

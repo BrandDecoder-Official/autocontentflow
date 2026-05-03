@@ -16,6 +16,7 @@ export async function startNewFunnel() { await triggerTopicSkill(); }
  * ==========================================
  */
 export async function triggerTopicSkill() { 
+    MISSION.funnelNextStep = 'topic';
     updateStepHeader("STEP 1: STRATEGY (TOPIC)"); 
     await addLog("專案總監", "📝", "第一步，請告訴我，我們這次要推廣什麼內容或達成什麼目標？", true);
     
@@ -147,8 +148,8 @@ export async function triggerTopicSkill() {
         MISSION.topic = val; 
         releaseUI(ui); 
         await addLog("總編指令", "🎯", `戰略鎖定：${val.substring(0, 20)}...`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-        else { await triggerPlatformSkill(); } 
+        if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+        else { MISSION.funnelNextStep = 'platforms'; await triggerPlatformSkill(); } 
     };
 }
 
@@ -228,8 +229,8 @@ export async function triggerPlatformSkill() {
         MISSION.platforms = tempPlats; 
         releaseUI(ui); 
         await addLog("社群總監", "✅", `已鎖定平台：${MISSION.platforms.join(' / ')}。`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-        else { await triggerPersonaSkill(); } 
+        if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+        else { MISSION.funnelNextStep = 'persona'; await triggerPersonaSkill(); } 
     };
 }
 
@@ -251,8 +252,8 @@ export async function triggerPersonaSkill() {
         btn.onclick = async () => { 
             MISSION.persona = btn.dataset.val; releaseUI(ui); 
             await addLog("專案總監", "✅", `已掛載人設模組：<b>${MISSION.persona}</b>。`); 
-            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-            else { await triggerHookSkill(); } 
+            if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+            else { MISSION.funnelNextStep = 'hook'; await triggerHookSkill(); } 
         }; 
     });
 }
@@ -287,8 +288,8 @@ export async function triggerHookSkill() {
         MISSION.hookType = ui.querySelector('#selHookType').value; 
         releaseUI(ui); 
         await addLog("社群總監", "✅", `開場勾子已鎖定：<b>${MISSION.hookType}</b>（字數節奏請依儀表板各平台設定）`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-        else { await triggerUniverseSkill(); }
+        if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+        else { MISSION.funnelNextStep = 'universe'; await triggerUniverseSkill(); }
     };
 }
 
@@ -350,8 +351,10 @@ export async function triggerUniverseSkill() {
             // 第 1 輪：GENERATE / ENHANCE 皆先走風格鏈（寫實：模式→濾鏡；漫畫：風格→色系），再進角色與視覺；無損不再跳過風格。
             // 第 2 輪：儀表板畫面比例納入「原圖比例」、場景預覽與 v9_funnel_skills 無損文案對齊。
             if (IS_EDIT_MODE.value && isMissionComplete()) {
+                MISSION.funnelNextStep = 'dashboard';
                 await triggerMissionSummary();
             } else {
+                MISSION.funnelNextStep = 'style';
                 await triggerStyleSkill();
             }
         }; 
@@ -397,8 +400,8 @@ export async function triggerStyleSkill() {
                 MISSION.style = btn.dataset.val; 
                 releaseUI(ui); 
                 await addLog("攝影總監", "✅", `合成模式鎖定：<b>${MISSION.style}</b>。`); 
-                if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-                else { await triggerRealisticFilterSkill(); } 
+                if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+                else { MISSION.funnelNextStep = 'style'; await triggerRealisticFilterSkill(); } 
             }; 
         });
 
@@ -436,8 +439,8 @@ export async function triggerStyleSkill() {
             btn.onclick = async () => { 
                 MISSION.style = btn.dataset.val; releaseUI(ui); 
                 await addLog("美術總監", "✅", `風格鎖定：${MISSION.style}。`); 
-                if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } 
-                else { await triggerColorSkill(); } 
+                if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
+                else { MISSION.funnelNextStep = 'style'; await triggerColorSkill(); } 
             }; 
         });
     }
@@ -487,8 +490,8 @@ export async function triggerRealisticFilterSkill() {
             MISSION.colorMode = btn.dataset.val; 
             releaseUI(ui);
             await addLog("攝影總監", "✅", `濾鏡鎖定：<b>${MISSION.colorMode}</b>。`);
-            if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); }
-            else { await triggerCharacterSkill(); }
+            if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); }
+            else { MISSION.funnelNextStep = 'character'; await triggerCharacterSkill(); }
         };
     });
 }
@@ -501,7 +504,7 @@ export async function triggerRealisticFilterSkill() {
 export async function triggerColorSkill() { 
     updateStepHeader("COLOR MODE"); await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
     const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 lg:gap-3"><button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-2xl lg:text-3xl mb-1">🏁</span><span class="font-bold text-[11px] lg:text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400 hidden sm:block">懷舊網點質感</span></button><button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-2xl lg:text-3xl mb-1">🌈</span><span class="font-bold text-[11px] lg:text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400 hidden sm:block">飽滿現代動漫感</span></button></div>`);
-    ui.querySelectorAll('.color-btn').forEach(btn => { btn.onclick = async () => { MISSION.colorMode = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerCharacterSkill(); } }; });
+    ui.querySelectorAll('.color-btn').forEach(btn => { btn.onclick = async () => { MISSION.colorMode = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'character'; await triggerCharacterSkill(); } }; });
 }
 
 /**
@@ -523,7 +526,7 @@ export async function triggerCharacterSkill() {
     
     if(available.length === 0) { 
         const ui = createSkillUI(`<div class="text-center flex flex-col gap-4"><p class="text-slate-400 text-xs">您的基因庫目前沒有對應此宇宙的角色，將採用純場景模式。</p><button id="btnSkipChar" class="w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-bold active:scale-95 shadow-lg">⏭️ 確認並繼續</button></div>`); 
-        ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } }; 
+        ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'visual'; await triggerVisualSkill(); } }; 
         return; 
     }
     
@@ -533,8 +536,8 @@ export async function triggerCharacterSkill() {
     
     const ui = createSkillUI(html);
     ui.querySelectorAll('.char-select-card').forEach(card => { card.onclick = () => { const name = card.dataset.name; if (tempSelected.includes(name)) { tempSelected = tempSelected.filter(n => n !== name); card.classList.remove('border-2', 'border-blue-500', 'bg-blue-900/30'); card.classList.add('border', 'border-white/10'); const check = card.querySelector('.absolute'); if(check) check.remove(); } else { if (tempSelected.length >= 4) return showError('最多 4 位。'); tempSelected.push(name); card.classList.remove('border', 'border-white/10'); card.classList.add('border-2', 'border-blue-500', 'bg-blue-900/30'); card.innerHTML += '<div class="absolute top-1 right-1 lg:top-2 lg:right-2 text-blue-400 font-black text-sm">✓</div>'; } }; });
-    ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
-    ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); } };
+    ui.querySelector('#btnSkipChar').onclick = async () => { MISSION.characters = []; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'visual'; await triggerVisualSkill(); } };
+    ui.querySelector('#btnConfirmChar').onclick = async () => { MISSION.characters = tempSelected; markImageRegenerationRequired('角色變更'); releaseUI(ui); await addLog("視覺工程師", "✅", MISSION.characters.length > 0 ? `已鎖定角色：<b>${MISSION.characters.join('、')}</b>。` : "純場景模式。"); if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'visual'; await triggerVisualSkill(); } };
 }
 
 /**
@@ -641,7 +644,7 @@ export async function triggerVisualSkill() {
         if (!isMissionComplete()) return showError('請完成設定！'); 
         releaseUI(ui); 
         await addLog("影像總監", "✅", `參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。 附掛 ${MISSION.attachmentFiles?.length || 0} 張輔助圖。`); 
-        if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerScheduleSkill(); }
+        if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'schedule'; await triggerScheduleSkill(); }
     };
 }
 
@@ -774,6 +777,7 @@ export async function triggerScheduleSkill() {
         MISSION.scheduledAt = null; 
         releaseUI(ui); 
         await addLog("社群總監", "⚡", `已選擇「立即部署」。`);
+        MISSION.funnelNextStep = 'dashboard';
         await triggerMissionSummary();
     };
 
@@ -797,6 +801,7 @@ export async function triggerScheduleSkill() {
         if (fpTime) fpTime.destroy();
         releaseUI(ui); 
         await addLog("社群總監", "✅", `已排程於 ${schDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`); 
+        MISSION.funnelNextStep = 'dashboard';
         await triggerMissionSummary();
     };
 }

@@ -102,7 +102,8 @@ window.FunnelActions = {
                 await applyPointDeduction(draftPrice, getBillingActionDisplayName('GENERATE_DRAFT', '產出草稿'));
                 
                 MISSION.currentTaskId = response.taskId;
-                MISSION.currentDraft = response.draftContent; 
+                MISSION.currentDraft = response.draftContent;
+                MISSION.funnelNextStep = 'draft';
                 
                 // 保留舊邏輯，詳細的資料承接會在 v9_funnel_editor.js 裡處理
                 MISSION.currentHashtags = response.draftContent.hashtags || []; 
