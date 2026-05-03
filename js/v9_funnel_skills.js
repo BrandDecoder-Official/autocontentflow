@@ -308,8 +308,8 @@ export async function triggerUniverseSkill() {
             <div class="bg-slate-900/60 border border-white/10 rounded-xl p-3 space-y-2">
                 <label class="text-[10px] text-slate-400 font-bold">子項模式</label>
                 <p class="text-[9px] text-slate-500 leading-relaxed">
-                    <strong class="text-slate-400">新生成</strong>：從風格／格數／素材全流程產出（與上方「寫實／動漫」一致）。<br>
-                    <strong class="text-slate-400">無損美化</strong>：略過風格卡，改以上傳<strong>原圖</strong>為主做精修或改畫；寫實與動漫皆可用，並非與「動漫」互斥。
+                    <strong class="text-slate-400">新生成</strong>：從風格／濾鏡／角色／視覺素材全流程產出。<br>
+                    <strong class="text-slate-400">無損美化</strong>：<strong>同樣會走風格／濾鏡／角色</strong>；差異在「視覺與附件」步驟須以上傳<strong>來源圖</strong>（主參考欄）為主做精修／改畫。
                 </p>
                 <div class="grid grid-cols-2 gap-2">
                     <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'GENERATE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="GENERATE">新生成</button>
@@ -346,11 +346,13 @@ export async function triggerUniverseSkill() {
             
             releaseUI(ui); 
             await addLog("美術總監", "✅", `宇宙鎖定：${MISSION.universe} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'}。`); 
-            
-            if (MISSION.taskMode === 'ENHANCE') {
-                if (IS_EDIT_MODE.value && isMissionComplete()) { await triggerMissionSummary(); } else { await triggerVisualSkill(); }
+
+            // 第 1 輪：GENERATE / ENHANCE 皆先走風格鏈（寫實：模式→濾鏡；漫畫：風格→色系），再進角色與視覺；無損不再跳過風格。
+            // 第 2 輪：儀表板畫面比例納入「原圖比例」、場景預覽與 v9_funnel_skills 無損文案對齊。
+            if (IS_EDIT_MODE.value && isMissionComplete()) {
+                await triggerMissionSummary();
             } else {
-                await triggerStyleSkill(); 
+                await triggerStyleSkill();
             }
         }; 
     });
@@ -541,12 +543,9 @@ export async function triggerCharacterSkill() {
  *
  * ⚠️【無損美化 ENHANCE】與「原圖」文案的重要事實（維護者必讀）
  * ------------------------------------------------------------------
- * 流程上**沒有獨立的「原圖上傳」表單或第二個檔案欄位**。
- * ENHANCE 與 GENERATE 共用同一套 UI：`#btnUploadScene` → `MISSION.sceneFiles`
- *（畫面上按鈕文案為「點此上傳 AI 參考圖」）。也就是說，無損模式所謂的「原圖」
- * 在實作上**就是**這張「AI 參考主圖」，僅語意上稱為來源圖／待美化圖。
- * 若日誌仍寫「請上傳原圖」而未指向下方按鈕，使用者會以為流程漏了欄位——
- * 請同步維護本函式內之對話文案與（若有）畫面提示列。
+ * ENHANCE 已與 GENERATE **共用風格鏈**（宇宙鎖定後先 triggerStyleSkill，不再跳過）。
+ * 流程上仍**沒有獨立的「原圖上傳」第二表單**：來源圖即 `#btnUploadScene` → `MISSION.sceneFiles`
+ *（按鈕在無損模式下會強調「無損來源圖／主參考」語意）。
  * ==========================================
  */
 export async function triggerVisualSkill() { 

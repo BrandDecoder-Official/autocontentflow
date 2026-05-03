@@ -21,7 +21,6 @@ export async function triggerMissionSummary() {
         // 🛡️ 狀態快取與安全防護
         const isComic = MISSION.universe === 'COMIC';
         const isEnhance = MISSION.taskMode === 'ENHANCE';
-        const isRealistic = MISSION.universe === 'REALISTIC';
         const decodedTopic = decodeHTMLEntities(MISSION.topic || '');
 
         if (!MISSION.platformStrategies) {
@@ -57,17 +56,18 @@ export async function triggerMissionSummary() {
         if (hasMainScene || hasAttachments) {
             const mainImgUrl = hasMainScene ? MISSION.sceneFiles[0].dataUrl : (hasAttachments ? MISSION.attachmentFiles[0].dataUrl : '');
             let statusText = '';
-            if (hasMainScene && hasAttachments) statusText = `主圖 + ${MISSION.attachmentFiles.length} 張附加圖`;
-            else if (hasMainScene) statusText = `1 張 AI 主圖`;
+            if (hasMainScene && hasAttachments) statusText = isEnhance ? `來源圖 + ${MISSION.attachmentFiles.length} 張附加圖` : `主圖 + ${MISSION.attachmentFiles.length} 張附加圖`;
+            else if (hasMainScene) statusText = isEnhance ? `1 張無損來源圖` : `1 張 AI 主圖`;
             else if (hasAttachments) statusText = `${MISSION.attachmentFiles.length} 張附加圖`;
             
             sceneStatus = `<div class="flex items-center gap-2"><img src="${mainImgUrl}" class="w-8 h-8 rounded-md border border-indigo-500 object-cover flex-shrink-0 shadow-sm"><span>${statusText} ✎</span></div>`;
             
             // 渲染主圖區
             if (hasMainScene) {
+                const mainLabel = isEnhance ? '📸 無損來源圖（主參考）' : '📸 AI 參考主圖';
                 scenesHtml += `
                     <div class="mb-3 p-2 bg-indigo-900/10 border border-indigo-500/20 rounded-lg">
-                        <span class="text-[10px] text-indigo-400 font-bold block mb-1">📸 AI 參考主圖</span>
+                        <span class="text-[10px] text-indigo-400 font-bold block mb-1">${mainLabel}</span>
                         <div class="relative w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50"><img src="${MISSION.sceneFiles[0].dataUrl}" class="w-full h-full object-cover"></div>
                     </div>`;
             }
@@ -99,6 +99,9 @@ export async function triggerMissionSummary() {
             const d = new Date(MISSION.scheduledAt);
             scheduleDisplay = d.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         }
+
+        const ratioChoices = isEnhance ? ['原圖比例', '9:16', '16:9', '1:1'] : ['9:16', '16:9', '1:1'];
+        const ratioGridClass = isEnhance ? 'grid grid-cols-2 sm:grid-cols-4 gap-2' : 'grid grid-cols-3 gap-2';
 
         /**
          * ==========================================
@@ -169,7 +172,7 @@ export async function triggerMissionSummary() {
                         ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
                     </div>`;
             } else {
-                styleSection = `<span class="text-[10px] text-slate-500">無損美化模式不需選擇風格與濾鏡</span>`;
+                styleSection = `<span class="text-[10px] text-amber-400/90">尚未鎖定宇宙時無法顯示風格；請先選「📷 攝影」或「🎨 動漫」。</span>`;
             }
 
             return `
@@ -265,7 +268,7 @@ export async function triggerMissionSummary() {
                         </button>
                         <div id="dash-scenes" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-3">
                             <div class="dash-val-scenes-list">${scenesHtml}</div>
-                            <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">包含 AI 參考主圖與最多 9 張社群附加輪播圖。</p>
+                            <p class="text-[10px] text-slate-400 pt-2 border-t border-white/5">${isEnhance ? '無損模式下主欄為「來源圖／主參考」，與漏斗視覺步驟同一入口；另可附最多 9 張社群輪播圖。' : '包含 AI 參考主圖與最多 9 張社群附加輪播圖。'}</p>
                             <button id="btnBackToVisual" class="bg-indigo-600/20 border border-indigo-500/50 text-indigo-300 px-4 py-2 rounded-lg text-xs active:scale-95 transition-all w-full text-center hover:bg-indigo-600 hover:text-white shadow-sm">✎ 重新上傳 / 更改圖檔</button>
                         </div>
                     </div>
@@ -297,7 +300,7 @@ export async function triggerMissionSummary() {
                             <span class="text-indigo-300 font-black dash-val-visual-specs">${MISSION.ratio || '9:16'} / ${isComic ? (MISSION.panelCount || 4) + '格' : ''} ✎</span>
                         </button>
                         <div id="dash-visual-specs" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
-                            ${!isEnhance && isComic ? `
+                            ${isComic ? `
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">漫畫格數</label>
                                 <div class="grid grid-cols-4 gap-2">
@@ -305,9 +308,9 @@ export async function triggerMissionSummary() {
                                 </div>
                             </div>` : ''}
                             <div class="space-y-2 pt-3 border-t border-white/5">
-                                <label class="text-[10px] text-slate-500">畫面比例</label>
-                                <div class="grid grid-cols-3 gap-2">
-                                    ${['9:16','16:9','1:1'].map(r => `<button class="btn-dash-ratio py-2 rounded-lg border shadow-sm transition-all ${MISSION.ratio===r?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${r}">${r}</button>`).join('')}
+                                <label class="text-[10px] text-slate-500">畫面比例${isEnhance ? '（無損可選原圖比例）' : ''}</label>
+                                <div class="${ratioGridClass}">
+                                    ${ratioChoices.map(r => `<button class="btn-dash-ratio py-2 rounded-lg border shadow-sm transition-all ${MISSION.ratio===r?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${r}">${r}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
@@ -540,7 +543,7 @@ export async function triggerMissionSummary() {
             };
         });
 
-        if (!isEnhance && isComic) {
+        if (isComic) {
             ui.querySelectorAll('.btn-dash-panel').forEach(btn => {
                 btn.onclick = () => {
                     MISSION.panelCount = parseInt(btn.dataset.val);
