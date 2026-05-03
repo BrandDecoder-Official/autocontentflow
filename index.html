@@ -46,13 +46,13 @@
 <body class="text-slate-200 overflow-hidden relative">
 
     <div id="loginGate" class="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center p-6 backdrop-blur-3xl">
-        <div class="w-full max-w-md bg-slate-800/80 border border-slate-600/50 rounded-3xl p-8 lg:p-12 shadow-2xl flex flex-col items-center text-center relative overflow-hidden">
+        <div class="w-full max-w-md bg-slate-800/80 border border-slate-600/50 rounded-3xl p-8 lg:p-12 shadow-2xl flex flex-col items-center text-center relative overflow-visible">
             <div class="absolute -top-20 -right-20 w-40 h-40 bg-blue-500 rounded-full blur-[80px] opacity-30"></div>
             <div class="absolute -bottom-20 -left-20 w-40 h-40 bg-purple-500 rounded-full blur-[80px] opacity-30"></div>
             <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center font-black text-white text-3xl shadow-lg mb-6 z-10">BD</div>
             <h1 class="text-2xl font-black text-white mb-2 z-10">BrandDecoder V10</h1>
             <p class="text-sm text-slate-400 mb-8 z-10">企業級自動發文與視覺編撰系統</p>
-            <div id="loginStatusArea" class="w-full min-h-[50px] mb-6 z-10 flex flex-col items-center justify-center"><div id="google-btn-container"></div></div>
+            <div id="loginStatusArea" class="w-full min-h-[52px] mb-6 z-10 flex flex-col items-center justify-center overflow-visible"><div id="google-btn-container" class="w-full flex flex-col items-center justify-center min-h-[48px] overflow-visible"></div></div>
         </div>
     </div>
 
@@ -364,11 +364,64 @@
         async function handleCredentialResponse(response) { googleBtnContainer.style.display = 'none'; statusArea.innerHTML = `<div class="animate-pulse text-sm font-bold text-blue-400">🔄 正在與雲端安全驗證...</div>`; await processLoginValidation(response.credential); }
         window.handleLogout = function() { localStorage.removeItem('bd_v9_token'); STATE.globalAuthToken = null; location.reload(); };
 
-        window.onload = async function () {
+        /** 手機／慢網路：gsi/client 為 async defer，onload 時 google 常尚未就緒 — 需輪詢再 renderButton */
+        function waitForGoogleIdentity(timeoutMs = 25000) {
+            return new Promise((resolve, reject) => {
+                const t0 = Date.now();
+                const tick = () => {
+                    if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+                        resolve();
+                        return;
+                    }
+                    if (Date.now() - t0 > timeoutMs) {
+                        reject(new Error('Google Sign-In 腳本載入逾時'));
+                        return;
+                    }
+                    setTimeout(tick, 80);
+                };
+                tick();
+            });
+        }
+
+        async function mountGoogleLoginButton() {
+            const el = document.getElementById('google-btn-container');
+            if (!el) return;
+            el.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-3 animate-pulse">正在載入 Google 登入…</p>';
+            try {
+                await waitForGoogleIdentity();
+                el.innerHTML = '';
+                const btnW = Math.min(320, Math.max(240, (typeof window.innerWidth === 'number' ? window.innerWidth : 360) - 72));
+                google.accounts.id.initialize({
+                    client_id: CONFIG.GOOGLE_CLIENT_ID,
+                    callback: handleCredentialResponse,
+                    ux_mode: 'popup',
+                    auto_select: false,
+                    locale: 'zh_TW'
+                });
+                google.accounts.id.renderButton(el, {
+                    theme: 'filled_black',
+                    type: 'standard',
+                    size: 'large',
+                    shape: 'pill',
+                    text: 'signin_with',
+                    width: btnW
+                });
+            } catch (err) {
+                console.error('[Google Sign-In]', err);
+                el.innerHTML = `<div class="text-center space-y-3 px-1"><p class="text-[11px] text-amber-200">無法載入 Google 登入（常見於網路較慢或瀏覽器阻擋第三方腳本）。</p><button type="button" class="w-full py-3 rounded-xl bg-indigo-600 text-white text-xs font-black active:scale-[0.99]" onclick="location.reload()">重新整理頁面</button></div>`;
+            }
+        }
+
+        window.addEventListener('load', async () => {
             const savedToken = localStorage.getItem('bd_v9_token');
-            if (savedToken) { googleBtnContainer.style.display = 'none'; statusArea.innerHTML = `<div class="animate-pulse text-sm font-bold text-indigo-400">⚡ 偵測到登入憑證，正在恢復連線...</div>`; await processLoginValidation(savedToken); } 
-            else { google.accounts.id.initialize({ client_id: CONFIG.GOOGLE_CLIENT_ID, callback: handleCredentialResponse }); google.accounts.id.renderButton(googleBtnContainer, { theme: "filled_black", size: "large", shape: "pill", width: 250 }); }
-        };
+            if (savedToken) {
+                googleBtnContainer.style.display = 'none';
+                statusArea.innerHTML = `<div class="animate-pulse text-sm font-bold text-indigo-400">⚡ 偵測到登入憑證，正在恢復連線...</div>`;
+                await processLoginValidation(savedToken);
+                return;
+            }
+            await mountGoogleLoginButton();
+        });
 
         // UI Toggles
         window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('-translate-x-full'); document.getElementById('sidebarOverlay').classList.toggle('hidden'); };
