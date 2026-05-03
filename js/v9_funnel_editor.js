@@ -200,7 +200,7 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
     const returnToLobbyHandler = () => {
         saveCurrentCaption(); // 離開前默默存個檔在記憶體裡
         releaseUI(ui);
-        window.dispatchEvent(new Event('reloadLobby'));
+        window.dispatchEvent(new CustomEvent('reloadLobby', { detail: { preserveMission: true } }));
     };
     ui.querySelector('#btnTopReturnLobby').onclick = returnToLobbyHandler;
     ui.querySelector('#btnBottomReturnLobby').onclick = returnToLobbyHandler;
@@ -599,7 +599,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     // 🔙 綁定返回大廳事件
     const returnToLobbyHandler = () => {
         releaseUI(ui);
-        window.dispatchEvent(new Event('reloadLobby'));
+        window.dispatchEvent(new CustomEvent('reloadLobby', { detail: { preserveMission: true } }));
         // 恢復聊天室視窗狀態
         const chatBar = document.getElementById('agentChatBar');
         if(chatBar) chatBar.classList.remove('translate-y-full'); 

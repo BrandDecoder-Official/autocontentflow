@@ -1,5 +1,7 @@
 // services/draft.comic.service.js
 
+const { buildMissionContextSnapshot } = require('../utils/missionContextSnapshot.js');
+
 /**
  * ==========================================
  * 🎨 動漫宇宙專屬大腦 (Comic Universe)
@@ -140,8 +142,9 @@ async function processDraft(req, res, payloadRaw, tools) {
         if(safePayload.missionContext?.image_options) delete safePayload.missionContext.image_options;
 
         const finalDocData = {
-            taskId, tenantId, status: 'DRAFTING', 
-            payload: safePayload,             
+            taskId, tenantId, status: 'DRAFTING',
+            missionContext: buildMissionContextSnapshot(payloadRaw),
+            payload: safePayload,
             draftContent, extracted_features: extractedFeatures,
             image_options: imageOptionsToSave,
             createdAt: new Date().toISOString()

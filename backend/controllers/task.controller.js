@@ -182,7 +182,7 @@ async function generateImageFromDraft(req, res) {
         if (!docSnap.exists) throw new Error("找不到任務");
 
         const taskData = docSnap.data();
-        const mission = taskData.missionContext || taskData.payload;
+        const mission = taskData.missionContext || taskData.payload?.missionContext || taskData.payload || {};
         const isComicMode = mission.universe === 'COMIC';
         const presentationMode = mission.presentationMode || 'CLASSIC';
 

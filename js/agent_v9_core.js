@@ -14,14 +14,16 @@ export { bootSystemData } from './v9_state.js';
 
 // ==========================================
 // 🚀 核心入口：初始化 (Lobby 渲染) - 被首頁呼叫
+// options.preserveMission：從字卡／發佈卡「返回大廳」時為 true，不清空 MISSION、避免又回到漏斗起點
 // ==========================================
-export async function initAgentFunnel() {
-    renderLobby();
+export async function initAgentFunnel(options = {}) {
+    renderLobby(!!options.preserveMission);
 }
 
 // 🚀 監聽來自漏斗的「重啟大廳」事件 (解決互相引用的終極解法)
-window.addEventListener('reloadLobby', () => {
-    initAgentFunnel();
+window.addEventListener('reloadLobby', (e) => {
+    const preserve = !!(e && e.detail && e.detail.preserveMission);
+    initAgentFunnel({ preserveMission: preserve });
 });
 
 // ==========================================
@@ -48,18 +50,29 @@ const SUCCESS_HISTORY_STATUSES = new Set(['COMPLETED', 'PUBLISHED', 'SCHEDULED']
 // ==========================================
 // 🎨 大廳畫面渲染
 // ==========================================
-function renderLobby() {
+function renderLobby(preserveMission = false) {
     const log = document.getElementById('funnelLog');
-    resetMissionStateForLobby();
-    IS_EDIT_MODE.value = false; // 確保回到大廳時關閉編輯模式
-    
+    if (!preserveMission) {
+        resetMissionStateForLobby();
+        IS_EDIT_MODE.value = false;
+    } else {
+        IS_EDIT_MODE.value = true;
+    }
+
+    const resumeHint =
+        preserveMission && MISSION.currentTaskId
+            ? `<div class="max-w-lg mx-auto mb-4 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/35 text-[11px] text-amber-100/95 leading-relaxed shadow-inner">
+                您有待處理的任務進度（追蹤碼已保留）。請從下方<strong class="text-amber-50">進行中任務</strong>繼續編輯或發佈；若要<strong class="text-amber-50">全新任務</strong>，請點「啟動全新漏斗」（會清空目前暫存設定）。
+               </div>`
+            : '';
+
     log.innerHTML = `
         <div class="max-w-5xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6 lg:space-y-8">
             <div class="text-center space-y-2 mb-6">
                 <h2 class="text-2xl lg:text-3xl font-black text-white tracking-tight">讓夢想在對話中落地</h2>
                 <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
-            
+            ${resumeHint}
             <div class="max-w-lg mx-auto mb-8">
                 <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
@@ -87,6 +100,8 @@ function renderLobby() {
 
     document.getElementById('btnManualStart').onclick = async () => { 
         const log = document.getElementById('funnelLog');
+        resetMissionStateForLobby();
+        IS_EDIT_MODE.value = false;
         log.innerHTML = ''; 
         await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
