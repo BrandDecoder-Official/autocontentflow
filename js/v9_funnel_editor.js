@@ -155,6 +155,11 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
     let panelsHtml = '';
     const activePanels = MISSION.currentPanels || draftContent.panels;
     if (isComic && activePanels) {
+        activePanels.forEach(p => {
+            if (p.dialogue === undefined || p.dialogue === null || p.dialogue === 'undefined') {
+                p.dialogue = '';
+            }
+        });
         const pCount = activePanels.length;
         let wLimit = 9; 
         if(pCount === 1) wLimit = 20; 
@@ -166,7 +171,7 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
             <div class="bg-slate-800/50 p-3 rounded-xl border border-white/5 space-y-2 relative panel-container">
                 <div class="flex justify-between items-center"><span class="text-[9px] font-black text-indigo-400"># PANEL ${p.panel_number}</span><span class="text-[9px] font-bold text-slate-500 char-counter" data-limit="${wLimit}">0 / ${wLimit} 字</span></div>
                 <p class="text-[10px] text-slate-400 leading-tight italic">${p.action_zh || p.action_en}</p>
-                <input type="text" class="panel-dialogue w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-blue-500 outline-none transition-colors" value="${p.dialogue}" data-idx="${idx}">
+                <input type="text" class="panel-dialogue w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-white focus:border-blue-500 outline-none transition-colors" value="${p.dialogue || ''}" data-idx="${idx}">
             </div>`;
         });
     }
@@ -218,28 +223,17 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                 </div>
 
                 <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1 pt-3 border-t border-white/10">${panelsHtml}</div>
+                ${isComic ? `
+                <div class="pt-3 border-t border-white/10 flex justify-end">
+                    <label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-950/40 rounded-xl px-3 py-2 border border-white/5 cursor-pointer hover:bg-slate-950/60 transition-all select-none">
+                        <input id="storyModeToggle" type="checkbox" class="accent-indigo-500" ${MISSION.isStoryMode ? 'checked' : ''}>
+                        📖 連續劇情模式（漫畫前後分鏡邏輯連貫）
+                    </label>
+                </div>` : ''}
             </div>
 
-            <div class="bg-violet-600/10 p-3 lg:p-4 rounded-2xl border border-violet-500/30 space-y-3 shadow-inner">
-                <div class="flex items-center justify-between">
-                    <h3 class="text-xs font-black text-violet-300 uppercase tracking-widest">🧠 AI 生圖建議</h3>
-                    <button id="btnApplyAiSuggestion" class="text-[10px] px-2 py-1 rounded-lg border border-violet-400/40 text-violet-200 hover:bg-violet-600/30">一鍵套用</button>
-                </div>
-                <p class="text-[11px] text-slate-300 leading-relaxed">${suggestion.reason}</p>
-                <div class="grid grid-cols-1 ${isComic ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2 text-[10px]">
-                    ${isComic ? `<div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議格數：<span id="aiPanelHint" class="text-violet-300 font-bold">${suggestion.panelCount} 格</span></div>` : ''}
-                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議色系：<span id="aiColorHint" class="text-violet-300 font-bold">${suggestion.colorMode === 'BW' ? '黑白' : suggestion.colorMode}</span></div>
-                    <div class="bg-slate-900/70 rounded-lg border border-white/10 px-2 py-2 text-slate-300">建議張數：<span id="aiCountHint" class="text-violet-300 font-bold">${suggestion.imageCount} 張</span></div>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div class="text-[10px] text-slate-300 leading-relaxed bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
-                        每次按下「開始生圖／重算」僅產出 <strong class="text-violet-300">1</strong> 張；可重複生圖累積，最後在發佈卡<strong class="text-rose-300">跨批次勾選</strong>一併上傳（合成＋附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張）。
-                    </div>
-                    ${isComic ? `<label class="text-[10px] text-slate-400 font-bold flex items-center gap-2 bg-slate-900/60 rounded-lg px-2 py-2 border border-white/10">
-                        <input id="storyModeToggle" type="checkbox" class="accent-violet-500" ${MISSION.isStoryMode ? 'checked' : ''}>
-                        連續劇情模式（適合短篇漫畫）
-                    </label>` : ''}
-                </div>
+            <div class="text-[10px] text-slate-500 text-center leading-relaxed px-2 bg-slate-950/20 py-2.5 rounded-xl border border-white/5">
+                💡 每次點擊「開始生圖」僅生成 1 張圖片。您可以重複點擊生圖，最後在發布階段「跨批次勾選」一併上傳（最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張）。
             </div>
             
             <button type="button" id="btnFinalGenerate" class="w-full min-h-[52px] sm:min-h-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-base sm:text-sm shadow-xl active:scale-[0.98] transition-all touch-manipulation">✨ 確認內容，開始生圖</button>
@@ -360,16 +354,6 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
     if (storyEl) {
         storyEl.onchange = (e) => { MISSION.isStoryMode = !!e.target.checked; };
     }
-    ui.querySelector('#btnApplyAiSuggestion').onclick = async () => {
-        MISSION.plannedImageCount = suggestion.imageCount;
-        if (isComic) MISSION.isStoryMode = suggestion.imageCount >= 4;
-        if (MISSION.universe === 'COMIC') {
-            MISSION.panelCount = suggestion.panelCount;
-            MISSION.colorMode = suggestion.colorMode;
-        }
-        if (storyEl) storyEl.checked = MISSION.isStoryMode;
-        await addLog("美術總監", "🧠", `已套用 AI 建議：${MISSION.universe === 'COMIC' ? `${MISSION.panelCount}格 / ${MISSION.colorMode === 'BW' ? '黑白' : '彩色'} / ` : ''}${MISSION.plannedImageCount} 張。`, true);
-    };
 
     ui.querySelector('#btnFinalGenerate').onclick = async () => {
         saveCurrentCaption(); 
@@ -382,6 +366,8 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
             const idx = input.dataset.idx; 
             editedPanels.push({ panel_number: activePanels[idx].panel_number, dialogue: input.value, action_zh: activePanels[idx].action_zh, action_en: activePanels[idx].action_en }); 
         });
+        
+        MISSION.currentPanels = editedPanels; // Save to state
         
         await window.FunnelActions.generateImages(taskId, editedCaption, editedPanels);
     };

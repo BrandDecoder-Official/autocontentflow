@@ -320,8 +320,13 @@ async function generateImageFromDraft(req, res) {
                         if (presentationMode === 'CINEMATIC') {
                             currentImagePrompt += `Panel ${idx + 1}: ${charNameStr} is doing: ${panel.action_en}. [CINEMATIC POSTER MODE]: NO text, NO speech bubbles.\n`;
                         } else {
-                            currentImagePrompt += `Panel ${idx + 1}: ${charNameStr} is doing: ${panel.action_en}. Draw dialogue bubble and write exact Chinese text '${panel.dialogue}'.\n`;
-                            chunkExpectedText += panel.dialogue + " ";
+                            const dialogueText = (panel.dialogue || "").trim();
+                            if (dialogueText && dialogueText !== "undefined") {
+                                currentImagePrompt += `Panel ${idx + 1}: ${charNameStr} is doing: ${panel.action_en}. Draw dialogue bubble and write exact Chinese text '${dialogueText}'.\n`;
+                                chunkExpectedText += dialogueText + " ";
+                            } else {
+                                currentImagePrompt += `Panel ${idx + 1}: ${charNameStr} is doing: ${panel.action_en}. NO text, NO speech bubbles.\n`;
+                            }
                         }
                     });
                 }

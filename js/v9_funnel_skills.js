@@ -149,6 +149,11 @@ export async function triggerTopicSkill() {
         MISSION.topic = val; 
         releaseUI(ui); 
         await addLog("總編指令", "🎯", `戰略鎖定：${val.substring(0, 20)}...`); 
+
+        // 🧠 企劃大腦：設定好主題後，即刻在對話中呈現生圖風格企劃建議
+        const tempSuggestion = getEarlyImagePlanSuggestion(val);
+        await addLog("大腦企劃", "💡", `<b>大腦生圖風格建議</b>：<br>根據您的主題，建議採用 <b>${tempSuggestion.universeText}</b> 進行視覺創作。<br><i>原因：${tempSuggestion.reason}</i>`);
+
         if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } 
         else { MISSION.funnelNextStep = 'platforms'; await triggerPlatformSkill(); } 
     };
@@ -1104,5 +1109,39 @@ export async function triggerScheduleSkill() {
         await addLog("社群總監", "✅", `已排程於 ${schDate.toLocaleString('zh-TW', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`); 
         MISSION.funnelNextStep = 'dashboard';
         await triggerMissionSummary();
+    };
+}
+
+/**
+ * 🧠 企劃大腦：在主題設定之初即時提供合適的宇宙與風格建議
+ */
+function getEarlyImagePlanSuggestion(topicText) {
+    const topic = (topicText || '').toLowerCase();
+    const hasComicIntent = /動漫|卡通|漫畫|畫風|二次元|搞笑|迷因|漫畫|yonkoma|comic|anime/.test(topic);
+    const hasRealisticIntent = /真實|寫實|攝影|照片|產品照|穿搭|街拍|實景|realistic|photo|photography/.test(topic);
+    
+    if (hasComicIntent) {
+        return {
+            universeText: "2D 動漫宇宙",
+            reason: "由於主題中包含動漫、趣味或故事性質關鍵字，強烈建議採用 <b>2D 動漫多格漫畫</b> 進行創作，藉由精采的分鏡對白與討喜的畫風來引發社群互動率！"
+        };
+    }
+    if (hasRealisticIntent) {
+        return {
+            universeText: "真實攝影宇宙",
+            reason: "您的主題強調實體質感、真實生活場景或商品展示，建議採用 <b>真實攝影（寫實風格）</b>，讓您的受眾感受到最高的生活共鳴與視覺細節表現。"
+        };
+    }
+    
+    const hasStoryIntent = /劇情|連載|分鏡|故事|episode|story/.test(topic);
+    if (hasStoryIntent) {
+        return {
+            universeText: "2D 動漫宇宙",
+            reason: "此主題帶有強烈的故事敘事特徵，使用 2D 動漫的多格分鏡排版能以最生動的對話氣泡層層鋪陳劇情，完美傳遞故事張力！"
+        };
+    }
+    return {
+        universeText: "真實攝影宇宙 或 2D 動漫宇宙",
+        reason: "此主題風格彈性大。若希望展現高端寫實質感，可選擇「真實攝影」；若偏好活潑、幽默的連續圖文，建議選擇「2D 動漫」分鏡漫畫。"
     };
 }
