@@ -224,6 +224,9 @@ export function recordGeneratedImageBatch(images = [], caption = '') {
 export function loadMissionFromDB(taskData) {
     if (!taskData) return null;
 
+    // 🚀 關鍵修復：恢復任務時先重設/清空快取狀態與舊圖，防止前一任務的生圖/發佈快取污染
+    resetMissionStateForLobby();
+
     // 1. 抓取核心 Context (相容新舊資料結構)
     const payloadRoot = taskData.payload || {};
     const ctx = taskData.missionContext || payloadRoot.missionContext || payloadRoot || {};
