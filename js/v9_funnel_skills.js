@@ -1151,7 +1151,6 @@ function getEarlyImagePlanSuggestion(topicText) {
  * 📸 Pocket BD：行動端閃電隨手記核心實作
  * ==========================================
  */
-import { compressImage } from './v9_state.js';
 import { createAgentTask } from './api.js';
 
 let quickSnapSelectedPlats = ['FB'];

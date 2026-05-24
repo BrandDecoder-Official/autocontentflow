@@ -96,9 +96,23 @@ export async function verifyLoginAPI(credential) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ credential })
         });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+            let errMsg = '登入憑證已失效';
+            try {
+                const errData = await response.json();
+                if (errData && errData.message) errMsg = errData.message;
+            } catch (e) {}
+            const err = new Error(errMsg);
+            err.status = response.status;
+            throw err;
+        }
         return await response.json();
-    } catch (error) { throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試'); }
+    } catch (error) {
+        if (error.status === 401 || error.status === 403 || error.message === '登入驗證失敗' || error.message === '登入憑證已失效' || error.message === '帳號異常或已被停權，請聯繫客服。') {
+            throw error;
+        }
+        throw new Error('無法連線到登入伺服器，請檢查網路或稍後再試');
+    }
 }
 
 // 🌟 新增：獲取租戶設定 (供錢包同步使用)
