@@ -37,9 +37,14 @@ function resolvePlatformsFromTask(taskData) {
     return normalizePlatforms(chosen);
 }
 
-function collectAttachmentUrls(taskData) {
+function collectAttachmentUrls(taskData, body = {}) {
     const urls = [];
-    const buckets = [taskData.payload?.attachmentFiles, taskData.missionContext?.attachmentFiles, taskData.image_options?.attachmentFiles];
+    const buckets = [
+        body.attachmentFiles,
+        taskData.payload?.attachmentFiles,
+        taskData.missionContext?.attachmentFiles,
+        taskData.image_options?.attachmentFiles
+    ];
     for (const arr of buckets) {
         if (!Array.isArray(arr)) continue;
         for (const file of arr) {
@@ -47,7 +52,7 @@ function collectAttachmentUrls(taskData) {
             if (typeof u === 'string' && u.startsWith('http')) urls.push(u);
         }
     }
-    return urls;
+    return [...new Set(urls)];
 }
 
 /**
@@ -55,25 +60,32 @@ function collectAttachmentUrls(taskData) {
  * @param {object} [body] HTTP body（可含 selectedImages）
  */
 function resolveImageUrlsFromTask(taskData, body = {}) {
+    const urls = [];
+
+    // 1. 收集 AI 生圖或主圖
     const fromSelected = body.selectedImages;
     if (Array.isArray(fromSelected) && fromSelected.length > 0) {
-        const urls = fromSelected.map((i) => i.finalUrl || i.imageUrl).filter((u) => typeof u === 'string' && u.startsWith('http'));
-        if (urls.length) return urls;
+        const selectedUrls = fromSelected
+            .map((i) => i.finalUrl || i.imageUrl)
+            .filter((u) => typeof u === 'string' && u.startsWith('http'));
+        urls.push(...selectedUrls);
+    } else if (taskData.images?.length > 0) {
+        const taskUrls = taskData.images.map((img) => img.finalUrl).filter(Boolean);
+        urls.push(...taskUrls);
+    } else if (taskData.generated_image_url && typeof taskData.generated_image_url === 'string') {
+        urls.push(taskData.generated_image_url);
     }
 
-    if (taskData.images?.length > 0) {
-        const urls = taskData.images.map((img) => img.finalUrl).filter(Boolean);
-        if (urls.length) return urls;
+    // 2. 收集並合併附掛圖
+    const attach = collectAttachmentUrls(taskData, body);
+    if (attach.length) {
+        urls.push(...attach);
     }
 
-    if (taskData.generated_image_url && typeof taskData.generated_image_url === 'string') {
-        return [taskData.generated_image_url];
-    }
+    // 3. 去重並限制最多 10 張（與前端 PUBLISH_MEDIA_MAX_TOTAL = 10 限制一致）
+    const finalUrls = [...new Set(urls)].slice(0, 10);
 
-    const attach = collectAttachmentUrls(taskData);
-    if (attach.length) return attach;
-
-    return [];
+    return finalUrls;
 }
 
 module.exports = {
