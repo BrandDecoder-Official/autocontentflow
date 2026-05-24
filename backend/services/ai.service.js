@@ -55,7 +55,7 @@ async function generateImage(imagePrompt, taskId, options = {}) {
         const finalPrompt = imagePrompt ? imagePrompt.trim() : "";
         if (!finalPrompt) throw new Error("生圖提示詞 (Prompt) 遺失！");
 
-        const aspectRatio = options.aspectRatio || '1:1';
+        const aspectRatio = options.aspectRatio || options.ratio || '1:1';
         const resolutionLabel = options.resolution || '1K';
         let imageSize = '1K'; 
         if (['512', '1K', '2K', '4K'].includes(resolutionLabel)) {

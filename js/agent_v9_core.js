@@ -108,12 +108,21 @@ function renderLobby(preserveMission = false) {
                 <p class="text-xs text-slate-400">當前指揮官：<span class="text-blue-400 font-bold">總編</span></p>
             </div>
             ${cloudResumeHint}
-            <div class="max-w-lg mx-auto mb-8">
-                <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col h-full active:scale-95" id="btnManualStart">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-8">
+                <!-- 藍色：發起實戰任務 -->
+                <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col active:scale-95" id="btnManualStart">
                     <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
                     <h3 class="text-lg font-black text-white mb-2">發起實戰任務</h3>
                     <p class="text-xs text-slate-400 mb-6 leading-relaxed">從主題、平台到人設，親手建構您的獲利閉環。</p>
                     <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動全新漏斗</button>
+                </div>
+                
+                <!-- 綠色：行動隨手記 -->
+                <div class="bg-emerald-600/10 border border-emerald-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(16,185,129,0.15)] flex flex-col active:scale-95" id="btnQuickSnapStart">
+                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">📸</div>
+                    <h3 class="text-lg font-black text-white mb-2">行動隨手記</h3>
+                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">隨手記錄照片與靈感。暫存於雲端，回家精修。</p>
+                    <button class="mt-auto w-full bg-emerald-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">⚡ 閃電上傳速記</button>
                 </div>
             </div>
 
@@ -147,6 +156,15 @@ function renderLobby(preserveMission = false) {
         await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
     };
+
+    const snapBtn = document.getElementById('btnQuickSnapStart');
+    if (snapBtn) {
+        snapBtn.onclick = () => {
+            if (typeof window.openQuickSnapModal === 'function') {
+                window.openQuickSnapModal();
+            }
+        };
+    }
 
     renderTaskDashboard();
 }

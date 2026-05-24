@@ -1145,3 +1145,226 @@ function getEarlyImagePlanSuggestion(topicText) {
         reason: "此主題風格彈性大。若希望展現高端寫實質感，可選擇「真實攝影」；若偏好活潑、幽默的連續圖文，建議選擇「2D 動漫」分鏡漫畫。"
     };
 }
+
+/**
+ * ==========================================
+ * 📸 Pocket BD：行動端閃電隨手記核心實作
+ * ==========================================
+ */
+import { compressImage } from './v9_state.js';
+import { createAgentTask } from './api.js';
+
+let quickSnapSelectedPlats = ['FB'];
+let quickSnapUploadedDataUrl = '';
+
+window.openQuickSnapModal = function() {
+    const modal = document.getElementById('quickSnapModal');
+    const panel = document.getElementById('quickSnapPanel');
+    if (!modal || !panel) return;
+
+    // 重設狀態與 UI
+    quickSnapSelectedPlats = ['FB'];
+    quickSnapUploadedDataUrl = '';
+    
+    const fileInput = document.getElementById('quickSnapFileInput');
+    if (fileInput) fileInput.value = '';
+    
+    const topicArea = document.getElementById('quickSnapTopic');
+    if (topicArea) topicArea.value = '';
+
+    const uploadArea = document.getElementById('quickSnapUploadArea');
+    const previewArea = document.getElementById('quickSnapPreviewArea');
+    const previewImg = document.getElementById('quickSnapPreviewImg');
+    
+    if (uploadArea) uploadArea.classList.remove('hidden');
+    if (previewArea) previewArea.classList.add('hidden');
+    if (previewImg) previewImg.src = '';
+
+    // 更新平台晶片選中樣式
+    updateSnapPlatUI();
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+        modal.classList.add('opacity-100');
+        panel.classList.add('translate-y-0');
+    }, 20);
+};
+
+window.closeQuickSnapModal = function() {
+    const modal = document.getElementById('quickSnapModal');
+    const panel = document.getElementById('quickSnapPanel');
+    if (!modal || !panel) return;
+
+    modal.classList.remove('opacity-100');
+    panel.classList.remove('translate-y-0');
+    setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }, 300);
+};
+
+// 平台選中更新
+function updateSnapPlatUI() {
+    const fbBtn = document.getElementById('snapPlatFB');
+    const igBtn = document.getElementById('snapPlatIG');
+    if (!fbBtn || !igBtn) return;
+
+    if (quickSnapSelectedPlats.includes('FB')) {
+        fbBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-blue-500/50 bg-blue-600/20 text-blue-300";
+    } else {
+        fbBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500";
+    }
+
+    if (quickSnapSelectedPlats.includes('IG')) {
+        igBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-pink-500/50 bg-pink-600/20 text-pink-300";
+    } else {
+        igBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500";
+    }
+}
+
+// 綁定檔案上傳拍照
+document.addEventListener('DOMContentLoaded', () => {
+    const uploadArea = document.getElementById('quickSnapUploadArea');
+    const fileInput = document.getElementById('quickSnapFileInput');
+    const previewArea = document.getElementById('quickSnapPreviewArea');
+    const previewImg = document.getElementById('quickSnapPreviewImg');
+    const removeImgBtn = document.getElementById('btnRemoveQuickSnapImg');
+
+    if (uploadArea && fileInput) {
+        uploadArea.onclick = () => fileInput.click();
+    }
+
+    if (fileInput) {
+        fileInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                // 自動無損壓縮，限制在 1024 寬度以內以節省頻寬
+                const compressedDataUrl = await compressImage(file, 1024, false);
+                quickSnapUploadedDataUrl = compressedDataUrl;
+                
+                if (previewImg && previewArea && uploadArea) {
+                    previewImg.src = compressedDataUrl;
+                    previewArea.classList.remove('hidden');
+                    uploadArea.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error("圖片壓縮失敗：", err);
+                if (window.showError) window.showError("圖片讀取失敗，請重新上傳。");
+            }
+        };
+    }
+
+    if (removeImgBtn && uploadArea && previewArea && previewImg && fileInput) {
+        removeImgBtn.onclick = (e) => {
+            e.stopPropagation();
+            quickSnapUploadedDataUrl = '';
+            fileInput.value = '';
+            previewImg.src = '';
+            previewArea.classList.add('hidden');
+            uploadArea.classList.remove('hidden');
+        };
+    }
+
+    // 平台切換按鈕綁定
+    const fbBtn = document.getElementById('snapPlatFB');
+    const igBtn = document.getElementById('snapPlatIG');
+    if (fbBtn) {
+        fbBtn.onclick = () => {
+            if (quickSnapSelectedPlats.includes('FB')) {
+                quickSnapSelectedPlats = quickSnapSelectedPlats.filter(p => p !== 'FB');
+            } else {
+                quickSnapSelectedPlats.push('FB');
+            }
+            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['IG']; // 保底
+            updateSnapPlatUI();
+        };
+    }
+    if (igBtn) {
+        igBtn.onclick = () => {
+            if (quickSnapSelectedPlats.includes('IG')) {
+                quickSnapSelectedPlats = quickSnapSelectedPlats.filter(p => p !== 'IG');
+            } else {
+                quickSnapSelectedPlats.push('IG');
+            }
+            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['FB']; // 保底
+            updateSnapPlatUI();
+        };
+    }
+
+    // 提交隨手記
+    const submitBtn = document.getElementById('btnSubmitQuickSnap');
+    if (submitBtn) {
+        submitBtn.onclick = async () => {
+            const topicInput = document.getElementById('quickSnapTopic');
+            const topicText = topicInput ? topicInput.value.trim() : '';
+
+            if (!quickSnapUploadedDataUrl) {
+                if (window.showError) window.showError("請先拍照或上傳一張當下的現場照片。");
+                return;
+            }
+
+            if (!topicText) {
+                if (window.showError) window.showError("請寫一兩句描述您當下的靈感主題。");
+                return;
+            }
+
+            const configVal = document.getElementById('quickSnapConfigSelect')?.value || 'COMIC_1_Color';
+            const universe = configVal.startsWith('COMIC') ? 'COMIC' : 'REALISTIC';
+            let panelCount = 1;
+            let colorMode = 'Color';
+            if (configVal.includes('4_Color')) panelCount = 4;
+            else if (configVal.includes('BW')) colorMode = 'BW';
+
+            // 顯示 Loading Spinner
+            const spinner = document.getElementById('quickSnapLoadingSpinner');
+            const btnText = document.getElementById('btnSubmitQuickSnapText');
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.innerText = "正在儲存雲端隨手記...";
+            submitBtn.disabled = true;
+
+            try {
+                // 雲端建檔 API 呼叫
+                const payload = {
+                    tenantId: STATE.uid,
+                    currentStatus: 'DRAFTING',
+                    missionContext: {
+                        topic: topicText,
+                        universe: universe,
+                        colorMode: colorMode,
+                        panelCount: panelCount,
+                        platforms: quickSnapSelectedPlats,
+                        sceneFiles: [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }]
+                    }
+                };
+
+                const response = await createAgentTask(payload);
+                if (response && response.success) {
+                    window.closeQuickSnapModal();
+                    if (window.showToast) {
+                        window.showToast("🚀 隨手記暫存成功！已存入雲端進行中任務。");
+                    } else {
+                        alert("🚀 隨手記暫存成功！");
+                    }
+                    
+                    // 重新載入大廳任務看板
+                    if (typeof window.renderTaskDashboard === 'function') {
+                        window.renderTaskDashboard();
+                    }
+                } else {
+                    throw new Error(response.message || "建檔失敗。");
+                }
+            } catch (err) {
+                console.error("隨手記建檔失敗：", err);
+                if (window.showError) window.showError(`暫存失敗：${err.message}`);
+            } finally {
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.innerText = "💾 閃電存檔至進行中";
+                submitBtn.disabled = false;
+            }
+        };
+    }
+});
+

@@ -171,7 +171,11 @@ async function generateDraft(req, res) {
  */
 async function generateImageFromDraft(req, res) {
     try {
-        const { taskId, tenantId, editedCaption, editedPanels, incomingImages, plannedImageCount, tgConfig } = req.body;
+        const { 
+            taskId, tenantId, editedCaption, editedPanels, incomingImages, 
+            plannedImageCount, tgConfig, panelCount, colorMode, style, ratio, resolution 
+        } = req.body;
+        
         let imagesToProcess = (incomingImages?.length > 0)
             ? incomingImages.slice(0, 10)
             : [{ processType: 'AI_SYNTHESIS', originalUrl: '' }];
@@ -182,7 +186,28 @@ async function generateImageFromDraft(req, res) {
         if (!docSnap.exists) throw new Error("找不到任務");
 
         const taskData = docSnap.data();
-        const mission = taskData.missionContext || taskData.payload?.missionContext || taskData.payload || {};
+        
+        // 🚀 關鍵修復：即時將前端最新的生圖參數 (格數、色系等) 同步更新至雲端 Firestore 任務文件
+        const { buildMissionContextSnapshot } = require('../utils/missionContextSnapshot.js');
+        const missionUpdates = buildMissionContextSnapshot(req.body);
+        const mission = {
+            ...(taskData.missionContext || {}),
+            ...missionUpdates
+        };
+        const updatedImageOptions = {
+            ...(taskData.image_options || {}),
+            ...(req.body.image_options || {}),
+            colorMode: mission.colorMode || taskData.image_options?.colorMode || "",
+            ratio: mission.ratio || taskData.image_options?.ratio || "",
+            resolution: mission.resolution || taskData.image_options?.resolution || "",
+            style: mission.style || taskData.image_options?.style || "",
+        };
+
+        await docRef.update({
+            missionContext: mission,
+            image_options: updatedImageOptions
+        });
+
         const isComicMode = mission.universe === 'COMIC';
         const presentationMode = mission.presentationMode || 'CLASSIC';
 
@@ -229,9 +254,10 @@ async function generateImageFromDraft(req, res) {
         }
 
         let cleanImageOptions = { 
-            ...taskData.image_options, 
+            ...updatedImageOptions, 
+            aspectRatio: updatedImageOptions.ratio || updatedImageOptions.aspectRatio || '1:1',
             negativePrompt: [
-                taskData.image_options.negativePrompt || "", 
+                updatedImageOptions.negativePrompt || "", 
                 dbNegativePrompt, 
                 "watermark, signature, text, words, artist name, copyright, trademark, literal eyeballs popping out"
             ].filter(Boolean).join(", "), 
@@ -240,7 +266,7 @@ async function generateImageFromDraft(req, res) {
         
         let baseImagePrompt = "";
         if (isComicMode) {
-            const stylePrefix = taskData.image_options.dbStylePrompt || taskData.image_options.style || "";
+            const stylePrefix = updatedImageOptions.dbStylePrompt || updatedImageOptions.style || "";
             const colorPositive = mission.colorMode === 'BW' ? "[COLOR: PURE BLACK AND WHITE] Monochrome manga, greyscale, screentone. " : "[COLOR: FULL] Vibrant color manga. ";
             const colorNegative = mission.colorMode === 'BW' ? "color, colored, colorful" : "monochrome, b&w, greyscale";
             
@@ -304,7 +330,8 @@ async function generateImageFromDraft(req, res) {
                 let chunkExpectedText = ""; 
                 
                 if (isComicMode) {
-                    const chunkPanels = mergedPanels.slice(i * 4, (i + 1) * 4);
+                    const targetPanelCount = parseInt(mission.panelCount, 10) || 4;
+                    const chunkPanels = mergedPanels.slice(i * targetPanelCount, (i + 1) * targetPanelCount);
                     const actualCount = chunkPanels.length;
                     
                     let gridCommand = "";

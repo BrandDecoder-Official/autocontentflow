@@ -1,5 +1,130 @@
-// js/v9_ui.js
 import { STATE } from './config.js';
+import { MISSION, getMissionCharacterNames, SYSTEM_DB } from './v9_state.js';
+
+// 🚀 動態注入 Canvas 3.0 極致特效與行動端樣式
+(function injectCanvasStyles() {
+    const styleId = 'bd-canvas-3d-styles';
+    if (document.getElementById(styleId)) return;
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+        /* 1. 雷射線掃描動畫 */
+        @keyframes laser-sweep {
+            0% { top: 0%; opacity: 0.1; }
+            30% { opacity: 0.8; }
+            50% { top: 100%; opacity: 1; }
+            70% { opacity: 0.8; }
+            100% { top: 0%; opacity: 0.1; }
+        }
+        .laser-container {
+            position: relative;
+            overflow: hidden;
+        }
+        .laser-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #06b6d4, #6366f1, #06b6d4, transparent);
+            box-shadow: 0 0 10px #06b6d4, 0 0 20px #6366f1;
+            z-index: 10;
+            animation: laser-sweep 3s ease-in-out infinite;
+            pointer-events: none;
+        }
+        
+        /* 2. 霓虹旋轉邊框流光動畫 */
+        @keyframes neon-spin {
+            100% { transform: rotate(360deg); }
+        }
+        .neon-border-glow {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+            padding: 2px; /* 邊框寬度 */
+            z-index: 1;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+        .neon-border-glow::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(from 0deg, transparent 40%, #06b6d4 60%, #6366f1 80%, transparent 100%);
+            animation: neon-spin 4s linear infinite;
+            z-index: -2;
+            pointer-events: none;
+        }
+        .neon-border-glow::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: #0f172a;
+            border-radius: calc(1rem - 2px);
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        /* 3. 骨架屏漸層 Shimmer 載入 */
+        @keyframes shimmer-run {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+        .shimmer-bg {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+            animation: shimmer-run 1.8s infinite linear;
+        }
+        
+        /* 4. 3D 燈箱與縮放動畫 */
+        .lightbox-open {
+            overflow: hidden !important;
+        }
+        .lightbox-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(15px);
+            z-index: 9999;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .lightbox-backdrop.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .lightbox-content {
+            transform: scale(0.9) rotateY(10deg);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+            max-width: 90%;
+            max-height: 80vh;
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 30px rgba(99, 102, 241, 0.3);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .lightbox-backdrop.active .lightbox-content {
+            transform: scale(1) rotateY(0deg);
+            opacity: 1;
+        }
+        
+        /* 5. 漸變淡入動畫 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    `;
+    document.head.appendChild(style);
+})();
 
 /**
  * ==========================================
@@ -51,11 +176,21 @@ export function createSkillUI(html) {
         if(inputs) inputs.forEach(i => i.disabled = true);
     }
     
+    // 🚀 Canvas 3.0 單一焦點定格化：清空以前的舊字卡，確保只有當前活躍步驟
+    if (workspaceCards) {
+        workspaceCards.innerHTML = '';
+    }
+    
     const div = document.createElement('div');
-    div.className = 'skill-card w-full bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6 mx-auto relative z-10';
+    div.className = 'skill-card w-full bg-slate-900/50 p-4 rounded-2xl border border-white/5 shadow-2xl mb-6 mx-auto relative z-10 animate-fade-in';
     div.id = 'activeControlCard';
     div.innerHTML = html;
     log.appendChild(div);
+    
+    // 🚀 更新頂部的任務 HUD 總覽看板
+    if (typeof updateMissionHud === 'function') {
+        updateMissionHud();
+    }
     
     // 🎨 OiiOii SVG 流程線繪製
     if (typeof window.drawWorkflowLines === 'function') {
@@ -319,6 +454,9 @@ export function initSplitPaneLayout() {
                 </div>
                 
                 <div class="w-full flex items-end gap-2">
+                    <button id="btnMobileMediaAdd" type="button" class="flex-none bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 w-[46px] h-[46px] rounded-xl flex items-center justify-center text-lg active:scale-95 transition-all touch-manipulation" title="拍照或選取照片">
+                        📸
+                    </button>
                     <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="請透過對話讓 Agent 協助您修改 (例如：幫我把主題換成啦啦隊，Shift+Enter 換行)..."></textarea>
                     <button id="btnSendChat" class="flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all h-[46px]">
                         <span class="hidden sm:inline">送出指令</span>
@@ -330,6 +468,9 @@ export function initSplitPaneLayout() {
 
         <!-- Right Workspace Pane -->
         <div id="workspacePane" class="hidden lg:flex lg:w-[60%] h-full flex-col overflow-y-auto p-4 lg:p-8 custom-scrollbar relative bg-slate-900/10 z-10">
+            <!-- HUD Panel (Fixed/Sticky at the top) -->
+            <div id="missionHud" class="relative z-20 w-full max-w-2xl mx-auto mb-4"></div>
+
             <!-- Workflow SVG Flowlines overlay -->
             <div class="absolute inset-0 pointer-events-none z-0" id="flowlineOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
                 <svg class="w-full h-full" id="flowlineSvg" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none;"></svg>
@@ -377,6 +518,30 @@ export function initSplitPaneLayout() {
     // Make sure we rebind chat input events
     if (typeof window.rebindAgentChat === 'function') {
         window.rebindAgentChat();
+    }
+
+    // 🚀 手機端隨拍隨傳捷徑綁定
+    const mobileMediaBtn = log.querySelector('#btnMobileMediaAdd');
+    if (mobileMediaBtn) {
+        mobileMediaBtn.onclick = async () => {
+            if (window.FunnelActions && typeof window.FunnelActions.triggerVisualSkill === 'function') {
+                await window.FunnelActions.triggerVisualSkill();
+                
+                // 手機端自動切換 Tab 至工作區，以便使用者直接看到上傳按鈕！
+                if (tabBtnWorkspace) {
+                    tabBtnWorkspace.click();
+                }
+                
+                await addLog("系統", "🤖", "已為您切換至素材上傳畫面！請點選右側的「上傳場景圖」或「上傳人物照」按鈕拍照上傳當下照片！", true);
+            } else {
+                showError("目前尚未進入漏斗流程，無法上傳素材。");
+            }
+        };
+    }
+
+    // 🚀 初始化渲染 HUD 面板
+    if (typeof updateMissionHud === 'function') {
+        updateMissionHud();
     }
 }
 
@@ -464,3 +629,131 @@ window.addEventListener('resize', () => {
         window.drawWorkflowLines();
     }
 });
+
+/**
+ * ==========================================
+ * 📊 任務配置 HUD 總覽看板
+ * ==========================================
+ */
+export function updateMissionHud() {
+    window.updateMissionHud = updateMissionHud; // 🚀 掛載全域，方便跨模組更新
+    const hud = document.getElementById('missionHud');
+    if (!hud) return;
+
+    const hasMission = MISSION.topic || MISSION.currentTaskId;
+    if (!hasMission) {
+        hud.innerHTML = `
+            <div class="glass-panel p-4 rounded-2xl border border-white/5 flex items-center justify-between shadow-lg text-slate-400 text-xs animate-fade-in">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    <span>等待建立或載入任務...</span>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    // 取得平台圖標
+    const platforms = MISSION.platforms || [];
+    let platHtml = '';
+    if (platforms.length > 0) {
+        platHtml = '<div class="flex items-center gap-1.5">';
+        platforms.forEach(p => {
+            let icon = 'fa-solid fa-share-nodes';
+            let colorClass = 'bg-slate-800 text-slate-400';
+            if (p === 'FB') { icon = 'fa-brands fa-facebook-f'; colorClass = 'bg-blue-600/20 text-blue-400 border border-blue-500/30'; }
+            else if (p === 'IG') { icon = 'fa-brands fa-instagram'; colorClass = 'bg-pink-600/20 text-pink-400 border border-pink-500/30'; }
+            else if (p === 'THREADS') { icon = 'fa-solid fa-at'; colorClass = 'bg-slate-700/50 text-slate-200 border border-slate-600/40'; }
+            platHtml += `<span class="w-6 h-6 rounded-md flex items-center justify-center text-xs ${colorClass}" title="${p}"><i class="${icon}"></i></span>`;
+        });
+        platHtml += '</div>';
+    } else {
+        platHtml = '<span class="text-[10px] text-slate-500">無指定平台</span>';
+    }
+
+    // 取得角色頭像
+    let charsHtml = '';
+    const charNames = typeof getMissionCharacterNames === 'function' ? getMissionCharacterNames() : [];
+    if (charNames.length > 0) {
+        charsHtml = '<div class="flex items-center -space-x-1.5">';
+        charNames.forEach((c) => {
+            const o = SYSTEM_DB?.characters?.find(mc => mc.name === c);
+            if (o && o.imageUrl) {
+                charsHtml += `<img src="${o.imageUrl}" class="w-6 h-6 rounded-full border border-indigo-500 flex-shrink-0 shadow-sm" title="${c}">`;
+            } else {
+                charsHtml += `<span class="text-[9px] bg-indigo-900/50 text-indigo-200 px-1.5 py-0.5 rounded border border-indigo-500/30 flex-shrink-0" title="${c}">${c}</span>`;
+            }
+        });
+        charsHtml += '</div>';
+    } else {
+        charsHtml = `<span class="text-[10px] text-slate-500">無特定角色</span>`;
+    }
+
+    // 取得色系
+    const isComic = MISSION.universe === 'COMIC';
+    const colorLabel = isComic 
+        ? (MISSION.colorMode === 'BW' ? '🏁 經典黑白' : '🌈 現代全彩')
+        : (MISSION.colorMode || '原色直出');
+    const panelLabel = isComic 
+        ? `${MISSION.panelCount || 4}格分鏡` 
+        : `寫實生圖`;
+
+    // 當前步驟呼吸燈色彩與文字
+    let stepText = "準備中";
+    let pulseColor = "bg-slate-500 shadow-[0_0_8px_#64748b]";
+    if (MISSION.funnelNextStep === 'visual') {
+        stepText = "素材上傳中";
+        pulseColor = "bg-amber-500 shadow-[0_0_8px_#f59e0b]";
+    } else if (MISSION.funnelNextStep === 'draft') {
+        stepText = "劇本校稿中";
+        pulseColor = "bg-blue-500 shadow-[0_0_8px_#3b82f6]";
+    } else if (MISSION.funnelNextStep === 'dashboard') {
+        stepText = "任務發包中";
+        pulseColor = "bg-purple-500 shadow-[0_0_8px_#a855f7]";
+    } else if (MISSION.funnelNextStep === 'publish') {
+        stepText = "生圖發佈中";
+        pulseColor = "bg-green-500 shadow-[0_0_8px_#22c55e]";
+    }
+
+    hud.innerHTML = `
+        <div class="glass-panel p-3.5 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-3 text-slate-200 text-xs transition-all duration-300 animate-fade-in">
+            <!-- Glow background overlay -->
+            <div class="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500 rounded-full blur-[40px] opacity-15"></div>
+            
+            <div class="flex-1 min-w-0 space-y-1">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full ${pulseColor} animate-pulse flex-shrink-0"></span>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-indigo-400">${stepText}</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">${MISSION.currentTaskId || 'No ID'}</span>
+                </div>
+                <h2 class="text-sm font-black text-white truncate pr-4" title="${MISSION.topic || '未命名任務'}">
+                    ${MISSION.topic || '未命名任務'}
+                </h2>
+            </div>
+            
+            <div class="flex items-center gap-4 flex-wrap md:flex-nowrap flex-shrink-0">
+                <!-- Specs -->
+                <div class="flex flex-col gap-0.5 text-right">
+                    <span class="text-[10px] text-slate-400 font-bold">${MISSION.universe === 'COMIC' ? '🎨 動漫宇宙' : '📸 寫實宇宙'}</span>
+                    <span class="text-[9px] text-slate-500">${panelLabel} · ${colorLabel}</span>
+                </div>
+                
+                <div class="h-6 w-px bg-white/10 hidden md:block"></div>
+                
+                <!-- Characters -->
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-[10px] text-slate-400 font-bold block mb-0.5">登場人物</span>
+                    ${charsHtml}
+                </div>
+                
+                <div class="h-6 w-px bg-white/10 hidden md:block"></div>
+                
+                <!-- Platforms -->
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-[10px] text-slate-400 font-bold block mb-0.5">發佈平台</span>
+                    ${platHtml}
+                </div>
+            </div>
+        </div>
+    `;
+}

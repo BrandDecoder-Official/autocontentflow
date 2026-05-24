@@ -550,6 +550,16 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         const lb = ui.querySelector('#finalPublishLightbox');
         if (lb) {
             lb.classList.remove('hidden');
+            lb.className = "fixed inset-0 z-[400] flex flex-col lightbox-backdrop";
+            // 啟動 3D 燈箱淡入
+            setTimeout(() => {
+                lb.classList.add('active');
+            }, 20);
+            
+            const lbImg = ui.querySelector('#finalLbImg');
+            if (lbImg) {
+                lbImg.className = "max-w-full max-h-[85vh] object-contain cursor-zoom-out select-none touch-manipulation lightbox-content";
+            }
             document.body.style.overflow = 'hidden';
         }
         syncLightboxContent();
@@ -558,7 +568,13 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     function closePublishLightbox() {
         lightboxOpen = false;
         const lb = ui.querySelector('#finalPublishLightbox');
-        if (lb) lb.classList.add('hidden');
+        if (lb) {
+            lb.classList.remove('active');
+            // 等待過渡動畫完成後再完全隱藏
+            setTimeout(() => {
+                if (!lightboxOpen) lb.classList.add('hidden');
+            }, 300);
+        }
         document.body.style.overflow = '';
     }
 
@@ -622,10 +638,15 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         if (pickWrap) pickWrap.classList.toggle('hidden', n === 0);
         if (publishCb) publishCb.checked = included;
         if (previewFrame && n > 0) {
-            previewFrame.classList.toggle('ring-rose-500/75', included);
-            previewFrame.classList.toggle('ring-white/20', !included);
+            if (included) {
+                previewFrame.classList.add('neon-border-glow');
+                previewFrame.classList.remove('ring-white/20');
+            } else {
+                previewFrame.classList.remove('neon-border-glow');
+                previewFrame.classList.add('ring-white/20');
+            }
         } else if (previewFrame) {
-            previewFrame.classList.remove('ring-rose-500/75', 'ring-white/20');
+            previewFrame.classList.remove('neon-border-glow', 'ring-white/20');
         }
         if (pickTools) pickTools.classList.toggle('hidden', n === 0);
         if (hint) {
@@ -993,3 +1014,58 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         }
     };
 }
+
+/**
+ * 🎨 Canvas 3.0: 驚艷的生圖載入定格卡片 (AI 影像合成中)
+ */
+export function renderSynthesisLoadingCard() {
+    MISSION.funnelNextStep = 'publish'; // 改變步驟狀態以更新 HUD
+    
+    // 渲染 HUD
+    if (window.updateMissionHud) window.updateMissionHud();
+
+    const html = `
+        <div class="space-y-6 text-center py-10 animate-fade-in w-full">
+            <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+                <!-- Outer rotating border -->
+                <div class="absolute inset-0 rounded-full border-4 border-dashed border-indigo-500 animate-spin" style="animation-duration: 8s;"></div>
+                <!-- Inner pulse circle -->
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-500 to-cyan-500 flex items-center justify-center shadow-[0_0_20px_rgba(6,182,212,0.4)] animate-pulse">
+                    <span class="text-2xl">🎨</span>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <h3 class="text-base font-black text-white tracking-wider">大腦正全力合成視覺影像...</h3>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto">正在運用 Imagen 3 大腦調校場景氛圍、角色臉部特徵一致性與配件材質。</p>
+            </div>
+            
+            <!-- 雷射掃描骨架屏區 -->
+            <div class="laser-container shimmer-bg rounded-2xl w-full aspect-[16/10] max-w-md mx-auto border border-white/10 shadow-2xl relative">
+                <!-- Laser Sweep Line -->
+                <div class="laser-line"></div>
+                
+                <!-- Inner placeholder details -->
+                <div class="absolute inset-0 flex flex-col justify-between p-4 z-0 bg-slate-950/20">
+                    <div class="flex justify-between items-start">
+                        <div class="h-4 w-20 rounded bg-slate-800/80"></div>
+                        <div class="h-4 w-12 rounded bg-slate-800/80"></div>
+                    </div>
+                    <div class="space-y-2 text-left">
+                        <div class="h-3 w-3/4 rounded bg-slate-800/80"></div>
+                        <div class="h-3 w-1/2 rounded bg-slate-800/80"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-[10px] text-slate-500 flex items-center justify-center gap-1.5 animate-pulse">
+                <i class="fa-solid fa-hourglass-half"></i>
+                <span>大約需要 20 ~ 30 秒，請稍候...</span>
+            </div>
+        </div>
+    `;
+    
+    createSkillUI(html);
+}
+
+window.renderSynthesisLoadingCard = renderSynthesisLoadingCard;

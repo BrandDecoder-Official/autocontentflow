@@ -1,7 +1,7 @@
 // js/v9_agent_client.js
 import { CONFIG, STATE } from './config.js';
 import { MISSION, SYSTEM_DB } from './v9_state.js';
-import { addLog, showError } from './v9_ui.js';
+import { addLog, showError, updateMissionHud } from './v9_ui.js';
 import { applyPointDeduction, getBillingActionDisplayName } from './v9_finance.js';
 import { renderDraftEditorCard } from './v9_funnel_editor.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
@@ -190,6 +190,11 @@ export class AgentClient {
                 // 🚀 關鍵同步：如果上帝卡片在畫面上，強制刷新卡片 UI！
                 if (typeof window.refreshMissionDashboard === 'function') {
                     window.refreshMissionDashboard();
+                }
+                
+                // 🚀 同步更新頂部 HUD 看板
+                if (typeof updateMissionHud === 'function') {
+                    updateMissionHud();
                 }
 
             } else if (call.name === 'execute_funnel_action') {

@@ -4,7 +4,7 @@ import { MISSION, SYSTEM_DB, recordGeneratedImageBatch, getMissionCharacterNames
 import { addLog, releaseUI, showError } from './v9_ui.js';
 import { applyPointDeduction, validatePoints, getImageGenBillingMultiplier, getBillingActionDisplayName } from './v9_finance.js';
 import { generateDraftAPI, generateImageFromDraftAPI, analyzeReferencesAPI } from './api.js'; 
-import { renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel_editor.js';
+import { renderDraftEditorCard, renderFinalPublishCard, renderSynthesisLoadingCard } from './v9_funnel_editor.js';
 
 function buildReferenceImages() {
     const referenceImages = [];
@@ -181,6 +181,11 @@ window.FunnelActions = {
         
         const oldActive = document.getElementById('activeControlCard');
         if (oldActive) releaseUI(oldActive);
+
+        // 🚀 Canvas 3.0: 立即渲染驚艷的生圖載入定格卡片！
+        if (typeof renderSynthesisLoadingCard === 'function') {
+            renderSynthesisLoadingCard();
+        }
 
         const spinId = 'spin_img_' + Date.now();
         await addLog("美術總監", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">收到！正在為您發包生圖 (需 20~30 秒)...</span></div>`, true);
