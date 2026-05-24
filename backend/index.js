@@ -59,6 +59,7 @@ app.post('/api/content/draft', taskController.generateDraft);
 app.post('/api/content/generate', taskController.generateImageFromDraft);
 app.post('/api/content/publish', taskController.publishTask);
 app.post('/api/content/compress', taskController.compressComicPanels); 
+app.post('/api/content/analyze-references', taskController.analyzeReferences); 
 app.get('/api/logs', taskController.getAuditLogs); 
 
 // 3. 🧬 系統 UI 動態選項 API

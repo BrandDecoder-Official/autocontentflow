@@ -189,8 +189,11 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
         <div class="space-y-4 animate-fade-in w-full">
             ${options.returnBannerText ? `<div class="bg-indigo-600/20 border border-indigo-500/40 rounded-xl px-3 py-2 text-xs text-indigo-200 font-bold">${options.returnBannerText}</div>` : ''}
             <div class="flex justify-between items-center px-1 mb-2">
-                <button type="button" id="btnTopReturnLobby" class="min-h-[44px] px-2 -ml-2 text-[11px] sm:text-[10px] text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5">
-                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i><span class="leading-tight">暫存並返回大廳</span>
+                <button type="button" id="btnTopReturnLobby" class="min-h-[44px] px-2 -ml-2 text-[11px] sm:text-[10px] text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5" title="暫存目前進度並回到大廳首頁">
+                    <i class="fa-solid fa-house text-xs" aria-hidden="true"></i><span class="leading-tight">返回大廳</span>
+                </button>
+                <button type="button" id="btnBackToVisual" class="min-h-[44px] px-2 text-[11px] sm:text-[10px] text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5" title="返回上一步，重新調整或上傳場景、人物與配件圖片">
+                    <i class="fa-solid fa-arrow-left text-xs" aria-hidden="true"></i><span class="leading-tight">上一步 (調整素材/參考圖)</span>
                 </button>
                 <button type="button" id="btnClearDraftContent" class="min-h-[40px] px-3 text-[11px] sm:text-[10px] rounded-lg border border-white/10 bg-slate-800 text-slate-300 hover:bg-slate-700 active:scale-[0.98] touch-manipulation font-bold">🧹 清空本頁</button>
             </div>
@@ -255,6 +258,17 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
     };
     ui.querySelector('#btnTopReturnLobby').onclick = returnToLobbyHandler;
     ui.querySelector('#btnBottomReturnLobby').onclick = returnToLobbyHandler;
+
+    const backToVisualBtn = ui.querySelector('#btnBackToVisual');
+    if (backToVisualBtn) {
+        backToVisualBtn.onclick = async () => {
+            saveCurrentCaption();
+            releaseUI(ui);
+            if (window.FunnelActions && window.FunnelActions.triggerVisualSkill) {
+                await window.FunnelActions.triggerVisualSkill();
+            }
+        };
+    }
 
     // 🏷️ Hashtag 渲染邏輯
     const renderHashtags = () => {

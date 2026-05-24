@@ -3,6 +3,8 @@ import { CONFIG, STATE } from './config.js';
 import { MISSION, SYSTEM_DB } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
 import { applyPointDeduction, getBillingActionDisplayName } from './v9_finance.js';
+import { renderDraftEditorCard } from './v9_funnel_editor.js';
+import { triggerMissionSummary } from './v9_funnel_dashboard.js';
 
 // ==========================================
 // 🛠️ Agent 專屬武器庫 (Tools Schema)
@@ -67,6 +69,22 @@ export const AGENT_TOOLS_SCHEMA = [
                 }
             },
             required: ["message", "priority"]
+        }
+    },
+    // 🆕 V10 新增：步驟導航與切換工具
+    {
+        name: "navigate_to_step",
+        description: "當使用者要求上傳檔案、修改參考圖、回上一步，或者要直接切換到特定介面步驟時，呼叫此工具。例如使用者說「我要附加上傳檔」、「切換到素材頁」、「我想看總表」。",
+        parameters: {
+            type: "OBJECT",
+            properties: {
+                step: {
+                    type: "STRING",
+                    description: "要切換到的步驟代碼。'visual': 素材與參考圖上傳步驟; 'draft': 草稿校稿編輯步驟; 'dashboard': 任務總表/控制面板步驟",
+                    enum: ["visual", "draft", "dashboard"]
+                }
+            },
+            required: ["step"]
         }
     }
 ];
@@ -270,6 +288,39 @@ export class AgentClient {
                     await addLog("通訊兵", "✈️", `已向您的 Telegram 發送推播：<br><span class="text-xs text-slate-400 font-normal">"${msg}"</span>`, true);
                 } else {
                     await addLog("通訊兵", "⚠️", "Agent 嘗試發送 Telegram 通知，但您尚未在左側邊欄綁定 Bot Token 與 Chat ID！", true);
+                }
+            }
+            // 🆕 V10 新增：介面步驟導航與切換邏輯
+            else if (call.name === 'navigate_to_step') {
+                const step = call.args.step;
+                let msg = "";
+                const oldActive = document.getElementById('activeControlCard');
+                if (oldActive) releaseUI(oldActive);
+                
+                if (step === 'visual') {
+                    if (window.FunnelActions && window.FunnelActions.triggerVisualSkill) {
+                        msg = "🔄 Agent 已自動為您切換至【素材與參考圖】上傳頁面，您現在可以直接點擊下方按鈕上傳您的圖片檔案。";
+                        await addLog("系統", "🤖", msg, true);
+                        await window.FunnelActions.triggerVisualSkill();
+                    } else {
+                        showError("無法執行切換，系統狀態尚未初始化。");
+                    }
+                } else if (step === 'draft') {
+                    if (MISSION.currentTaskId && MISSION.currentDraft) {
+                        msg = "🔄 Agent 已自動為您切換至【草稿校稿總編室】。";
+                        await addLog("系統", "🤖", msg, true);
+                        await renderDraftEditorCard(MISSION.currentTaskId, MISSION.currentDraft, MISSION.universe === 'COMIC');
+                    } else {
+                        showError("目前尚未產生草稿，無法前往草稿校稿室。");
+                    }
+                } else if (step === 'dashboard') {
+                    if (typeof triggerMissionSummary === 'function') {
+                        msg = "🔄 Agent 已自動為您切換至【任務控制面板】。";
+                        await addLog("系統", "🤖", msg, true);
+                        await triggerMissionSummary();
+                    } else {
+                        showError("目前無法切換至任務控制面板。");
+                    }
                 }
             }
         }

@@ -110,6 +110,8 @@ export function resetMissionStateForLobby() {
     MISSION.panelCount = 4;
     MISSION.characters = [];
     MISSION.sceneFiles = [];
+    MISSION.characterFiles = [];
+    MISSION.accessoryFiles = [];
     MISSION.attachmentFiles = [];
     MISSION.scheduledAt = null;
     MISSION.persona = '';
@@ -254,14 +256,19 @@ export function loadMissionFromDB(taskData) {
 
     // 3. 還原圖片庫 (從 image_options 提取背景與 9張附加圖)
     MISSION.sceneFiles = [];
+    MISSION.characterFiles = [];
+    MISSION.accessoryFiles = [];
     MISSION.attachmentFiles = [];
     const imgOpts = taskData.image_options || ctx.image_options || {};
 
     if (imgOpts.referenceImages && Array.isArray(imgOpts.referenceImages)) {
         imgOpts.referenceImages.forEach(img => {
             if (img.type === 'scene') {
-                // 為了讓前台預覽能顯示，把 imageUrl 塞給 imageUrl 或 dataUrl
                 MISSION.sceneFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+            } else if (img.type === 'character') {
+                MISSION.characterFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+            } else if (img.type === 'accessory' || img.type === 'object') {
+                MISSION.accessoryFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
             }
         });
     }

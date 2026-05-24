@@ -48,7 +48,8 @@ const PRICING = {
         CREATE_PERSONA: 500,   // 訓練人設建檔費 (約5元)
         CREATE_CHARACTER: 800, // 萃取視覺基因建檔費 (約8元)
         GENERATE_DRAFT: 200,   // 發想草稿起步價 (約2元，加上 Token 費用為總價)
-        PUBLISH_PER_PLATFORM: 10 // 🚀 每個平台發送費 (約0.1元，防禦惡意洗版並建立勞務價值)
+        PUBLISH_PER_PLATFORM: 10, // 🚀 每個平台發送費 (約0.1元，防禦惡意洗版並建立勞務價值)
+        ANALYZE_REFERENCES: 10  // 🔍 參考圖分析與創意推薦 (10點)
     },
 
     // 🎁 系統初始化防線

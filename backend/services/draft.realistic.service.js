@@ -35,7 +35,11 @@ async function processDraft(req, res, payloadRaw, tools) {
             name: f.name || 'realistic_bg_ref',
             imageUrl: f.imageUrl || f.dataUrl || f.data || ''
         }));
-        const allReferenceImages = [...rawRefs, ...normalizedSceneRefs];
+        const allReferenceImagesRaw = [...rawRefs, ...normalizedSceneRefs];
+        const sceneRefs = allReferenceImagesRaw.filter(img => img.type === 'scene' || !img.type).slice(0, 1);
+        const charRefs = allReferenceImagesRaw.filter(img => img.type === 'character').slice(0, 3);
+        const accessoryRefs = allReferenceImagesRaw.filter(img => img.type === 'accessory' || img.type === 'object').slice(0, 3);
+        const allReferenceImages = [...sceneRefs, ...charRefs, ...accessoryRefs];
 
         // 🌟 2. 專業攝影強化：從 DB 撈取模式與濾鏡的正反向咒語
         let realisticEnhancePrompt = "";

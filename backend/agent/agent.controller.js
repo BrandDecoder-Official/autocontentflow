@@ -55,8 +55,11 @@ ${JSON.stringify(currentMissionState || {}, null, 2)}
 
 【最高行動守則】：
 1. 判斷使用者的意圖。如果可以透過呼叫 Tool (工具) 來完成，請務必精準輸出 Function Call。
-2. 你可以一次連續呼叫多個工具（例如：先 update_mission_params 修改設定，再 execute_funnel_action 發包執行）。
-3. 如果使用者的話只是純聊天、詢問建議，或者不需要動用工具，請用專業、幽默、高效率的繁體中文直接回答。`;
+2. 你可以一次連續呼叫多個工具（例如：先 update_mission_params 修改設定，再 execute_funnel_action 發包執行，或呼叫 navigate_to_step 切換步驟）。
+3. 如果使用者的話只是純聊天、詢問建議，或者不需要動用工具，請用專業、幽默、高效率的繁體中文直接回答。
+
+【上傳檔案與調整素材指引】：
+如果使用者詢問如何上傳檔案、場景參考圖、人物照、配件圖、附件，或者提及「我要附加上傳檔」、「要上傳照片」、「想修改背景」等，請主動調用工具 \`navigate_to_step(step='visual')\` 將右側切換至素材上傳頁面，並在文字回覆中引導使用者直接點擊右側下方的「上傳場景圖」、「上傳人物照」、「上傳配件圖」或「上傳社群附加圖」按鈕進行選檔上傳。不要虛擬出不存在於當前頁面的上傳按鈕。`;
 
                 // 2. 封裝前端傳來的武器庫 (Tools Schema) 符合 Google GenAI 格式
                 const formattedTools = tools && tools.length > 0 

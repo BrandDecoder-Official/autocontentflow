@@ -36,7 +36,11 @@ async function processDraft(req, res, payloadRaw, tools) {
             name: f.name || 'reference_bg',
             imageUrl: f.imageUrl || f.dataUrl || f.data || ''
         }));
-        const allReferenceImages = [...rawRefs, ...normalizedSceneRefs];
+        const allReferenceImagesRaw = [...rawRefs, ...normalizedSceneRefs];
+        const sceneRefs = allReferenceImagesRaw.filter(img => img.type === 'scene' || !img.type).slice(0, 1);
+        const charRefs = allReferenceImagesRaw.filter(img => img.type === 'character').slice(0, 3);
+        const accessoryRefs = allReferenceImagesRaw.filter(img => img.type === 'accessory' || img.type === 'object').slice(0, 3);
+        const allReferenceImages = [...sceneRefs, ...charRefs, ...accessoryRefs];
 
         // 🌟 2. 撈取資料庫風格咒語
         let dbStylePrompt = "";

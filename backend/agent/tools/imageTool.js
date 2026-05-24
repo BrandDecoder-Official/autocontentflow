@@ -38,10 +38,16 @@ exports.execute = async (taskId, missionContext, finalPanels) => {
         const imageOptions = missionContext.image_options || missionContext.payload?.image_options || {};
 
         if (imageOptions.referenceImages) {
-            for (let img of imageOptions.referenceImages) {
+            const rawRefs = imageOptions.referenceImages;
+            const sceneRefs = rawRefs.filter(img => img.type === 'scene' || !img.type).slice(0, 1);
+            const charRefs = rawRefs.filter(img => img.type === 'character').slice(0, 3);
+            const accessoryRefs = rawRefs.filter(img => img.type === 'accessory' || img.type === 'object').slice(0, 3);
+            const allRefsToProcess = [...sceneRefs, ...charRefs, ...accessoryRefs];
+
+            for (let img of allRefsToProcess) {
                 // 如果前端傳來的是 URL
                 if (img.imageUrl && !img.data) {
-                    console.log(`[Tool: ImageTool] 正在讀取場景/角色圖片: ${img.name || '未命名'}`);
+                    console.log(`[Tool: ImageTool] 正在讀取參考圖: ${img.name || '未命名'} (${img.type})`);
                     const converted = await fetchImageUrlToBase64(img.imageUrl);
                     if (converted) {
                         processedRefs.push({ ...img, data: converted.data, mimeType: converted.mimeType });
@@ -81,10 +87,19 @@ exports.execute = async (taskId, missionContext, finalPanels) => {
             console.log(`[Tool: ImageTool] 🧬 已注入角色基因特徵。`);
         }
 
-        // 🌟 [核心修復 2] 注入強制背景綁定指令！
-        if (processedRefs.length > 0) {
-            baseImagePrompt += `\n[MANDATORY BACKGROUND REFERENCE]: You MUST strictly use the provided image as the EXACT background environment. Place the characters within THIS specific setting.\n`;
-            console.log(`[Tool: ImageTool] 🖼️ 已注入強制背景參考指令。`);
+        // 🌟 [核心修復 2] 注入分類參考指示！
+        const activeSceneRefs = processedRefs.filter(img => img.type === 'scene' || !img.type);
+        const activeCharRefs = processedRefs.filter(img => img.type === 'character');
+        const activeAccessoryRefs = processedRefs.filter(img => img.type === 'accessory' || img.type === 'object');
+
+        if (activeCharRefs.length > 0) {
+            baseImagePrompt += `\n[CHARACTER REFERENCE]: MUST strictly use the provided Character Reference images to maintain facial features, hair, and clothing consistency.\n`;
+        }
+        if (activeSceneRefs.length > 0) {
+            baseImagePrompt += `\n[SCENE REFERENCE]: MUST use the provided Scene Reference image as the background setting/layout. Place the characters within this specific environment.\n`;
+        }
+        if (activeAccessoryRefs.length > 0) {
+            baseImagePrompt += `\n[ACCESSORY REFERENCE]: Depict the accessory objects (like watch, book, coffee cup) accurately using the provided Accessory Reference images.\n`;
         }
 
         // 📐 2. 處理網格鎖定 (Grid Command)

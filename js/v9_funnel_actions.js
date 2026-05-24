@@ -3,7 +3,7 @@ import { STATE } from './config.js';
 import { MISSION, SYSTEM_DB, recordGeneratedImageBatch, getMissionCharacterNames } from './v9_state.js';
 import { addLog, releaseUI, showError } from './v9_ui.js';
 import { applyPointDeduction, validatePoints, getImageGenBillingMultiplier, getBillingActionDisplayName } from './v9_finance.js';
-import { generateDraftAPI, generateImageFromDraftAPI } from './api.js'; 
+import { generateDraftAPI, generateImageFromDraftAPI, analyzeReferencesAPI } from './api.js'; 
 import { renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel_editor.js';
 
 function buildReferenceImages() {
@@ -17,8 +17,8 @@ function buildReferenceImages() {
         }
     });
 
-    // 場景圖可能是 dataUrl（本地上傳）或 imageUrl（DB 回填），兩者都傳。
-    MISSION.sceneFiles.forEach((sf, idx) => {
+    // 1. 場景圖 (MISSION.sceneFiles, max 1)
+    (MISSION.sceneFiles || []).forEach((sf, idx) => {
         const sceneRef = { type: 'scene', name: sf.name || `scene_${idx + 1}` };
         if (sf.imageUrl) sceneRef.imageUrl = sf.imageUrl;
         if (sf.dataUrl) {
@@ -26,6 +26,28 @@ function buildReferenceImages() {
             if (typeof sf.dataUrl === 'string' && /^https?:\/\//i.test(sf.dataUrl) && !sceneRef.imageUrl) sceneRef.imageUrl = sf.dataUrl;
         }
         if (sceneRef.imageUrl || sceneRef.data) referenceImages.push(sceneRef);
+    });
+
+    // 2. 自訂人物參考圖 (MISSION.characterFiles, max 3)
+    (MISSION.characterFiles || []).forEach((cf, idx) => {
+        const charRef = { type: 'character', name: cf.name || `character_${idx + 1}` };
+        if (cf.imageUrl) charRef.imageUrl = cf.imageUrl;
+        if (cf.dataUrl) {
+            if (typeof cf.dataUrl === 'string' && cf.dataUrl.startsWith('data:')) charRef.data = cf.dataUrl;
+            if (typeof cf.dataUrl === 'string' && /^https?:\/\//i.test(cf.dataUrl) && !charRef.imageUrl) charRef.imageUrl = cf.dataUrl;
+        }
+        if (charRef.imageUrl || charRef.data) referenceImages.push(charRef);
+    });
+
+    // 3. 配件參考圖 (MISSION.accessoryFiles, max 3)
+    (MISSION.accessoryFiles || []).forEach((af, idx) => {
+        const accRef = { type: 'accessory', name: af.name || `accessory_${idx + 1}` };
+        if (af.imageUrl) accRef.imageUrl = af.imageUrl;
+        if (af.dataUrl) {
+            if (typeof af.dataUrl === 'string' && af.dataUrl.startsWith('data:')) accRef.data = af.dataUrl;
+            if (typeof af.dataUrl === 'string' && /^https?:\/\//i.test(af.dataUrl) && !accRef.imageUrl) accRef.imageUrl = af.dataUrl;
+        }
+        if (accRef.imageUrl || accRef.data) referenceImages.push(accRef);
     });
 
     return referenceImages;
@@ -213,6 +235,13 @@ window.FunnelActions = {
         } catch (e) { 
             const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "合成失敗"; }
             showError(`連線失敗：${e.message}`); 
+        }
+    },
+    analyzeReferences: async (payload) => {
+        try {
+            return await analyzeReferencesAPI(payload);
+        } catch (e) {
+            throw e;
         }
     }
 };

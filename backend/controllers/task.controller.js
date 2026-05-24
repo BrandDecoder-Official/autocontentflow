@@ -15,7 +15,7 @@ try { aiService = require('../services/ai.service'); } catch (e) { console.error
 try { telegramService = require('../services/telegram.service'); } catch (e) { console.error("💥 Telegram 模組載入失敗:", e); }
 try { socialService = require('../services/social.service'); } catch (e) { console.error("💥 Social 模組載入失敗:", e); }
 try { billingService = require('../services/billingService'); } catch (e) { console.error("💥 計費模組載入失敗:", e); }
-const { getImageGenBillingMultiplier } = require('../config/pricing.config.js');
+const { getImageGenBillingMultiplier, PRICING } = require('../config/pricing.config.js');
 const { resolvePlatformsFromTask, resolveImageUrlsFromTask } = require('../utils/publishResolve.js');
 
 // 🚀 雙軌大腦防禦性載入
@@ -206,13 +206,14 @@ async function generateImageFromDraft(req, res) {
         // 🚀 抓取 DB 中的負向防呆咒語
         const dbNegativePrompt = taskData.image_options.dbNegativePrompt || "";
 
-        // 🚀【關鍵修復】分離場景圖與角色圖，確保雙方都能送到大腦！
+        // 🚀【關鍵修復】分離場景圖、角色圖與配件圖，確保三方都能送到大腦，並限制上限！
         const storedReferences = taskData.image_options.referenceImages || [];
         const sceneRefs = storedReferences.filter(img => img.type === 'scene' || !img.type).slice(0, 1);
-        const charRefs = storedReferences.filter(img => img.type === 'character'); // 救回角色照片！
+        const charRefs = storedReferences.filter(img => img.type === 'character').slice(0, 3);
+        const accessoryRefs = storedReferences.filter(img => img.type === 'accessory' || img.type === 'object').slice(0, 3);
 
         const aiReferences = [];
-        const allRefsToProcess = [...sceneRefs, ...charRefs];
+        const allRefsToProcess = [...sceneRefs, ...charRefs, ...accessoryRefs];
         
         for (let img of allRefsToProcess) {
             if (img.imageUrl) {
@@ -258,6 +259,10 @@ async function generateImageFromDraft(req, res) {
             if (sceneRefs.length > 0) {
                 baseImagePrompt += `[SCENE REFERENCE]: Use it for background layout and setting. If it contains people, preserve their faces and identity; do not substitute different characters.\n\n`;
             }
+
+            if (accessoryRefs.length > 0) {
+                baseImagePrompt += `[ACCESSORY REFERENCE]: Depict the accessory objects (such as watch, book, coffee cup) accurately using the provided Accessory Reference images, integrating them naturally into the scene.\n\n`;
+            }
         } else {
             baseImagePrompt = taskData.draftContent.visual_prompt || `A high-quality photograph. Scene: ${mission.topic}.`;
             
@@ -271,6 +276,10 @@ async function generateImageFromDraft(req, res) {
 
             if (sceneRefs.length > 0) {
                 baseImagePrompt += `[REFERENCE IMAGE]: Use for environment, lighting, and composition. If it shows a person, depict the same individual—same face, apparent age, and build—not a different person.\n\n`;
+            }
+
+            if (accessoryRefs.length > 0) {
+                baseImagePrompt += `[ACCESSORY REFERENCE]: Depict the accessory objects (like watch, book, coffee cup) accurately using the provided Accessory Reference images.\n\n`;
             }
         }
 
@@ -524,10 +533,119 @@ async function getAuditLogs(req, res) {
     }
 }
 
+// ==========================================
+// 🔍 API：AI 參考圖多模態分析與創意情境推薦
+// ==========================================
+async function analyzeReferences(req, res) {
+    try {
+        const { tenantId, referenceImages, universe } = req.body;
+        const costPts = PRICING?.BASE_FEES?.ANALYZE_REFERENCES || 10;
+        const { tenantRef, tenantData } = await verifyTenant(tenantId, costPts);
+
+        if (!referenceImages || referenceImages.length === 0) {
+            throw new Error("沒有提供任何參考圖可供分析！");
+        }
+
+        const aiReferences = [];
+        for (let img of referenceImages) {
+            const url = img.imageUrl || img.dataUrl || img.data;
+            if (!url) continue;
+            
+            if (url.startsWith('http')) {
+                const converted = await fetchImageUrlToBase64(url);
+                if (converted) {
+                    aiReferences.push({ type: img.type, mimeType: converted.mimeType, data: converted.data });
+                }
+            } else if (url.startsWith('data:')) {
+                const rawData = url.split(',')[1];
+                const mimeType = url.split(';')[0].split(':')[1];
+                aiReferences.push({ type: img.type, mimeType, data: rawData });
+            }
+        }
+
+        if (aiReferences.length === 0) {
+            throw new Error("圖片載入或轉碼失敗。");
+        }
+
+        const systemPrompt = `你是一個創意行銷導演與視覺設計師。
+請分析上傳的參考圖片（可能包含場景、角色或隨身配件），並為即將生成的社群貼文（如FB/IG）推薦 3 個不同的創意發想情境（例如：焦點在配件的時尚風、焦點在人物神態的職場風、或者是故事感強烈的日常風）。
+請務必將這些場景、人物與配件自然地融合。
+請精準輸出 JSON 格式，不要有 markdown code block 或其他雜質，語言必須是繁體中文：
+{
+  "options": [
+    {
+      "title": "情境 A 標題 (如：都會休閒風)",
+      "description": "簡短的情境視覺描述，說明這個情境的視覺重點與氛圍。",
+      "prompt": "要套用的 Prompt 主題描述 (包含角色、背景與配件的互動，約 50-80 字)"
+    },
+    {
+      "title": "情境 B 標題",
+      "description": "...",
+      "prompt": "..."
+    },
+    {
+      "title": "情境 C 標題",
+      "description": "...",
+      "prompt": "..."
+    }
+  ]
+}`;
+
+        const contents = [ { text: systemPrompt } ];
+        aiReferences.forEach((img) => {
+            contents.push({
+                inlineData: { mimeType: img.mimeType || 'image/jpeg', data: img.data }
+            });
+        });
+
+        const aiResponse = await visionAi.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: contents,
+            config: {
+                responseMimeType: 'application/json',
+                temperature: 0.7
+            }
+        });
+
+        let jsonText = aiResponse.text || "";
+        const startIndex = jsonText.indexOf('{');
+        const endIndex = jsonText.lastIndexOf('}');
+        if (startIndex !== -1 && endIndex !== -1) {
+            jsonText = jsonText.substring(startIndex, endIndex + 1);
+        }
+        
+        const result = JSON.parse(jsonText);
+
+        let billingResult = null;
+        if (billingService && billingService.chargeAndLog) {
+            billingResult = await billingService.chargeAndLog({
+                uid: tenantId,
+                actionType: 'ANALYZE_REFERENCES',
+                multiplier: 1,
+                referenceId: `analyze_${Date.now()}`,
+                metrics: { imageCount: aiReferences.length },
+                req
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            options: result.options || [],
+            chargedPoints: billingResult ? billingResult.cost : costPts,
+            newBalance: billingResult ? billingResult.newBalance : (tenantData.totalPoints - costPts)
+        });
+
+    } catch (error) {
+        console.error("💥 analyzeReferences 失敗:", error);
+        return res.status(500).json({ success: false, message: error.message });
+    }
+}
+
 module.exports = {
     generateDraft,
     generateImageFromDraft,
     compressComicPanels,
     publishTask,
-    getAuditLogs
+    getAuditLogs,
+    analyzeReferences
 };

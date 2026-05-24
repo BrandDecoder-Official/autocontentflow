@@ -187,3 +187,19 @@ export async function deleteAgentTaskAPI(taskId) {
     if (!response.ok) throw new Error(data.message || '刪除任務失敗');
     return data;
 }
+
+// 🚀 13. [新增] 參考圖多模態分析與創意推薦 API
+export async function analyzeReferencesAPI(payload) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/content/analyze-references`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '分析參考圖失敗');
+    triggerWalletSync();
+    return data;
+}

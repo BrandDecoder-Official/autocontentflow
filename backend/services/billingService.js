@@ -69,7 +69,8 @@ async function chargeAndLog({ uid, actionType, multiplier = 1, payload = {}, ref
         if (feePts != null) {
             const labels = {
                 CREATE_CHARACTER: '建立專屬角色（視覺基因）',
-                CREATE_PERSONA: '訓練品牌人設'
+                CREATE_PERSONA: '訓練品牌人設',
+                ANALYZE_REFERENCES: '分析參考圖與推薦情境'
             };
             configData = {
                 name: labels[actionType] || actionType,

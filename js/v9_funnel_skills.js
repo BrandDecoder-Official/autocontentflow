@@ -552,6 +552,7 @@ export async function triggerCharacterSkill() {
  * ==========================================
  */
 export async function triggerVisualSkill() { 
+    if (window.FunnelActions) window.FunnelActions.triggerVisualSkill = triggerVisualSkill;
     updateStepHeader("VISUAL & ATTACHMENTS"); 
     const isEnhance = MISSION.taskMode === 'ENHANCE'; 
     const isComic = MISSION.universe === 'COMIC'; 
@@ -590,19 +591,70 @@ export async function triggerVisualSkill() {
                 ${panelHtml}
             </div>
             
-            <div class="border-t border-white/10 pt-4">
+            <div class="border-t border-white/10 pt-4 space-y-4">
                 ${warningHtml}
-                ${isEnhance ? `<p class="text-[10px] text-amber-200/90 leading-relaxed mb-2 px-1">無損美化沒有獨立的「原圖」上傳區：請用下列按鈕上傳來源圖（與新生成共用同一張<strong class="text-amber-100">主參考圖</strong>）。</p>` : ''}
-                <button id="btnUploadScene" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-indigo-500/50 hover:bg-indigo-900/40 active:scale-95 transition-all text-indigo-300 shadow-lg"><span class="text-lg">📸</span> ${isEnhance ? '上傳無損來源圖（主參考）' : '點此上傳 AI 參考圖'} <span class="text-indigo-400/50 font-normal">(限 1 張)</span></button>
-                <div id="dynamicAssetsArea" class="flex flex-col gap-2 empty:hidden w-full mt-2"></div>
+                ${isEnhance ? `<p class="text-[10px] text-amber-200/90 leading-relaxed mb-2 px-1">無損美化沒有獨立的「原圖」上傳區：請用下列按鈕上傳來源圖（與新生成共用同一張<strong class="text-amber-100">場景參考圖</strong>）。</p>` : ''}
+                
+                <!-- 1. 場景參考圖 (Max 1) -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-black text-indigo-300 tracking-wider flex justify-between items-center">
+                        <span>🖼️ 場景參考圖 (唯一背景真理)</span>
+                        <span id="sceneCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 1</span>
+                    </label>
+                    <button type="button" id="btnUploadScene" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                        <span>📸 上傳場景圖</span>
+                    </button>
+                    <div id="sceneAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
+                </div>
+
+                <!-- 2. 人物參考圖 (Max 3) -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-black text-indigo-300 tracking-wider flex justify-between items-center">
+                        <span>🧑 人物參考圖 (單獨人物照)</span>
+                        <span id="characterCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 3</span>
+                    </label>
+                    <button type="button" id="btnUploadCharacter" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                        <span>👤 上傳人物照</span>
+                    </button>
+                    <div id="characterAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
+                </div>
+
+                <!-- 3. 配件參考圖 (Max 3) -->
+                <div class="space-y-2">
+                    <label class="text-[11px] font-black text-indigo-300 tracking-wider flex justify-between items-center">
+                        <span>⌚ 配件參考圖 (獨立配件如手錶/書本/杯子)</span>
+                        <span id="accessoryCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 3</span>
+                    </label>
+                    <button type="button" id="btnUploadAccessory" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                        <span>☕ 上傳配件圖</span>
+                    </button>
+                    <div id="accessoryAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
+                </div>
             </div>
 
             <div class="border-t border-white/10 pt-4">
-                <button id="btnUploadAttachments" class="w-full bg-slate-800 py-4 rounded-xl text-xs font-black border border-white/10 border-dashed hover:border-slate-400 active:scale-95 transition-all text-slate-300 shadow-md"><span class="text-lg">📥</span> 上傳社群附加輪播圖 <span class="text-slate-500 font-normal">(選填，最多 9 張)</span></button>
+                <label class="text-[11px] font-black text-slate-300 tracking-wider block mb-2">📥 上傳社群附加輪播圖 (選填，最多 9 張)</label>
+                <button id="btnUploadAttachments" class="w-full bg-slate-800 py-3 rounded-xl text-xs font-black border border-white/10 border-dashed hover:border-slate-400 active:scale-95 transition-all text-slate-300 shadow-md"><span>📤 上傳社群附加圖</span></button>
                 <div id="attachmentAssetsArea" class="grid grid-cols-3 sm:grid-cols-4 gap-2 empty:hidden w-full mt-2"></div>
             </div>
 
-            <button id="btnAcceptVisual" class="w-full bg-blue-600 py-4 rounded-xl font-black text-xs shadow-lg mt-2 active:scale-95">✅ 鎖定參數與素材</button>
+            <div id="visualActionArea" class="border-t border-white/10 pt-4 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button type="button" id="btnAcceptVisualManual" class="w-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl text-xs font-bold active:scale-95 transition-all">
+                        ✍️ 自行填寫腳本需求
+                    </button>
+                    <button type="button" id="btnAcceptVisualAi" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md">
+                        🔍 AI 推薦情境 (扣除 10 點)
+                    </button>
+                </div>
+                <div id="aiRecommendationPanel" class="hidden p-4 bg-slate-950/80 border border-indigo-500/20 rounded-2xl animate-fade-in space-y-3 shadow-inner">
+                    <div class="flex justify-between items-center pb-2 border-b border-white/5">
+                        <span class="text-xs font-bold text-indigo-400 flex items-center gap-1">💡 AI 分析推薦情境</span>
+                        <span class="text-[10px] text-slate-500">請選擇一個您最喜歡的創意：</span>
+                    </div>
+                    <div id="aiRecCards" class="space-y-3"></div>
+                </div>
+            </div>
         </div>
     `);
 
@@ -614,14 +666,150 @@ export async function triggerVisualSkill() {
     ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
     if (isComic) { ui.querySelectorAll('.panel-btn').forEach(btn => { if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; }); }
     
-    ui.querySelector('#btnUploadScene').onclick = () => { let i = document.createElement('input'); i.type='file'; i.accept='image/*'; i.onchange = async (e) => { if(e.target.files[0]) await handleAssetUpload(e.target.files[0], ui.querySelector('#dynamicAssetsArea')); }; i.click(); };
-    
-    if (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) {
-        const panel = document.createElement('div');
-        panel.className = 'scene-picker-panel flex flex-col gap-2 p-3 bg-indigo-900/20 rounded-xl border border-indigo-500/30 animate-fade-in w-full shadow-inner';
-        panel.innerHTML = `<div class="text-[10px] text-indigo-400 font-bold uppercase">📸 已鎖定之 AI 參考主圖</div><div class="w-16 h-16 rounded-md overflow-hidden border border-indigo-500/50 relative"><img src="${MISSION.sceneFiles[0].dataUrl || MISSION.sceneFiles[0].imageUrl}" class="w-full h-full object-cover"><button class="absolute top-0 right-0 bg-red-500 hover:bg-red-600 text-white text-[10px] w-5 h-5 rounded-bl-md flex items-center justify-center cursor-pointer" onclick="this.closest('.scene-picker-panel').remove(); MISSION.sceneFiles=[];">✕</button></div>`;
-        ui.querySelector('#dynamicAssetsArea').appendChild(panel);
-    }
+    // Render Scene Ref
+    const renderSceneRef = () => {
+        const area = ui.querySelector('#sceneAssetsArea');
+        const label = ui.querySelector('#sceneCountLabel');
+        area.innerHTML = '';
+        const count = MISSION.sceneFiles?.length || 0;
+        label.textContent = `${count} / 1`;
+        
+        if (count > 0) {
+            const sf = MISSION.sceneFiles[0];
+            const div = document.createElement('div');
+            div.className = 'relative w-full aspect-square rounded-md overflow-hidden border border-indigo-500/50 shadow-md animate-fade-in';
+            div.innerHTML = `
+                <img src="${sf.dataUrl || sf.imageUrl}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button type="button" class="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded-full text-[10px] flex items-center justify-center shadow-lg" id="btnDelScene">✕</button>
+                </div>
+            `;
+            div.querySelector('#btnDelScene').onclick = () => {
+                MISSION.sceneFiles = [];
+                renderSceneRef();
+            };
+            area.appendChild(div);
+        }
+    };
+
+    // Render Character Refs
+    const renderCharacterRefs = () => {
+        const area = ui.querySelector('#characterAssetsArea');
+        const label = ui.querySelector('#characterCountLabel');
+        area.innerHTML = '';
+        if (!MISSION.characterFiles) MISSION.characterFiles = [];
+        const count = MISSION.characterFiles.length;
+        label.textContent = `${count} / 3`;
+
+        MISSION.characterFiles.forEach((cf, idx) => {
+            const div = document.createElement('div');
+            div.className = 'relative w-full aspect-square rounded-md overflow-hidden border border-indigo-500/50 shadow-md animate-fade-in';
+            div.innerHTML = `
+                <img src="${cf.dataUrl || cf.imageUrl}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button type="button" class="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded-full text-[10px] flex items-center justify-center shadow-lg">✕</button>
+                </div>
+            `;
+            div.querySelector('button').onclick = () => {
+                MISSION.characterFiles.splice(idx, 1);
+                renderCharacterRefs();
+            };
+            area.appendChild(div);
+        });
+    };
+
+    // Render Accessory Refs
+    const renderAccessoryRefs = () => {
+        const area = ui.querySelector('#accessoryAssetsArea');
+        const label = ui.querySelector('#accessoryCountLabel');
+        area.innerHTML = '';
+        if (!MISSION.accessoryFiles) MISSION.accessoryFiles = [];
+        const count = MISSION.accessoryFiles.length;
+        label.textContent = `${count} / 3`;
+
+        MISSION.accessoryFiles.forEach((af, idx) => {
+            const div = document.createElement('div');
+            div.className = 'relative w-full aspect-square rounded-md overflow-hidden border border-indigo-500/50 shadow-md animate-fade-in';
+            div.innerHTML = `
+                <img src="${af.dataUrl || af.imageUrl}" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <button type="button" class="bg-red-500 hover:bg-red-600 text-white w-6 h-6 rounded-full text-[10px] flex items-center justify-center shadow-lg">✕</button>
+                </div>
+            `;
+            div.querySelector('button').onclick = () => {
+                MISSION.accessoryFiles.splice(idx, 1);
+                renderAccessoryRefs();
+            };
+            area.appendChild(div);
+        });
+    };
+
+    // Bind Scene Upload
+    ui.querySelector('#btnUploadScene').onclick = () => {
+        let i = document.createElement('input');
+        i.type = 'file'; i.accept = 'image/*';
+        i.onchange = async (e) => {
+            if (e.target.files[0]) {
+                const dataUrl = await compressImage(e.target.files[0], 800);
+                MISSION.sceneFiles = [{ dataUrl, name: e.target.files[0].name }];
+                markImageRegenerationRequired('場景圖變更');
+                renderSceneRef();
+                await addLog("影像處理組", "📐", `場景參考主圖已上傳鎖定。`);
+            }
+        };
+        i.click();
+    };
+
+    // Bind Character Upload
+    ui.querySelector('#btnUploadCharacter').onclick = () => {
+        if (!MISSION.characterFiles) MISSION.characterFiles = [];
+        if (MISSION.characterFiles.length >= 3) return showError("最多只能上傳 3 張人物參考圖喔！");
+        
+        let i = document.createElement('input');
+        i.type = 'file'; i.multiple = true; i.accept = 'image/*';
+        i.onchange = async (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                const remaining = 3 - MISSION.characterFiles.length;
+                const toProcess = Array.from(e.target.files).slice(0, remaining);
+                for (const file of toProcess) {
+                    const dataUrl = await compressImage(file, 800);
+                    MISSION.characterFiles.push({ dataUrl, name: file.name });
+                }
+                markImageRegenerationRequired('人物參考圖變更');
+                renderCharacterRefs();
+                await addLog("影像處理組", "👤", `人物參考圖上傳成功。`);
+            }
+        };
+        i.click();
+    };
+
+    // Bind Accessory Upload
+    ui.querySelector('#btnUploadAccessory').onclick = () => {
+        if (!MISSION.accessoryFiles) MISSION.accessoryFiles = [];
+        if (MISSION.accessoryFiles.length >= 3) return showError("最多只能上傳 3 張配件參考圖喔！");
+        
+        let i = document.createElement('input');
+        i.type = 'file'; i.multiple = true; i.accept = 'image/*';
+        i.onchange = async (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                const remaining = 3 - MISSION.accessoryFiles.length;
+                const toProcess = Array.from(e.target.files).slice(0, remaining);
+                for (const file of toProcess) {
+                    const dataUrl = await compressImage(file, 800);
+                    MISSION.accessoryFiles.push({ dataUrl, name: file.name });
+                }
+                markImageRegenerationRequired('配件參考圖變更');
+                renderAccessoryRefs();
+                await addLog("影像處理組", "⌚", `配件參考圖上傳成功。`);
+            }
+        };
+        i.click();
+    };
+
+    // Initial renders
+    renderSceneRef();
+    renderCharacterRefs();
+    renderAccessoryRefs();
 
     if(MISSION.attachmentFiles && MISSION.attachmentFiles.length > 0) {
          handleMultipleAttachments([], ui.querySelector('#attachmentAssetsArea'), false); 
@@ -639,12 +827,120 @@ export async function triggerVisualSkill() {
         i.click();
     };
 
-    ui.querySelector('#btnAcceptVisual').onclick = async () => { 
+    ui.querySelector('#btnAcceptVisualManual').onclick = async () => { 
         MISSION.ratio = currentRatio; MISSION.resolution = currentRes; MISSION.panelCount = currentPanelCount; 
         if (!isMissionComplete()) return showError('請完成設定！'); 
         releaseUI(ui); 
-        await addLog("影像總監", "✅", `參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。 附掛 ${MISSION.attachmentFiles?.length || 0} 張輔助圖。`); 
+        await addLog("影像總監", "✅", `參數鎖定：<b>${MISSION.ratio} / ${isComic ? currentPanelCount+'格' : ''}</b>。 附掛 ${MISSION.attachmentFiles?.length || 0} 張社群輔助圖。參考圖：場景*${MISSION.sceneFiles?.length || 0} / 人物*${MISSION.characterFiles?.length || 0} / 配件*${MISSION.accessoryFiles?.length || 0}`); 
         if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'schedule'; await triggerScheduleSkill(); }
+    };
+
+    ui.querySelector('#btnAcceptVisualAi').onclick = async () => {
+        const hasRefs = (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) ||
+                        (MISSION.characterFiles && MISSION.characterFiles.length > 0) ||
+                        (MISSION.accessoryFiles && MISSION.accessoryFiles.length > 0);
+                        
+        if (!hasRefs) {
+            return showError("請至少上傳 1 張場景、人物或配件參考圖，才能讓 AI 進行多模態情境分析喔！");
+        }
+        
+        const btn = ui.querySelector('#btnAcceptVisualAi');
+        const oriHtml = btn.innerHTML;
+        btn.innerHTML = `<div class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block align-middle mr-1.5"></div> 分析中...`;
+        btn.disabled = true;
+        
+        try {
+            // Build reference images payload
+            const referenceImages = [];
+            
+            // 1. Scene
+            (MISSION.sceneFiles || []).forEach((sf, idx) => {
+                const item = { type: 'scene', name: sf.name || `scene_${idx + 1}` };
+                if (sf.imageUrl) item.imageUrl = sf.imageUrl;
+                if (sf.dataUrl) item.dataUrl = sf.dataUrl;
+                if (item.imageUrl || item.dataUrl) referenceImages.push(item);
+            });
+            
+            // 2. Character
+            (MISSION.characterFiles || []).forEach((cf, idx) => {
+                const item = { type: 'character', name: cf.name || `character_${idx + 1}` };
+                if (cf.imageUrl) item.imageUrl = cf.imageUrl;
+                if (cf.dataUrl) item.dataUrl = cf.dataUrl;
+                if (item.imageUrl || item.dataUrl) referenceImages.push(item);
+            });
+            
+            // 3. Accessory
+            (MISSION.accessoryFiles || []).forEach((af, idx) => {
+                const item = { type: 'accessory', name: af.name || `accessory_${idx + 1}` };
+                if (af.imageUrl) item.imageUrl = af.imageUrl;
+                if (af.dataUrl) item.dataUrl = af.dataUrl;
+                if (item.imageUrl || item.dataUrl) referenceImages.push(item);
+            });
+            
+            const payload = {
+                tenantId: STATE.uid,
+                referenceImages,
+                universe: MISSION.universe
+            };
+            
+            const response = await window.FunnelActions.analyzeReferences(payload);
+            
+            if (response && response.success) {
+                ui.querySelector('#aiRecommendationPanel').classList.remove('hidden');
+                
+                const container = ui.querySelector('#aiRecCards');
+                container.innerHTML = response.options.map((opt, idx) => `
+                    <button type="button" class="rec-card-btn w-full text-left p-3.5 bg-slate-900 hover:bg-indigo-950/30 border border-white/10 hover:border-indigo-500/50 rounded-xl transition-all flex flex-col gap-1 active:scale-[0.99]" data-idx="${idx}">
+                        <div class="flex justify-between items-center w-full">
+                            <span class="text-xs font-bold text-slate-200">✨ ${opt.title}</span>
+                            <span class="text-[9px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">推薦 ${idx + 1}</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 leading-relaxed">${opt.description}</p>
+                        <div class="mt-2 text-[10px] text-indigo-300 font-mono italic p-2 bg-black/35 rounded-lg border border-white/5 whitespace-pre-wrap">${opt.prompt}</div>
+                    </button>
+                `).join('');
+                
+                ui.querySelectorAll('.rec-card-btn').forEach(cardBtn => {
+                    cardBtn.onclick = async () => {
+                        const idx = parseInt(cardBtn.dataset.idx);
+                        const selected = response.options[idx];
+                        
+                        // Set selected creative prompt
+                        MISSION.topic = selected.prompt;
+                        markImageRegenerationRequired('主題變更');
+                        
+                        await addLog("影像總監", "💡", `已套用 AI 推薦情境【<b>${selected.title}</b>】：<br><span class="text-indigo-300 font-mono italic">${selected.prompt}</span>`);
+                        
+                        // Proceed
+                        MISSION.ratio = currentRatio; 
+                        MISSION.resolution = currentRes; 
+                        MISSION.panelCount = currentPanelCount;
+                        
+                        // Deduct points UI sync
+                        await applyPointDeduction(response.chargedPoints || 10, '分析參考圖與推薦情境');
+                        
+                        releaseUI(ui);
+                        
+                        if (IS_EDIT_MODE.value && isMissionComplete()) { 
+                            MISSION.funnelNextStep = 'dashboard'; 
+                            await triggerMissionSummary(); 
+                        } else { 
+                            MISSION.funnelNextStep = 'schedule'; 
+                            await triggerScheduleSkill(); 
+                        }
+                    };
+                });
+                
+                btn.innerHTML = `✅ 分析完成`;
+                btn.classList.add('bg-green-600');
+            } else {
+                throw new Error(response.message || "分析失敗");
+            }
+        } catch (e) {
+            btn.innerHTML = oriHtml;
+            btn.disabled = false;
+            showError(`AI 分析失敗：${e.message}`);
+        }
     };
 }
 
