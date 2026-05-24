@@ -5,6 +5,7 @@ import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
 import { CONFIG, STATE } from './config.js'; 
 import * as API from './api.js';
+import { applyPointDeduction } from './v9_finance.js';
 
 export async function startNewFunnel() { await triggerTopicSkill(); }
 

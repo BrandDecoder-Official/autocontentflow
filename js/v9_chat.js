@@ -151,7 +151,7 @@ window.renderQuickReplies = function() {
     } else if (step === 'visual') {
         replies = [
             { text: '🚀 生成劇本', action: () => {
-                const btn = document.getElementById('btnConfirmVisual');
+                const btn = document.getElementById('btnAcceptVisualManual');
                 if (btn) btn.click();
             }}
         ];
