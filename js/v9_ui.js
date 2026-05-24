@@ -203,7 +203,7 @@ export function createSkillUI(html) {
     }
 
     if (workspaceCards) {
-        const pane = document.getElementById('workspacePane');
+        const pane = document.getElementById('workspaceScrollContainer') || document.getElementById('workspacePane');
         if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
     } else {
         scrollDown();
@@ -467,18 +467,21 @@ export function initSplitPaneLayout() {
         </div>
 
         <!-- Right Workspace Pane -->
-        <div id="workspacePane" class="hidden lg:flex lg:w-[60%] h-full flex-col overflow-y-auto p-4 lg:p-8 custom-scrollbar relative bg-slate-900/10 z-10">
+        <div id="workspacePane" class="hidden lg:flex lg:w-[60%] h-full flex-col p-4 lg:p-8 relative bg-slate-900/10 z-10 overflow-hidden">
             <!-- HUD Panel (Fixed/Sticky at the top) -->
-            <div id="missionHud" class="relative z-20 w-full max-w-2xl mx-auto mb-4"></div>
+            <div id="missionHud" class="relative z-20 w-full max-w-2xl mx-auto mb-4 flex-none"></div>
 
-            <!-- Workflow SVG Flowlines overlay -->
-            <div class="absolute inset-0 pointer-events-none z-0" id="flowlineOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
-                <svg class="w-full h-full" id="flowlineSvg" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none;"></svg>
-            </div>
-            
-            <!-- Cards will render here -->
-            <div id="workspaceCards" class="relative z-10 w-full max-w-2xl mx-auto space-y-16 py-8">
-                <!-- Theme Card, Draft Card, Publish Card render here -->
+            <!-- Scrollable Workspace content -->
+            <div id="workspaceScrollContainer" class="flex-1 overflow-y-auto custom-scrollbar relative z-10 w-full pb-8">
+                <!-- Workflow SVG Flowlines overlay -->
+                <div class="absolute inset-0 pointer-events-none z-0" id="flowlineOverlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                    <svg class="w-full h-full" id="flowlineSvg" style="position: absolute; top:0; left:0; width:100%; height:100%; pointer-events: none;"></svg>
+                </div>
+                
+                <!-- Cards will render here -->
+                <div id="workspaceCards" class="relative z-10 w-full max-w-2xl mx-auto space-y-16 py-8">
+                    <!-- Theme Card, Draft Card, Publish Card render here -->
+                </div>
             </div>
         </div>
     `;
@@ -508,12 +511,15 @@ export function initSplitPaneLayout() {
         }
     };
 
-    // Add scroll listener to workspacePane to redraw lines on scroll
-    workspacePane.addEventListener('scroll', () => {
-        if (typeof window.drawWorkflowLines === 'function') {
-            window.drawWorkflowLines();
-        }
-    });
+    // Add scroll listener to workspaceScrollContainer to redraw lines on scroll
+    const workspaceScrollContainer = log.querySelector('#workspaceScrollContainer');
+    if (workspaceScrollContainer) {
+        workspaceScrollContainer.addEventListener('scroll', () => {
+            if (typeof window.drawWorkflowLines === 'function') {
+                window.drawWorkflowLines();
+            }
+        });
+    }
 
     // Make sure we rebind chat input events
     if (typeof window.rebindAgentChat === 'function') {
