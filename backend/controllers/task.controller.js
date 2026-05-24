@@ -111,7 +111,7 @@ async function analyzeAndLockFeatures(characters, referenceImages) {
             if (charImg) {
                 try {
                     const response = await visionAi.models.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: aiConfig.MODELS.AI_MODEL_VISION,
                         contents: [{ text: "Extract core physical traits... in 1 concise English sentence." }, { inlineData: { data: charImg.data, mimeType: charImg.mimeType || 'image/jpeg' } }]
                     });
                     aiExtractedFeatures = response.text.trim();
@@ -538,7 +538,7 @@ async function getAuditLogs(req, res) {
 // ==========================================
 async function analyzeReferences(req, res) {
     try {
-        const { tenantId, referenceImages, universe } = req.body;
+        const { tenantId, referenceImages, universe, characters } = req.body;
         const costPts = PRICING?.BASE_FEES?.ANALYZE_REFERENCES || 10;
         const { tenantRef, tenantData } = await verifyTenant(tenantId, costPts);
 
@@ -567,9 +567,15 @@ async function analyzeReferences(req, res) {
             throw new Error("圖片載入或轉碼失敗。");
         }
 
+        let characterContext = "";
+        if (characters && characters.length > 0) {
+            characterContext = `\n此外，使用者已在角色基因庫中選定以下人物角色，你【必須】在產生的 Prompt 視覺描述（約 50-80 字）中明確提及這些角色的名字並描述他們的行動/互動，將他們合理且自然地融入情境中：\n` +
+                characters.map(c => `- 姓名: ${c.name}\n  特徵/人設: ${c.persona || '無'}`).join('\n');
+        }
+
         const systemPrompt = `你是一個創意行銷導演與視覺設計師。
 請分析上傳的參考圖片（可能包含場景、角色或隨身配件），並為即將生成的社群貼文（如FB/IG）推薦 3 個不同的創意發想情境（例如：焦點在配件的時尚風、焦點在人物神態的職場風、或者是故事感強烈的日常風）。
-請務必將這些場景、人物與配件自然地融合。
+請務必將這些場景、人物與配件自然地融合。${characterContext}
 請精準輸出 JSON 格式，不要有 markdown code block 或其他雜質，語言必須是繁體中文：
 {
   "options": [
@@ -599,7 +605,7 @@ async function analyzeReferences(req, res) {
         });
 
         const aiResponse = await visionAi.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: aiConfig.MODELS.AI_MODEL_VISION,
             contents: contents,
             config: {
                 responseMimeType: 'application/json',

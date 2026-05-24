@@ -880,7 +880,11 @@ export async function triggerVisualSkill() {
             const payload = {
                 tenantId: STATE.uid,
                 referenceImages,
-                universe: MISSION.universe
+                universe: MISSION.universe,
+                characters: getMissionCharacterNames().map((name) => {
+                    const c = SYSTEM_DB.characters.find(x => x.name === name);
+                    return { name, persona: c ? (c.persona || "") : "" };
+                })
             };
             
             const response = await window.FunnelActions.analyzeReferences(payload);

@@ -142,7 +142,7 @@ async function verifyImageText(imageUrl, expectedText) {
         const prompt = `請辨識這張圖片對話框裡的中文字。它是否精準且清晰地寫著這幾個字：「${expectedText}」？\n如果出現亂碼、漏字、錯字、外星文或語句完全不通，請只回傳 "ERROR"。\n如果文字清晰且正確完美，請只回傳 "PASS"。\n請絕對不要輸出任何其他多餘的解釋文字。`;
         
         const visionResponse = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: aiConfig.MODELS.AI_MODEL_VISION,
             contents: [
                 { text: prompt },
                 { inlineData: { mimeType: mimeType, data: base64Data } }

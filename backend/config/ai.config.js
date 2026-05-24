@@ -5,6 +5,7 @@ module.exports = {
       AI_MODEL_TALK: 'gemini-3.1-flash-lite-preview',
       AI_MODEL_TEXT: 'gemini-3-flash-preview', 
       AI_MODEL_IMAGE: 'gemini-3.1-flash-image-preview',
+      AI_MODEL_VISION: 'gemini-2.5-flash',
       LOCATION: 'us-central1'
     },
     
