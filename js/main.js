@@ -4,6 +4,7 @@ import * as API from './api.js';
 
 // 🚀 引入「真 AI Agent」核心引擎
 import { bootSystemData, initAgentFunnel } from './agent_v9_core.js';
+import { updatePointsDisplay } from './v9_ui.js';
 
 // ==========================================
 // 🛡️ 全域輔助函數
@@ -55,8 +56,7 @@ window.onload = async function () {
                         }
                         
                         // 4. 更新 UI 點數 (如果前端有這個元素的話)
-                        const ptsEl = document.getElementById('userPoints');
-                        if(ptsEl) ptsEl.innerText = STATE.userPoints.toLocaleString();
+                        updatePointsDisplay(STATE.userPoints, result.tier);
 
                         // 🚀 5. 進入全 Agent 時代：啟動 v9 核心大腦！
                         await bootSystemData();    // 載入人設、風格、定價等基因庫

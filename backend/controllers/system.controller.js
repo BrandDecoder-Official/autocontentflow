@@ -130,19 +130,21 @@ class SystemController {
             const tenantId = req.query.tenantId;
             if (!tenantId) return res.status(400).json({ success: false, message: "缺少 tenantId" });
 
-            // 假設您的使用者餘額存在 'users' 集合中 (若為 tenants 請自行調整)
-            const userDoc = await db.collection('users').doc(tenantId).get();
+            // 🌟 修正為單一來源 'tenants' 集合
+            const userDoc = await db.collection('tenants').doc(tenantId).get();
             
             if (!userDoc.exists) {
                 return res.status(404).json({ success: false, message: "找不到該租戶資料" });
             }
 
             const userData = userDoc.data();
+            const calculatedTier = userData.tier || (userData.totalPoints > 10000 ? 'APEX' : (userData.totalPoints > 3000 ? 'PRO' : 'FREE'));
             
             return res.status(200).json({
                 success: true,
                 tenant: {
-                    totalPoints: userData.totalPoints || 0
+                    totalPoints: userData.totalPoints || 0,
+                    tier: calculatedTier
                 }
             });
         } catch (error) {

@@ -75,7 +75,8 @@ async function verifyLogin(req, res) {
                 success: true, 
                 status: 'ACTIVE', 
                 uid: uid,
-                totalPoints: tenantData.totalPoints 
+                totalPoints: tenantData.totalPoints,
+                tier: tenantData.tier || (tenantData.totalPoints > 10000 ? 'APEX' : (tenantData.totalPoints > 3000 ? 'PRO' : 'FREE'))
             });
         } else {
             // ❌ 被停權或其他狀態

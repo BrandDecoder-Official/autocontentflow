@@ -125,20 +125,11 @@ export class AgentClient {
             const data = await res.json();
             if (!res.ok || !data.success) throw new Error(data.message || '大腦思考中斷');
 
-            // 💸 V10 真實算力扣點特效 (TALK 模型: gemini-3.1-flash-lite)
-            // 成本：輸入 $0.00025/1K, 輸出 $0.0015/1K | 匯率: 32 | 毛利: 4倍 | 1台幣=100點
-            if (data.tokensUsed && data.tokensUsed > 0) {
-                // 假設沒有區分輸入輸出，我們用一個平均保守加權值 (假設 80%是輸入, 20%是輸出)
-                const inTokens = data.promptTokens || (data.tokensUsed * 0.8);
-                const outTokens = data.completionTokens || (data.tokensUsed * 0.2);
-                
-                const costUsd = (inTokens / 1000 * 0.00025) + (outTokens / 1000 * 0.0015);
-                const costTwd = costUsd * 32 * 4; // 32匯率, 4倍毛利
-                const deductedPoints = Math.max(1, Math.ceil(costTwd * 100)); // 至少扣 1 點
-                
-                const tokenLabel = ` (${data.tokensUsed} tokens)`;
+            // 💸 V10 真實算力扣點 (採取後端單一來源，避免與資料庫不一致)
+            if (data.chargedPoints !== undefined && data.chargedPoints > 0) {
+                const tokenLabel = data.tokensUsed ? ` (${data.tokensUsed} tokens)` : '';
                 await applyPointDeduction(
-                    deductedPoints,
+                    data.chargedPoints,
                     `${getBillingActionDisplayName('TOKEN_USAGE', '大腦思考耗能')}${tokenLabel}`
                 );
             }

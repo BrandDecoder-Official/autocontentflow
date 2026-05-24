@@ -155,8 +155,9 @@ async function processDraft(req, res, payloadRaw, tools) {
         const taskDocumentPersistedAt = new Date().toISOString();
 
         // 🌟 10. 計費與通知
+        let billingResult = null;
         if (billingService && billingService.chargeAndLog) {
-            await billingService.chargeAndLog({ uid: tenantId, actionType: 'GENERATE_DRAFT', multiplier: 1, referenceId: taskId, metrics: { geminiTokensUsed: aiResponse.tokens }, req });
+            billingResult = await billingService.chargeAndLog({ uid: tenantId, actionType: 'GENERATE_DRAFT', multiplier: 1, referenceId: taskId, metrics: { geminiTokensUsed: aiResponse.tokens }, req });
         }
         await sendClientTelegram(payloadRaw.tgConfig, `🎨 <b>動漫草稿產出完畢！</b>\n任務主題：${topic}`);
 
@@ -166,6 +167,8 @@ async function processDraft(req, res, payloadRaw, tools) {
             draftContent,
             isComicMode: true,
             persistence: { taskDocumentSaved: true, persistedAt: taskDocumentPersistedAt },
+            chargedPoints: billingResult ? billingResult.cost : 0,
+            newBalance: billingResult ? billingResult.newBalance : undefined
         });
 
     } catch (error) {

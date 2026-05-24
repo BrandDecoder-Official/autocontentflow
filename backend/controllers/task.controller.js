@@ -334,12 +334,13 @@ async function generateImageFromDraft(req, res) {
             finalImagesArray.push(processedImg);
         }
 
+        let billingResult = null;
         if (billingService && billingService.chargeAndLog) {
             if (aiCount > 0) {
                 const resolutionForBilling = taskData.image_options?.resolution || mission.resolution || '1K';
                 const resWeight = getImageGenBillingMultiplier(resolutionForBilling);
                 const imageBillingMultiplier = aiCount * resWeight;
-                await billingService.chargeAndLog({
+                billingResult = await billingService.chargeAndLog({
                     uid: tenantId,
                     actionType: 'GENERATE_IMAGE',
                     multiplier: imageBillingMultiplier,
@@ -366,6 +367,8 @@ async function generateImageFromDraft(req, res) {
             success: true,
             images: validImages,
             persistence: { taskDocumentSaved: true, persistedAt: taskDocumentPersistedAt },
+            chargedPoints: billingResult ? billingResult.cost : 0,
+            newBalance: billingResult ? billingResult.newBalance : undefined
         });
 
     } catch (error) { 
@@ -420,7 +423,10 @@ async function publishTask(req, res) {
         const imageUrlsToPublish = resolveImageUrlsFromTask(taskData, req.body);
         if (imageUrlsToPublish.length === 0) throw new Error('中斷：沒有可發佈的圖片網址（請確認已生圖或附件已上傳）。');
 
-        if (tenantId && billingService && billingService.chargeAndLog) await billingService.chargeAndLog({ uid: tenantId, actionType: 'PUBLISH_POST', multiplier: 1, referenceId: taskId, req });
+        let billingResult = null;
+        if (tenantId && billingService && billingService.chargeAndLog) {
+            billingResult = await billingService.chargeAndLog({ uid: tenantId, actionType: 'PUBLISH_POST', multiplier: 1, referenceId: taskId, req });
+        }
 
         if (scheduledAt) {
             await docRef.update({
@@ -429,7 +435,12 @@ async function publishTask(req, res) {
                 social_post_final: captionBase,
                 updatedAt: new Date().toISOString(),
             });
-            return res.status(200).json({ success: true, message: "已寫入排程！" });
+            return res.status(200).json({ 
+                success: true, 
+                message: "已寫入排程！",
+                chargedPoints: billingResult ? billingResult.cost : 0,
+                newBalance: billingResult ? billingResult.newBalance : undefined
+            });
         }
 
         await docRef.update({ status: 'PUBLISHING' });
@@ -462,7 +473,12 @@ async function publishTask(req, res) {
 
         await sendClientTelegram(taskData.payload?.tgConfig, `🚀 <b>發佈成功！</b>\n您的貼文已成功投遞至 ${platforms.join(', ')}。`);
 
-        return res.status(200).json({ success: true, message: "發布成功！" });
+        return res.status(200).json({ 
+            success: true, 
+            message: "發布成功！",
+            chargedPoints: billingResult ? billingResult.cost : 0,
+            newBalance: billingResult ? billingResult.newBalance : undefined
+        });
     } catch (error) {
         try {
             await db.collection('tasks').doc(req.body.taskId).update({

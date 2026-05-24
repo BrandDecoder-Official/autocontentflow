@@ -1,7 +1,7 @@
 // js/agent_v9_core.js
 import { STATE, CONFIG } from './config.js';
 import { APP_VERSION, MISSION, loadMissionFromDB, IS_EDIT_MODE, resetMissionStateForLobby } from './v9_state.js'; // 🚀 引入時光機引擎
-import { updateStepHeader, addLog, showError } from './v9_ui.js';
+import { updateStepHeader, addLog, showError, initSplitPaneLayout } from './v9_ui.js';
 import * as API from './api.js';
 
 // 📦 引入專屬模組
@@ -84,6 +84,9 @@ const SUCCESS_HISTORY_STATUSES = new Set(['COMPLETED', 'PUBLISHED', 'SCHEDULED']
 // ==========================================
 function renderLobby(preserveMission = false) {
     const log = document.getElementById('funnelLog');
+    if (log) {
+        log.className = "flex-grow overflow-y-auto p-2 lg:p-8 agent-chat-area relative";
+    }
     if (!preserveMission) {
         resetMissionStateForLobby();
         IS_EDIT_MODE.value = false;
@@ -138,10 +141,9 @@ function renderLobby(preserveMission = false) {
     `;
 
     document.getElementById('btnManualStart').onclick = async () => { 
-        const log = document.getElementById('funnelLog');
         resetMissionStateForLobby();
         IS_EDIT_MODE.value = false;
-        log.innerHTML = ''; 
+        initSplitPaneLayout();
         await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
         await startNewFunnel();
     };
@@ -327,8 +329,7 @@ window.resumeTask = async function(taskIndex) {
     const task = window.tempTaskCache[taskIndex];
     if(!task) return showError("任務資料遺失！");
 
-    const log = document.getElementById('funnelLog');
-    log.innerHTML = ''; 
+    initSplitPaneLayout();
     
     // 🚀 1. 神級還原！使用剛寫好的 loadMissionFromDB 灌回資料
     const status = loadMissionFromDB(task);

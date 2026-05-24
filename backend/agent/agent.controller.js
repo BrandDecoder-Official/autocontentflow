@@ -103,9 +103,10 @@ ${JSON.stringify(currentMissionState || {}, null, 2)}
                 }
 
                 // 🚀 呼叫後端計費模組扣款 (將 Token 消耗記錄進資料庫)
+                let billingResult = null;
                 if (billingService && billingService.chargeAndLog && tokensUsed > 0) {
                     try {
-                        await billingService.chargeAndLog({ 
+                        billingResult = await billingService.chargeAndLog({ 
                             uid: tenantId, 
                             actionType: 'AGENT_THINKING', 
                             multiplier: 1, 
@@ -124,7 +125,9 @@ ${JSON.stringify(currentMissionState || {}, null, 2)}
                         reply: replyText,
                         functionCalls: functionCalls
                     },
-                    tokensUsed: tokensUsed // 將 Token 消耗量回傳給前端
+                    tokensUsed: tokensUsed, // 將 Token 消耗量回傳給前端
+                    chargedPoints: billingResult ? billingResult.cost : 0,
+                    newBalance: billingResult ? billingResult.newBalance : undefined
                 });
             }
 

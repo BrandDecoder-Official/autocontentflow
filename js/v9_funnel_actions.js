@@ -125,8 +125,9 @@ window.FunnelActions = {
                 MISSION.funnelNextStep = 'draft';
 
                 const draftPersistNote = formatPersistNoteFromApi(response.persistence, 'draft');
+                const finalCharged = response.chargedPoints !== undefined ? Number(response.chargedPoints) : draftPrice;
                 await applyPointDeduction(
-                    draftPrice,
+                    finalCharged,
                     getBillingActionDisplayName('GENERATE_DRAFT', '產出草稿'),
                     draftPersistNote ? { persistNote: draftPersistNote } : {}
                 );
@@ -191,8 +192,9 @@ window.FunnelActions = {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-blue-500'); document.getElementById(`text_${spinId}`).innerText = "影像合成完畢"; }
                 
                 const imagePersistNote = formatPersistNoteFromApi(response.persistence, 'image');
+                const finalCharged = response.chargedPoints !== undefined ? Number(response.chargedPoints) : estImageCost;
                 await applyPointDeduction(
-                    estImageCost,
+                    finalCharged,
                     getBillingActionDisplayName('GENERATE_IMAGE', '影像合成'),
                     imagePersistNote ? { persistNote: imagePersistNote } : {}
                 );

@@ -1,43 +1,34 @@
 // js/v9_chat.js
-import { MISSION } from './v9_state.js';
+import { MISSION, SYSTEM_DB } from './v9_state.js';
 import { addLog, showError } from './v9_ui.js';
 import { AgentClient } from './v9_agent_client.js';
-// ⚠️ 注意：這裡移除了 applyPointDeduction 的 import
-// 因為實時扣點我們已經交給 v9_agent_client.js 裡面的 sendChatMessage 統一處理了，避免重複扣點。
+import { getBillingActionDisplayName } from './v9_finance.js';
 
 export function initAgentChatBar(callbacks) {
-    if(document.getElementById('agentChatBar')) return;
-    
-    const chatBar = document.createElement('div');
-    chatBar.id = "agentChatBar";
-    chatBar.className = "fixed bottom-0 left-0 w-full bg-slate-900/95 backdrop-blur-md border-t border-indigo-500/50 p-3 pb-safe z-[9000] flex items-end justify-center transition-transform translate-y-full duration-500 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]";
-    
-    chatBar.innerHTML = `
-        <div class="max-w-4xl w-full flex items-end gap-2">
-                <textarea id="agentChatInput" rows="1" class="flex-1 bg-slate-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none resize-none max-h-32 overflow-y-auto no-scrollbar" placeholder="請透過對話讓 Agent 協助您修改 (例如：幫我把主題換成啦啦隊，Shift+Enter 換行)..."></textarea>            <button id="btnSendChat" class="flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 sm:px-6 py-3 rounded-xl font-black text-sm shadow-[0_0_15px_rgba(79,70,229,0.5)] active:scale-95 transition-all h-[46px]">
-                <span class="hidden sm:inline">送出指令</span>
-                <span class="sm:hidden text-xl">🚀</span>
-            </button>
-        </div>
-    `;
-    document.body.appendChild(chatBar);
+    // 💡 在雙欄模式下，事件重綁定由 window.rebindAgentChat 處理
+    window.rebindAgentChat();
+}
 
+window.rebindAgentChat = function() {
     const input = document.getElementById('agentChatInput');
+    const sendBtn = document.getElementById('btnSendChat');
+    if (!input || !sendBtn) return;
 
-    input.addEventListener('input', function() {
+    // 清除舊事件 (重設 oninput / onkeydown / onclick)
+    input.oninput = function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
         if(this.value === '') this.style.height = 'auto'; 
-    });
+    };
 
-    input.addEventListener('keydown', function(e) {
+    input.onkeydown = function(e) {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault(); 
-            document.getElementById('btnSendChat').click();
+            sendBtn.click();
         }
-    });
+    };
 
-    document.getElementById('btnSendChat').onclick = async () => {
+    sendBtn.onclick = async () => {
         const msg = input.value.trim();
         if(!msg) return;
 
@@ -49,32 +40,157 @@ export function initAgentChatBar(callbacks) {
         const spinId = 'spin_chat_' + Date.now();
         await addLog("Agent", "🤖", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">思考與執行中...</span></div>`, true);
 
-        setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        const chatMessages = document.getElementById('chatMessages');
+        if(chatMessages) {
+            chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' });
+        }
 
         try {
-            // 🚀 核心替換：改呼叫我們今天寫的、支援 Function Calling 與實時扣點的 API
+            // 🚀 呼叫支援 Function Calling 與扣點單一來源的 API
             const response = await AgentClient.sendChatMessage(msg);
             
             // 移除轉圈圈
             const spEl = document.getElementById(spinId); 
-            if(spEl) spEl.closest('.flex').parentElement.remove();
+            if(spEl) {
+                const bubble = spEl.closest('.flex');
+                if (bubble && bubble.parentElement) bubble.parentElement.remove();
+            }
             
             // 印出大腦的回覆 (不管是文字聊天還是執行結果)
             const colorClass = response.type === 'action' ? 'text-green-400' : 'text-indigo-300';
             await addLog("Agent", "🤖", `<span class="${colorClass} whitespace-pre-wrap font-bold">${response.message}</span>`);
 
-            setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 300);
+            if(chatMessages) {
+                setTimeout(() => chatMessages.scrollTo({ top: chatMessages.scrollHeight, behavior: 'smooth' }), 300);
+            }
 
         } catch(e) {
             const spEl = document.getElementById(spinId); 
             if(spEl) { 
                 spEl.classList.remove('animate-spin', 'border-t-transparent'); 
                 spEl.classList.add('border-red-500'); 
-                document.getElementById(`text_${spinId}`).innerText = "連線失敗"; 
+                const textSpan = document.getElementById(`text_${spinId}`);
+                if (textSpan) textSpan.innerText = "連線失敗"; 
             }
             showError(`Agent 回應失敗：${e.message}`);
         } finally {
             input.disabled = false; input.focus();
         }
     };
-}
+
+    // 渲染引導按鈕
+    window.renderQuickReplies();
+};
+
+/**
+ * ==========================================
+ * 🎨 引導式快捷按鈕動態渲染 (OiiOii 靈感)
+ * ==========================================
+ */
+window.renderQuickReplies = function() {
+    const container = document.getElementById('quickRepliesContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    const step = MISSION.funnelNextStep || '';
+    
+    let replies = [];
+    
+    if (step === 'topic') {
+        replies = [
+            { text: '🍵 冷泡茶推廣文案', cmd: '寫一篇夏天冷泡茶的推廣發文' },
+            { text: '☕ 咖啡館開幕宣傳', cmd: '寫一篇精品咖啡館開幕的社群文案' },
+            { text: '📰 帶入第一則熱門新聞', action: () => {
+                const firstRss = document.querySelector('#rssList > div');
+                if (firstRss) firstRss.click();
+                else alert('新聞清單尚無內容，請稍候。');
+            }}
+        ];
+    } else if (step === 'platforms') {
+        replies = [
+            { text: '📱 選擇 FB & IG', cmd: '幫我選擇 Facebook 和 Instagram 平台' },
+            { text: '💬 選擇 Threads', cmd: '幫我選擇 Threads 平台' },
+            { text: '✅ 下一步', cmd: '鎖定發布平台' }
+        ];
+    } else if (step === 'persona') {
+        const personas = (SYSTEM_DB?.personas || []).slice(0, 3);
+        personas.forEach(p => {
+            replies.push({ text: `${p.icon} ${p.name}`, cmd: `幫我選擇品牌人設：${p.name}` });
+        });
+    } else if (step === 'hook') {
+        replies = [
+            { text: '❓ 痛點提問', cmd: '開場使用痛點提問' },
+            { text: '💥 反直覺爆點', cmd: '開場使用反直覺爆點' },
+            { text: '🎁 利益誘惑', cmd: '開場使用利益誘惑' }
+        ];
+    } else if (step === 'universe') {
+        replies = [
+            { text: '📷 真實攝影', cmd: '選擇真實攝影宇宙' },
+            { text: '🎨 2D 動漫', cmd: '選擇2D動漫宇宙' }
+        ];
+    } else if (step === 'style') {
+        if (MISSION.universe === 'REALISTIC') {
+            const styles = (SYSTEM_DB?.styles || []).filter(s => s.category === 'REALISTIC_MODE').slice(0, 3);
+            styles.forEach(s => {
+                replies.push({ text: s.name, cmd: `對焦合成模式選擇：${s.name}` });
+            });
+        } else {
+            const styles = (SYSTEM_DB?.styles || []).filter(s => s.category === 'ANIME' || s.category === 'ANIME_STYLE').slice(0, 3);
+            styles.forEach(s => {
+                replies.push({ text: s.name, cmd: `風格選擇：${s.name}` });
+            });
+        }
+    } else if (step === 'character') {
+        replies = [
+            { text: '⏭️ 純場景不召喚', cmd: '純場景模式不召喚角色' }
+        ];
+        const chars = (SYSTEM_DB?.characters || []).slice(0, 2);
+        chars.forEach(c => {
+            replies.push({ text: `🧬 召喚 ${c.name}`, cmd: `本次任務召喚角色：${c.name}` });
+        });
+    } else if (step === 'visual') {
+        replies = [
+            { text: '🚀 生成劇本', action: () => {
+                const btn = document.getElementById('btnConfirmVisual');
+                if (btn) btn.click();
+            }}
+        ];
+    } else if (step === 'draft') {
+        replies = [
+            { text: '🎨 影像合成', cmd: '立即進行影像合成' },
+            { text: '✍️ 內容改幽默點', cmd: '幫我修改劇本，讓語氣更幽默有趣' },
+            { text: '✍️ 改精簡字數', cmd: '幫我修改劇本，內容簡短有力' }
+        ];
+    } else if (step === 'image') {
+        replies = [
+            { text: '🚀 社群發佈', cmd: '立即發佈到社群平台' },
+            { text: '🔄 重新合成圖片', cmd: '圖片重新生成一次' }
+        ];
+    }
+    
+    if (replies.length === 0) {
+        container.classList.add('hidden');
+        return;
+    }
+    
+    container.classList.remove('hidden');
+    
+    replies.forEach(r => {
+        const btn = document.createElement('button');
+        btn.className = 'px-3 py-1.5 bg-slate-800/80 hover:bg-indigo-600 text-slate-300 hover:text-white rounded-full text-[10px] font-bold border border-white/5 active:scale-95 transition-all whitespace-nowrap shadow-md';
+        btn.textContent = r.text;
+        btn.onclick = () => {
+            if (r.action) {
+                r.action();
+            } else if (r.cmd) {
+                const input = document.getElementById('agentChatInput');
+                if (input) {
+                    input.value = r.cmd;
+                    const sendBtn = document.getElementById('btnSendChat');
+                    if (sendBtn) sendBtn.click();
+                }
+            }
+        };
+        container.appendChild(btn);
+    });
+};

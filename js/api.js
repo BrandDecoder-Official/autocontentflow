@@ -18,7 +18,7 @@ export async function triggerWalletSync() {
         });
         const res = await response.json();
         if (res && res.tenant && res.tenant.totalPoints !== undefined) {
-            updatePointsDisplay(res.tenant.totalPoints);
+            updatePointsDisplay(res.tenant.totalPoints, res.tenant.tier);
             if (typeof window.refreshAuditLogs === 'function') {
                 await window.refreshAuditLogs();
             }

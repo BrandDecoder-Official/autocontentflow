@@ -2,7 +2,8 @@
 import { STATE } from './config.js'; 
 import { MISSION, buildImageGenerationContextKey, markImageRegenerationRequired, recordGeneratedImageBatch, ensureSyntheticPublishMask, PUBLISH_MEDIA_MAX_TOTAL } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
-import { publishTaskAPI } from './api.js'; 
+import { publishTaskAPI, triggerWalletSync } from './api.js'; 
+import { applyPointDeduction, getBillingActionDisplayName } from './v9_finance.js'; 
 
 function normalizeAttachmentFilesForPublish() {
     return (MISSION.attachmentFiles || [])
@@ -970,6 +971,17 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
             
             if (response && response.success) {
                 const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
+                
+                const charged = Number(response.chargedPoints);
+                if (Number.isFinite(charged) && charged > 0) {
+                    await applyPointDeduction(
+                        charged,
+                        getBillingActionDisplayName('PUBLISH_POST', '社群發布')
+                    );
+                } else {
+                    await triggerWalletSync();
+                }
+
                 const chatBar = document.getElementById('agentChatBar'); if(chatBar) chatBar.classList.add('translate-y-full');
                 await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                 const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);

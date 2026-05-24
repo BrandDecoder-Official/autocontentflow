@@ -1,92 +1,74 @@
 ---
-description: Collaboration guardrails for minimal and approved changes
+description: 專案協作 guardrails：精簡變更、先確認現況再動手（中文敘述為主）
 alwaysApply: true
 ---
 
-# Project Guardrails
+# Project Guardrails（專案守則）
 
-- Do not modify unrelated code or "optimize" outside the approved scope.
-  - 只改這次同意的範圍，其他地方先不要動。
-- Before every code change:
-  1) analyze current behavior and impact,
-  2) report current status and proposed direction,
-  3) get user approval, then edit.
-  - 每次下手前，先說明現況和要怎麼改，得到同意再改。
-- Keep changes minimal and clean; avoid extra features, refactors, or speculative improvements.
-  - 能小改就不要大改，不順便加功能、不順便重構。
-- UI must follow existing design language (layout, colors, spacing, interaction patterns). Do not change visual style arbitrarily.
-  - 介面照原本風格做，不要突然換版型或配色。
-- Security is top priority in every change. Proactively prevent injection, XSS/CSRF/auth bypass, unsafe DOM rendering, and other exploit paths.
-  - 每次修改都先顧安全，避免注入、權限繞過、危險渲染等問題。
-- Treat bug-prevention as security work: avoid risky shortcuts that could allow malicious payload planting through data or UI flows.
-  - 不要走危險捷徑，避免 bug 變成安全漏洞。
+- 只改這次同意的範圍，不要順手「優化」無關程式。
+- **現況優先（situation-first）**：動手前須核對目前實際行為（必要時讀檔／搜尋）；在對話中簡要說明現況、影響範圍與依賴（例如模組、API），再提出改法；不得只靠推測而無依據。除非使用者明文說「直接改」或屬零風險純文案，否則先取得同意再改碼；與下列條款並存時從嚴。
+- **每次改碼前**：分析現況與影響 → 回報現況與預計方向 → 取得同意後再編輯。
+- 能小改就不要大改；不順便加功能、不順便重構。
+- 介面須符合既有設計語言（design language）：版型、配色、間距、互動；不要任意改視覺風格。
+- 安全為最高優先：主動避免注入、XSS／CSRF／認證繞過、不安全的 DOM 渲染等攻擊面。
+- 防 bug 即防安全：避免危險捷徑，以免惡意資料經資料流或 UI 被植入。
 
-# Product Context
+# Vibe Coding Flywheel（黏著迭代飛輪）
 
-- This project is a SaaS multi-tenant content platform.
-  - 這是一個 SaaS 多租戶內容平台。
-- Multi-platform publishing exists; some multi-platform parts are still in progress.
-  - 專案已有多平台發布，但還有一些功能還在做。
-- Preserve tenant isolation assumptions in all changes.
-  - 任何改動都不能破壞租戶隔離。
+- 預設以小步、可上線（shippable）、可回滾（reversible）的迴圈作為 **MVP（最小可行產品）** 節奏；同一對話串依序切換 **functional hats（職能視角）**：**PM（產品經理）→ Engineer（工程師）→ UX（使用者體驗）→ QA（品質保證）**。可由同一代理人擔任，但產出需標註當下職能。
+  1. **PM／Product**：目標與非目標、成功指標（success metrics）、優先級與取捨；開工前給建議。
+  2. **Engineer**：實作計畫、觸及模組、資料流與 **API** 契約（API contract）；完成實際程式變更。
+  3. **UX（desktop／行動）**：版面、可讀性、動效與狀態回饋、觸控／點擊區（tap targets）；遵守既有 design language（見上方 UI 守則）。
+  4. **QA**：逐步檢查與邊界情境；缺陷以重現步驟（repro steps）、預期／實際（expected／actual）回報；修復後依驗收標準（acceptance）核對。
+- 每一輪 flywheel 結束須至少一項可驗證（verifiable）成果；避免一次承諾跨層大改而無中途檢查點（checkpoint）。
 
-# Dual-Product Architecture Rules
+# Product Context（產品脈絡）
 
-- Keep clear product boundaries: Meta platform workflow and platform-agnostic content generation are separate product lines.
-  - Meta 流程和通用內容生成要分開，不要混在一起。
-- Build reusable capabilities (scripting, storyboarding, generation orchestration, asset lifecycle) as modular services that can be invoked by internal APIs/agents.
-  - 可重用能力要模組化，之後才能被 API 或 Agent 重複使用。
-- Enforce tenant isolation at data/model/query boundaries whenever features touch task, asset, credential, or publish records.
-  - 只要碰到任務、素材、憑證、發布資料，都要確保租戶資料不會串到別人。
-- Isolate platform-specific logic (Meta tokens, publish policies, endpoint contracts) behind adapter-style modules; do not leak it into core generation logic.
-  - 平台專屬邏輯要收在 adapter，不要寫進核心生成流程。
-- Require traceability and rollback safety for task-critical flows (taskId-based state transitions, audit logs, and idempotent operations for publish/billing-sensitive actions).
-  - 關鍵流程要可追蹤、可回滾，重試也不能造成重複扣費或重複發布。
+- 本專案為 **SaaS** 多租戶內容平台。
+- 已支援多平台發布，部分能力仍在迭代。
+- 任何改動不得破壞租戶隔離（tenant isolation）。
 
-# Point Deduction Rule
+# Frontend Surfaces（前端介面概覽）
 
-- Point deduction and pricing logic is backend-owned.
-  - 扣點和定價以後端規則為準。
-- If deduction behavior is involved, request backend code/context first.
-  - 只要碰到扣點，先看後端邏輯再動手。
-- Do not make frontend-only assumptions or unilateral point-rule changes.
-  - 不要只靠前端猜規則，也不要自己改點數規則。
+- 租戶主應用由 **`index.html`** 載入，使用 **`js/`** 下 **ES modules**（例如 `agent_v9_core.js`、`v9_state.js`、`v9_funnel*.js`、`api.js`、`config.js`）；後端基底網址在 `js/config.js` 的 `CONFIG.CLOUD_RUN_URL`。
+- 環境或網域變更時優先核對 `config.js`。
+- `js/main.js` 可能為舊版啟動路徑；除非任務明指 `main.js`，否則以 **`index.html`** 及其 inline **module** 匯入鏈為準；改動前先確認是否仍被引用。
+- `s_admin/` 為獨立超管（super-admin）介面（自有 HTML／JS）；管理流程與憑證須與租戶應用隔離。
 
-# Anti-Drift Execution Rules
+# Dual-Product Architecture Rules（雙產品線架構）
 
-- Outcome lock before implementation: define one measurable outcome and explicit non-goals for each task before coding.
-  - 開始前先說清楚這次要完成什麼，也要說這次不做什麼。
-- Mini-spec gate for cross-flow work: if a change touches multiple modules or workflow stages, require a mini spec (goal, boundaries, acceptance, risks) first.
-  - 只要跨多個模組或流程，先寫一份迷你規格再開始做。
-- Plan as execution contract: list touched modules, data flow, failure handling, and rollback path before implementation.
-  - 先寫好會改哪裡、資料怎麼走、失敗怎麼補救、怎麼回滾。
-- Acceptance-first delivery: define test/verification steps with pass criteria before coding; implementation must map back to acceptance items.
-  - 先訂驗收和測試，再開發；做完要能對照驗收條件。
-- Escalate ambiguity early: if requirements conflict, constraints are missing, or risk is unclear, pause and ask for clarification before editing.
-  - 如果需求有衝突或不清楚，先問清楚再改，不要硬做。
+- 清楚區隔產品邊界：**Meta** 平台流程與通用內容生成為不同產品線，勿混用。
+- 可重用能力（腳本、分鏡、生成編排、素材生命週期）應模組化為服務，供內部 **API** 或 **Agent** 呼叫。
+- 凡涉及任務、素材、憑證、發布紀錄，在資料／模型／查詢邊界落實租戶隔離。
+- 平台專屬邏輯（**Meta** token、發布政策、endpoint 契約）收在 **adapter** 式模組後方，勿洩漏進核心生成邏輯。
+- 任務關鍵流程須可追溯、可回滾：以 **taskId** 為基礎的狀態轉移、稽核紀錄、對發布／計費敏感動作採 **idempotent（冪等）** 操作；重試不得造成重複扣費或重複發布。
 
-# Glossary (Beginner-Friendly)
+# Point Deduction Rule（扣點規則）
 
-- BMad (Breakthrough Method for Agile AI-Driven Development)
-  - 白話：把 AI 當成一個小團隊來合作（像 PM、工程師、QA 分工），一步一步完成需求。
-- SpecKit
-  - 白話：把需求寫清楚再開工的流程（Rules -> Spec -> Plan -> Tasks），避免 AI 做偏。
-- Rule
-  - 白話：先訂好「不能踩線」與「一定要做」的原則。
-- Spec
-  - 白話：這次功能要做什麼、不做什麼、什麼算完成。
-- Plan
-  - 白話：技術上要改哪裡、資料怎麼走、失敗怎麼補救。
-- Tasks
-  - 白話：把工作拆成可以一條一條完成的小步驟。
+- 扣點與定價邏輯以後端為準。
+- 涉及扣點行為時，先取得後端程式／脈絡再動手。
+- 勿只憑前端臆測規則，或單方面改點數規則。
 
-# Onion Theory Execution Rule
+# Anti-Drift Execution Rules（防漂移執行）
 
-- Work from core goal outward in layers; do not force one-shot, all-in changes.
-  - 先抓核心目標，再一層一層完成；不要一次大改想一步到位。
-- Each layer must be small, testable, and reversible before moving deeper.
-  - 每一層都要小、可驗收、可回退，確認穩定後再進下一層。
-- If a proposed change risks architecture stability, split it into smaller iterations first.
-  - 只要改動可能影響架構穩定，就先拆小步驟迭代，不要硬切。
-- Prioritize direction correctness over raw speed; avoid "fast but fragile" delivery.
-  - 先確保方向正確，再追求速度，避免「快但脆弱」的交付。
+- 實作前鎖定成果：每次任務須有一個可衡量成果與明確「非目標」。
+- 跨流程／多模組改動須先過迷你規格（mini spec）：目標、邊界、驗收（acceptance）、風險。
+- 計畫即執行契約：實作前列出觸及模組、資料流、失敗處理與回滾路徑。
+- 驗收優先：寫碼前先定測試／驗證步驟與通過標準；實作須對應驗收項。
+- 歧義早升級：需求衝突、限制不清或風險不明時，先釐清再編輯，勿硬做。
+
+# Glossary（新手向名詞）
+
+- **BMad**（Breakthrough Method for Agile AI-Driven Development）：把 **AI** 當成小團隊協作（**PM**、工程師、**QA** 等分工），逐步完成需求。
+- **SpecKit**：需求寫清楚再開工的流程（Rule → Spec → Plan → Tasks），避免 **AI** 做偏。
+- **Rule**：先訂「不能踩線」與「必須做到」的原則。
+- **Spec**：本功能做什麼、不做什麼、怎樣算完成。
+- **Plan**：技術上改哪裡、資料怎麼走、失敗如何補救。
+- **Tasks**：拆成可逐項完成的小步驟。
+
+# Onion Theory（洋蔥理論執行）
+
+- 由核心目標向外逐層完成，不要一次全切。
+- 每一層要小、可測、可逆；穩定後再進下一層。
+- 若改動可能動搖架構穩定，先拆更小迭代。
+- 寧可先確保方向正確，再追速度；避免「快但脆弱（fast but fragile）」的交付。
