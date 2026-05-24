@@ -202,6 +202,14 @@ export function createSkillUI(html) {
         window.renderQuickReplies();
     }
 
+    // 🚀 手機端自動切換至「工作區」頁籤以展示後續卡片
+    if (workspaceCards) {
+        const tabBtnWorkspace = document.getElementById('tabBtnWorkspace');
+        if (tabBtnWorkspace && window.innerWidth < 1024) {
+            tabBtnWorkspace.click();
+        }
+    }
+
     if (workspaceCards) {
         const pane = document.getElementById('workspaceScrollContainer') || document.getElementById('workspacePane');
         if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
@@ -467,7 +475,7 @@ export function initSplitPaneLayout() {
         </div>
 
         <!-- Right Workspace Pane -->
-        <div id="workspacePane" class="hidden lg:flex lg:w-[60%] h-full flex-col p-4 lg:p-8 relative bg-slate-900/10 z-10 overflow-hidden">
+        <div id="workspacePane" class="hidden lg:flex flex flex-col lg:w-[60%] w-full h-full p-4 lg:p-8 relative bg-slate-900/10 z-10 overflow-hidden">
             <!-- HUD Panel (Fixed/Sticky at the top) -->
             <div id="missionHud" class="relative z-20 w-full max-w-2xl mx-auto mb-4 flex-none"></div>
 
