@@ -624,12 +624,18 @@ async function analyzeReferences(req, res) {
 
         let billingResult = null;
         if (billingService && billingService.chargeAndLog) {
+            const tokensUsed = aiResponse.usageMetadata?.totalTokenCount || 0;
             billingResult = await billingService.chargeAndLog({
                 uid: tenantId,
                 actionType: 'ANALYZE_REFERENCES',
                 multiplier: 1,
                 referenceId: `analyze_${Date.now()}`,
-                metrics: { imageCount: aiReferences.length },
+                metrics: { 
+                    imageCount: aiReferences.length,
+                    geminiTokensUsed: tokensUsed,
+                    inTokens: aiResponse.usageMetadata?.promptTokenCount || 0,
+                    outTokens: aiResponse.usageMetadata?.candidatesTokenCount || 0
+                },
                 req
             });
         }
