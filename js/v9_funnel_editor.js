@@ -642,12 +642,13 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         const thumbWrap = ui.querySelector('#finalThumbScrollWrap');
         const thumbStrip = ui.querySelector('#finalThumbStrip');
         if (thumbWrap && thumbStrip) {
-            if (n === 0) {
+            const attCount = normalizeAttachmentFilesForPublish().length;
+            if (n === 0 && attCount === 0) {
                 thumbWrap.classList.add('hidden');
                 thumbStrip.innerHTML = '';
             } else {
                 thumbWrap.classList.remove('hidden');
-                thumbStrip.innerHTML = slots.map((s, flatI) => {
+                const synthHtml = slots.map((s, flatI) => {
                     const u = s.img.finalUrl || s.img.imageUrl || '';
                     const m = ensureSyntheticPublishMask(s.batchId, (s.batch.images || []).length);
                     const on = !!m[s.imageIndex];
@@ -671,6 +672,21 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                         </label>
                     </div>`;
                 }).join('');
+
+                const attachHtml = normalizeAttachmentFilesForPublish().map((af, idx) => {
+                    const u = af.imageUrl || af.dataUrl || af.data || '';
+                    return `
+                    <div class="snap-start shrink-0 flex flex-col items-center gap-1 w-[4.85rem] sm:w-[5.35rem] opacity-75">
+                        <div class="relative w-[4.25rem] h-[4.25rem] sm:w-[4.75rem] sm:h-[4.75rem] rounded-xl overflow-hidden border-[3px] border-dashed border-indigo-500/50 bg-slate-800 shadow-md">
+                            <img src="${u}" alt="" class="w-full h-full object-cover pointer-events-none" loading="lazy">
+                            <span class="pointer-events-none absolute top-0.5 left-0.5 min-w-[1.1rem] h-5 flex items-center justify-center bg-indigo-950/80 text-[8px] font-black text-indigo-300 px-1 rounded border border-indigo-500/20 leading-none">附件</span>
+                            <span class="pointer-events-none absolute bottom-1 right-1 min-w-[1.5rem] h-6 px-0.5 rounded-full bg-indigo-600 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md">✓</span>
+                        </div>
+                        <div class="text-[9px] text-slate-500 font-bold text-center min-h-[40px] py-2">固定發佈</div>
+                    </div>`;
+                }).join('');
+
+                thumbStrip.innerHTML = synthHtml + attachHtml;
 
                 thumbStrip.querySelectorAll('.thumb-preview-btn').forEach((btn) => {
                     btn.onclick = () => {
