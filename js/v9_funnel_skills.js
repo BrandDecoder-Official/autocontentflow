@@ -1223,7 +1223,7 @@ function updateSnapPlatUI() {
 }
 
 // 綁定檔案上傳拍照
-document.addEventListener('DOMContentLoaded', () => {
+function initQuickSnapEvents() {
     const uploadArea = document.getElementById('quickSnapUploadArea');
     const fileInput = document.getElementById('quickSnapFileInput');
     const previewArea = document.getElementById('quickSnapPreviewArea');
@@ -1251,7 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error("圖片壓縮失敗：", err);
-                if (window.showError) window.showError("圖片讀取失敗，請重新上傳。");
+                showError("圖片讀取失敗，請重新上傳。");
             }
         };
     }
@@ -1301,12 +1301,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const topicText = topicInput ? topicInput.value.trim() : '';
 
             if (!quickSnapUploadedDataUrl) {
-                if (window.showError) window.showError("請先拍照或上傳一張當下的現場照片。");
+                showError("請先拍照或上傳一張當下的現場照片。");
                 return;
             }
 
             if (!topicText) {
-                if (window.showError) window.showError("請寫一兩句描述您當下的靈感主題。");
+                showError("請寫一兩句描述您當下的靈感主題。");
                 return;
             }
 
@@ -1357,7 +1357,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (err) {
                 console.error("隨手記建檔失敗：", err);
-                if (window.showError) window.showError(`暫存失敗：${err.message}`);
+                showError(`暫存失敗：${err.message}`);
             } finally {
                 if (spinner) spinner.classList.add('hidden');
                 if (btnText) btnText.innerText = "💾 閃電存檔至進行中";
@@ -1365,5 +1365,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
     }
-});
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initQuickSnapEvents);
+} else {
+    initQuickSnapEvents();
+}
 
