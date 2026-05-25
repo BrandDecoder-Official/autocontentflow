@@ -309,7 +309,7 @@ async function generateImageFromDraft(req, res) {
             }
         }
 
-        await docRef.update({ social_post_draft: editedCaption, status: 'PROCESSING_IMAGES' });
+        await docRef.update({ social_post_draft: editedCaption || taskData.social_post_draft || "", status: 'PROCESSING_IMAGES' });
 
         const finalImagesArray = [];
         let totalUploadedBytes = 0;

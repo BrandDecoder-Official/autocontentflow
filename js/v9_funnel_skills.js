@@ -1280,6 +1280,7 @@ window.closeQuickSnapModal = window.closeSmartExpressModal;
 function updateSnapPlatUI() {
     const fbBtn = document.getElementById('snapPlatFB');
     const igBtn = document.getElementById('snapPlatIG');
+    const thrBtn = document.getElementById('snapPlatTHREADS');
     if (!fbBtn || !igBtn) return;
 
     if (quickSnapSelectedPlats.includes('FB')) {
@@ -1292,6 +1293,14 @@ function updateSnapPlatUI() {
         igBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-pink-500/50 bg-pink-600/20 text-pink-300";
     } else {
         igBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500";
+    }
+
+    if (thrBtn) {
+        if (quickSnapSelectedPlats.includes('THREADS')) {
+            thrBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-purple-500/50 bg-purple-600/20 text-purple-300";
+        } else {
+            thrBtn.className = "snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500";
+        }
     }
 }
 
@@ -1366,6 +1375,7 @@ function initSmartExpressEvents() {
     // 平台切換按鈕綁定
     const fbBtn = document.getElementById('snapPlatFB');
     const igBtn = document.getElementById('snapPlatIG');
+    const thrBtn = document.getElementById('snapPlatTHREADS');
     if (fbBtn) {
         fbBtn.onclick = () => {
             if (quickSnapSelectedPlats.includes('FB')) {
@@ -1383,6 +1393,17 @@ function initSmartExpressEvents() {
                 quickSnapSelectedPlats = quickSnapSelectedPlats.filter(p => p !== 'IG');
             } else {
                 quickSnapSelectedPlats.push('IG');
+            }
+            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['FB'];
+            updateSnapPlatUI();
+        };
+    }
+    if (thrBtn) {
+        thrBtn.onclick = () => {
+            if (quickSnapSelectedPlats.includes('THREADS')) {
+                quickSnapSelectedPlats = quickSnapSelectedPlats.filter(p => p !== 'THREADS');
+            } else {
+                quickSnapSelectedPlats.push('THREADS');
             }
             if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['FB'];
             updateSnapPlatUI();
@@ -1549,9 +1570,35 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
 
         MISSION.currentTaskId = draftRes.taskId || MISSION.currentTaskId;
         MISSION.currentDraft = draftRes.draftContent;
-        MISSION.currentCaption = draftRes.draftContent.post_caption;
-        MISSION.currentHashtags = draftRes.draftContent.hashtags || [];
-        MISSION.currentCaptions = { UNIFIED: draftRes.draftContent.post_caption };
+
+        let extractedCaption = '';
+        if (draftRes.draftContent) {
+            if (typeof draftRes.draftContent.captions === 'object') {
+                extractedCaption = draftRes.draftContent.captions.UNIFIED || 
+                                   draftRes.draftContent.captions.FB || 
+                                   draftRes.draftContent.captions.IG || 
+                                   draftRes.draftContent.captions.THREADS || '';
+            } else if (draftRes.draftContent.post_caption) {
+                extractedCaption = draftRes.draftContent.post_caption;
+            }
+        }
+        
+        MISSION.currentCaption = extractedCaption;
+        MISSION.currentCaptions = { 
+            UNIFIED: extractedCaption,
+            FB: draftRes.draftContent?.captions?.FB || extractedCaption,
+            IG: draftRes.draftContent?.captions?.IG || extractedCaption,
+            THREADS: draftRes.draftContent?.captions?.THREADS || extractedCaption
+        };
+
+        MISSION.currentHashtags = { UNIFIED: [] };
+        if (draftRes.draftContent?.hashtags) {
+            if (Array.isArray(draftRes.draftContent.hashtags)) {
+                MISSION.currentHashtags.UNIFIED = draftRes.draftContent.hashtags;
+            } else if (typeof draftRes.draftContent.hashtags === 'object') {
+                MISSION.currentHashtags = { ...draftRes.draftContent.hashtags };
+            }
+        }
 
         const actionsPricing = SYSTEM_DB.pricing?.actions || {};
         const draftPrice = actionsPricing['GENERATE_DRAFT']?.retailPoints || 10;
@@ -1574,7 +1621,7 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
             const imgRes = await API.generateImageFromDraftAPI({
                 taskId: MISSION.currentTaskId,
                 tenantId: STATE.uid,
-                editedCaption: draftRes.draftContent.post_caption,
+                editedCaption: MISSION.currentCaption,
                 editedPanels: draftRes.draftContent.panels || [],
                 universe: MISSION.universe,
                 taskMode: 'GENERATE',
@@ -1605,7 +1652,7 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
                     imagePersistNote ? { persistNote: imagePersistNote } : {}
                 );
 
-                recordGeneratedImageBatch(imgRes.images, draftRes.draftContent.post_caption);
+                recordGeneratedImageBatch(imgRes.images, MISSION.currentCaption);
                 await renderSmartExpressReviewCard(MISSION.currentTaskId);
             } else {
                 throw new Error(imgRes.message || "未能取得 AI 風格化圖片。");
@@ -1721,7 +1768,20 @@ export async function renderSmartExpressReviewCard(taskId) {
     if (MISSION.quickSnapMode === 'AI_GEN' && (!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0)) {
         const task = (window.tempTaskCache || []).find(t => (t.id || t._id || t.taskId) === taskId);
         const imgs = task ? (task.images || task.agentData?.generatedImages || []) : [];
-        const caption = task ? (task.social_post_final || task.social_post_draft || task.draftContent?.post_caption || '') : '';
+        let caption = '';
+        if (task) {
+            caption = task.social_post_final || task.social_post_draft || '';
+            if (!caption && task.draftContent) {
+                if (typeof task.draftContent.captions === 'object') {
+                    caption = task.draftContent.captions.UNIFIED || 
+                              task.draftContent.captions.FB || 
+                              task.draftContent.captions.IG || 
+                              task.draftContent.captions.THREADS || '';
+                } else if (task.draftContent.post_caption) {
+                    caption = task.draftContent.post_caption;
+                }
+            }
+        }
         if (imgs.length > 0) {
             recordGeneratedImageBatch(imgs, caption);
         }
