@@ -1362,7 +1362,12 @@ function initLocationSearch() {
         if (!q) return;
         if (icon) icon.textContent = '⏳';
         btn.disabled = true;
-        results.innerHTML = '';
+        results.innerHTML = `
+            <div class="px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
+                <div class="w-3.5 h-3.5 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>正在搜尋周邊地標...</span>
+            </div>
+        `;
         results.classList.remove('hidden');
         try {
             const lat = quickSnapUserCoords?.latitude || '';

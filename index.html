@@ -151,7 +151,7 @@
                 <button type="button" onclick="closeQuickSnapModal()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500/80 transition-colors">✕</button>
             </div>
             
-            <div class="p-5 overflow-y-auto flex-1 space-y-4">
+            <div class="p-5 overflow-y-auto overflow-x-hidden w-full max-w-full flex-1 space-y-4">
                 <!-- 拍照與上傳區 -->
                 <div class="space-y-2">
                     <label class="text-[10px] text-slate-400 font-bold block">1. 拍攝照片或上傳素材</label>
@@ -229,14 +229,14 @@
                 <div class="space-y-1.5 pt-1.5 border-t border-white/5" id="quickSnapLocationSection">
                     <label class="text-[10px] text-slate-400 font-bold block">5. 📍 打卡地標 (可選，支援 FB / IG / Threads)</label>
                     <div class="relative">
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 items-center">
                             <input type="text" id="quickSnapLocationInput"
                                 placeholder="搜尋店家或地點名稱，例如：田妹子陝西料理"
-                                class="flex-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none placeholder-slate-600"
+                                class="flex-1 min-w-0 bg-slate-900 border border-white/10 rounded-xl px-3 h-10 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none placeholder-slate-600"
                                 autocomplete="off">
                             <button type="button" id="btnSearchLocation"
-                                class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 flex-shrink-0">
-                                <span id="locationSearchIcon">🔍</span>
+                                class="bg-slate-700 hover:bg-slate-600 text-white w-10 h-10 rounded-xl transition-all active:scale-95 flex items-center justify-center flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span id="locationSearchIcon" class="text-xs">🔍</span>
                             </button>
                         </div>
                         <!-- 搜尋結果下拉清單 -->
