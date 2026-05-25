@@ -210,12 +210,14 @@ export function createSkillUI(html) {
         }
     }
 
-    if (workspaceCards) {
-        const pane = document.getElementById('workspaceScrollContainer') || document.getElementById('workspacePane');
-        if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
-    } else {
-        scrollDown();
-    }
+    setTimeout(() => {
+        if (workspaceCards) {
+            const pane = document.getElementById('workspaceScrollContainer') || document.getElementById('workspacePane');
+            if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: 'smooth' });
+        } else {
+            scrollDown();
+        }
+    }, 100);
     
     return div;
 }
@@ -730,41 +732,41 @@ export function updateMissionHud() {
     }
 
     hud.innerHTML = `
-        <div class="glass-panel p-3.5 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-3 text-slate-200 text-xs transition-all duration-300 animate-fade-in">
+        <div class="glass-panel p-2.5 sm:p-3.5 rounded-2xl border border-white/10 shadow-2xl relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-3 text-slate-200 text-xs transition-all duration-300 animate-fade-in">
             <!-- Glow background overlay -->
             <div class="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500 rounded-full blur-[40px] opacity-15"></div>
             
-            <div class="flex-1 min-w-0 space-y-1">
-                <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full ${pulseColor} animate-pulse flex-shrink-0"></span>
-                    <span class="text-[9px] font-black uppercase tracking-widest text-indigo-400">${stepText}</span>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">${MISSION.currentTaskId || 'No ID'}</span>
+            <div class="flex-1 min-w-0 space-y-0.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="w-1.5 h-1.5 rounded-full ${pulseColor} animate-pulse flex-shrink-0"></span>
+                    <span class="text-[9px] font-black uppercase tracking-widest text-indigo-400 whitespace-nowrap">${stepText}</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-mono truncate max-w-[100px] sm:max-w-none" title="${MISSION.currentTaskId || 'No ID'}">${MISSION.currentTaskId || 'No ID'}</span>
                 </div>
-                <h2 class="text-sm font-black text-white truncate pr-4" title="${MISSION.topic || '未命名任務'}">
+                <h2 class="text-xs sm:text-sm font-black text-white truncate pr-4" title="${MISSION.topic || '未命名任務'}">
                     ${MISSION.topic || '未命名任務'}
                 </h2>
             </div>
             
-            <div class="flex items-center gap-4 flex-wrap md:flex-nowrap flex-shrink-0">
+            <div class="flex items-center gap-3 sm:gap-4 flex-wrap md:flex-nowrap flex-shrink-0 text-[10px] sm:text-xs">
                 <!-- Specs -->
-                <div class="flex flex-col gap-0.5 text-right">
-                    <span class="text-[10px] text-slate-400 font-bold">${MISSION.universe === 'COMIC' ? '🎨 動漫宇宙' : '📸 寫實宇宙'}</span>
-                    <span class="text-[9px] text-slate-500">${panelLabel} · ${colorLabel}</span>
+                <div class="flex items-center md:flex-col gap-1 md:gap-0.5 md:text-right">
+                    <span class="text-[9px] sm:text-[10px] text-indigo-300 md:text-slate-400 font-bold">${MISSION.universe === 'COMIC' ? '🎨 動漫宇宙' : '📸 寫實宇宙'}</span>
+                    <span class="text-[9px] text-slate-400 md:text-slate-500">(${panelLabel} · ${colorLabel})</span>
                 </div>
                 
                 <div class="h-6 w-px bg-white/10 hidden md:block"></div>
                 
                 <!-- Characters -->
-                <div class="flex flex-col gap-0.5">
-                    <span class="text-[10px] text-slate-400 font-bold block mb-0.5">登場人物</span>
+                <div class="flex items-center md:flex-col gap-1 md:gap-0.5">
+                    <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block md:mb-0.5">登場人物:</span>
                     ${charsHtml}
                 </div>
                 
                 <div class="h-6 w-px bg-white/10 hidden md:block"></div>
                 
                 <!-- Platforms -->
-                <div class="flex flex-col gap-0.5">
-                    <span class="text-[10px] text-slate-400 font-bold block mb-0.5">發佈平台</span>
+                <div class="flex items-center md:flex-col gap-1 md:gap-0.5">
+                    <span class="text-[9px] sm:text-[10px] text-slate-400 font-bold block md:mb-0.5">發佈平台:</span>
                     ${platHtml}
                 </div>
             </div>
