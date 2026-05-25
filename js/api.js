@@ -219,8 +219,8 @@ export async function analyzeReferencesAPI(payload) {
 }
 
 // 📍 14. 打卡地標搜尋 API
-export async function searchLocationsAPI(query) {
-    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/locations/search?query=${encodeURIComponent(query)}&tenantId=${STATE.uid}`, {
+export async function searchLocationsAPI(query, lat = '', lng = '') {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/locations/search?query=${encodeURIComponent(query)}&tenantId=${STATE.uid}&lat=${lat}&lng=${lng}`, {
         method: 'GET',
         headers: { 
             'Content-Type': 'application/json', 

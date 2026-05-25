@@ -422,18 +422,58 @@ Format your output exactly as JSON:
                 return res.status(200).json({ success: true, data: [] });
             }
 
+            const lat = req.query.lat ? parseFloat(req.query.lat) : null;
+            const lng = req.query.lng ? parseFloat(req.query.lng) : null;
+
             const envConfig = require('../config/env.config');
+            const googleMapsKey = process.env.GOOGLE_MAPS_API_KEY || envConfig.GOOGLE_MAPS_API_KEY;
             const token = envConfig.FB_PAGE_TOKEN;
             let results = [];
 
-            // 1. 嘗試呼叫 Meta Graph API 進行 Page/Place 搜尋
-            if (token) {
+            // 1. 優先使用 Google Places API (Text Search)
+            if (googleMapsKey) {
                 try {
-                    const searchUrl = `https://graph.facebook.com/v25.0/pages/search?q=${encodeURIComponent(query)}&fields=id,name,location&access_token=${token}&limit=10`;
+                    let googleUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&key=${googleMapsKey}&language=zh-TW`;
+                    if (lat && lng) {
+                        googleUrl += `&location=${lat},${lng}&radius=10000`;
+                    }
+                    const gRes = await fetch(googleUrl);
+                    const gData = await gRes.json();
+                    if (gData && gData.results && gData.results.length > 0) {
+                        results = gData.results.map(item => ({
+                            id: String(item.place_id),
+                            name: String(item.name),
+                            address: item.formatted_address || "台灣地區",
+                            latitude: item.geometry?.location?.lat || 0.0,
+                            longitude: item.geometry?.location?.lng || 0.0
+                        }));
+                    }
+                } catch (gErr) {
+                    console.warn("⚠️ Google Places API 搜尋失敗，嘗試切換至 Meta API:", gErr.message);
+                }
+            }
+
+            // 2. 備援使用 Meta Graph API
+            if (results.length === 0 && token) {
+                try {
+                    let searchUrl = `https://graph.facebook.com/v25.0/pages/search?q=${encodeURIComponent(query)}&fields=id,name,location&access_token=${token}&limit=10`;
+                    if (lat && lng) {
+                        searchUrl = `https://graph.facebook.com/v25.0/search?type=place&q=${encodeURIComponent(query)}&center=${lat},${lng}&distance=10000&fields=id,name,location&access_token=${token}&limit=10`;
+                    }
                     const apiRes = await fetch(searchUrl);
                     const apiData = await apiRes.json();
-                    if (apiData && apiData.data) {
-                        results = apiData.data.map(item => ({
+                    
+                    let list = apiData?.data || [];
+                    // 若 type=place 失敗或查無資料，降級使用 pages/search
+                    if (list.length === 0 && lat && lng) {
+                        const fallbackUrl = `https://graph.facebook.com/v25.0/pages/search?q=${encodeURIComponent(query)}&fields=id,name,location&access_token=${token}&limit=10`;
+                        const fallbackRes = await fetch(fallbackUrl);
+                        const fallbackData = await fallbackRes.json();
+                        list = fallbackData?.data || [];
+                    }
+
+                    if (list.length > 0) {
+                        results = list.map(item => ({
                             id: String(item.id),
                             name: String(item.name),
                             address: item.location?.street || item.location?.city || "台灣地區",
@@ -442,50 +482,11 @@ Format your output exactly as JSON:
                         }));
                     }
                 } catch (apiErr) {
-                    console.warn("⚠️ Meta API Location Search 失敗，切換至 AI 模擬搜尋:", apiErr.message);
+                    console.warn("⚠️ Meta API Location Search 失敗:", apiErr.message);
                 }
             }
 
-            // 2. Fallback: 使用 Gemini 大腦模擬地標搜尋，產生極為真實的打卡點
-            if (results.length === 0) {
-                try {
-                    const prompt = `
-You are a location database helper.
-The user is searching for a location/restaurant in Taiwan with query: "${query}".
-Please output a JSON array of up to 5 matching realistic locations.
-Format your output exactly as a JSON array, no markdown wrapper, no other text:
-[
-  {
-    "id": "100234857483921",
-    "name": "地標名稱",
-    "address": "詳細地址(如: 桃園市中壢區龍吉二街...",
-    "latitude": 24.957,
-    "longitude": 121.225
-  }
-]
-`;
-                    const response = await visionAi.models.generateContent({
-                        model: MODELS.AI_MODEL_TEXT,
-                        contents: prompt
-                    });
-                    
-                    const rawText = response.text.trim();
-                    const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-                    results = JSON.parse(cleanJson);
-                } catch (aiErr) {
-                    console.error("❌ AI Location Search 也失敗，使用極簡預設:", aiErr.message);
-                    results = [
-                        {
-                            id: "112233445566778",
-                            name: `${query}`,
-                            address: "台灣地區",
-                            latitude: 25.033,
-                            longitude: 121.565
-                        }
-                    ];
-                }
-            }
-
+            // 3. 🚨 拔除 Gemini AI 模擬（假的台灣地標），若無資料直接回傳空列表，確保真實性
             return res.status(200).json({ success: true, data: results });
 
         } catch (error) {

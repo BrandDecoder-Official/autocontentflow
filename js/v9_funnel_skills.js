@@ -1217,6 +1217,7 @@ let quickSnapSelectedPlats = ['FB'];
 let quickSnapUploadedDataUrl = '';
 let quickSnapSelectedChars = [];
 let quickSnapSelectedLocation = null; // { id, name, address }
+let quickSnapUserCoords = null; // { latitude, longitude }
 
 
 window.renderQuickSnapCharacters = function() {
@@ -1364,7 +1365,9 @@ function initLocationSearch() {
         results.innerHTML = '';
         results.classList.remove('hidden');
         try {
-            const res  = await API.searchLocationsAPI(q);
+            const lat = quickSnapUserCoords?.latitude || '';
+            const lng = quickSnapUserCoords?.longitude || '';
+            const res  = await API.searchLocationsAPI(q, lat, lng);
             const list = res?.data || [];
             if (list.length === 0) {
                 results.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400">未找到相關地標，請嘗試其他關鍵字</div>`;
@@ -1443,6 +1446,25 @@ window.openSmartExpressModal = function() {
     quickSnapUploadedDataUrl = '';
     quickSnapSelectedChars = [];
     quickSnapSelectedLocation = null;
+    quickSnapUserCoords = null;
+
+    // 試圖背景取得瀏覽器 GPS 定位以做為打卡搜尋定位加權 (Location Bias)
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                quickSnapUserCoords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                console.log("[Geolocation] 取得定位成功:", quickSnapUserCoords);
+            },
+            (err) => {
+                console.warn("[Geolocation] 無法取得定位:", err.message);
+                quickSnapUserCoords = null;
+            },
+            { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
+        );
+    }
 
     // 重設打卡地標 UI
     const locInput   = document.getElementById('quickSnapLocationInput');
