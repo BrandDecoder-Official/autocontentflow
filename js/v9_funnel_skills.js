@@ -2194,12 +2194,25 @@ export async function renderSmartExpressReviewCard(taskId) {
             MISSION.currentCaption = editedCaption;
             MISSION.currentCaptions = { UNIFIED: editedCaption };
 
-            // 關閉 Datepickers
-            if (fpDate) fpDate.destroy();
-            if (fpTime) fpTime.destroy();
+            // 執行載入動畫與按鈕禁用
+            const spinEl = ui.querySelector('#expressPublishSpinner');
+            if (spinEl) spinEl.classList.remove('hidden');
+            if (publishBtnText) {
+                publishBtnText.innerText = isScheduled ? "⏳ 正在排程部署中..." : "⏳ 正在發佈部署中...";
+            }
+            publishBtn.disabled = true;
 
-            // 執行發佈
-            releaseUI(ui);
+            const regenBtn = ui.querySelector('#btnExpressRegen');
+            if (regenBtn) {
+                regenBtn.disabled = true;
+                regenBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            const abandonBtn = ui.querySelector('#btnExpressAbandon');
+            if (abandonBtn) {
+                abandonBtn.disabled = true;
+                abandonBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+
             const spinId = 'spin_pub_' + Date.now();
             await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
 
@@ -2222,6 +2235,12 @@ export async function renderSmartExpressReviewCard(taskId) {
                 });
 
                 if (response && response.success) {
+                    // 成功時才關閉並銷毀 Datepickers
+                    if (fpDate) { fpDate.destroy(); fpDate = null; }
+                    if (fpTime) { fpTime.destroy(); fpTime = null; }
+
+                    releaseUI(ui);
+
                     const spEl = document.getElementById(spinId);
                     if (spEl) {
                         spEl.classList.remove('animate-spin', 'border-t-transparent');
@@ -2241,6 +2260,9 @@ export async function renderSmartExpressReviewCard(taskId) {
                     
                     await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
                     
+                    // 自動切回對話分頁 (行動端)
+                    document.getElementById('tabBtnChat')?.click();
+
                     const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);
                     endUi.querySelector('#btnRestart').onclick = () => {
                         releaseUI(endUi);
@@ -2256,6 +2278,23 @@ export async function renderSmartExpressReviewCard(taskId) {
                     spEl.classList.add('border-red-500');
                     document.getElementById(`text_${spinId}`).innerText = "連線失敗";
                 }
+
+                // 失敗時恢復按鈕狀態與載入動畫，提供重試機會
+                if (spinEl) spinEl.classList.add('hidden');
+                if (publishBtnText) {
+                    publishBtnText.innerText = isScheduled ? "📅 確認排程部署" : "🚀 立即部署發佈";
+                }
+                publishBtn.disabled = false;
+
+                if (regenBtn) {
+                    regenBtn.disabled = false;
+                    regenBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+                if (abandonBtn) {
+                    abandonBtn.disabled = false;
+                    abandonBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
+
                 showError(`操作失敗：${e.message}`);
             }
         };
