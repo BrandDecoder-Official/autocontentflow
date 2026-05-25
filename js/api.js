@@ -217,3 +217,17 @@ export async function analyzeReferencesAPI(payload) {
     triggerWalletSync();
     return data;
 }
+
+// 📍 14. 打卡地標搜尋 API
+export async function searchLocationsAPI(query) {
+    const response = await fetch(`${CONFIG.CLOUD_RUN_URL}/api/locations/search?query=${encodeURIComponent(query)}&tenantId=${STATE.uid}`, {
+        method: 'GET',
+        headers: { 
+            'Content-Type': 'application/json', 
+            'Authorization': `Bearer ${STATE.globalAuthToken}` 
+        }
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || '搜尋地標失敗');
+    return data;
+}

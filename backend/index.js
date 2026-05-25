@@ -66,6 +66,7 @@ app.get('/api/logs', taskController.getAuditLogs);
 app.post('/api/create-character', systemController.createCharacter); 
 app.post('/api/delete-character', systemController.deleteCharacter); 
 app.get('/api/system-options', systemController.getUiOptions); 
+app.get('/api/locations/search', systemController.searchLocations); 
 // 🚀 [新增] 品牌人設的 CRUD 路由
 app.post('/api/create-persona', systemController.createPersona);
 app.post('/api/delete-persona', systemController.deletePersona);

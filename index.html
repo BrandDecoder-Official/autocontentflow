@@ -224,6 +224,34 @@
                         <!-- Characters will be dynamically rendered here -->
                     </div>
                 </div>
+
+                <!-- 📍 打卡地標 (可選) -->
+                <div class="space-y-1.5 pt-1.5 border-t border-white/5" id="quickSnapLocationSection">
+                    <label class="text-[10px] text-slate-400 font-bold block">5. 📍 打卡地標 (可選，支援 FB / IG / Threads)</label>
+                    <div class="relative">
+                        <div class="flex gap-2">
+                            <input type="text" id="quickSnapLocationInput"
+                                placeholder="搜尋店家或地點名稱，例如：田妹子陝西料理"
+                                class="flex-1 bg-slate-900 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none placeholder-slate-600"
+                                autocomplete="off">
+                            <button type="button" id="btnSearchLocation"
+                                class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 flex-shrink-0">
+                                <span id="locationSearchIcon">🔍</span>
+                            </button>
+                        </div>
+                        <!-- 搜尋結果下拉清單 -->
+                        <div id="quickSnapLocationResults"
+                            class="hidden absolute left-0 right-0 top-full mt-1 bg-slate-800 border border-white/10 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto">
+                        </div>
+                    </div>
+                    <!-- 已選地標標籤 -->
+                    <div id="quickSnapLocationTag" class="hidden items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                        <span class="text-emerald-400 text-xs">📍</span>
+                        <span id="quickSnapLocationTagName" class="text-xs text-emerald-200 font-bold flex-1 truncate"></span>
+                        <button type="button" id="btnClearLocation"
+                            class="text-slate-400 hover:text-red-400 text-xs font-bold transition-colors ml-auto flex-shrink-0">✕ 取消</button>
+                    </div>
+                </div>
             </div>
             
             <div class="p-4 border-t border-white/10 bg-slate-900/50 flex flex-col gap-2 flex-shrink-0">

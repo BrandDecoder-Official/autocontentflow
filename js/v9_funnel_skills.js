@@ -1216,6 +1216,8 @@ function getEarlyImagePlanSuggestion(topicText) {
 let quickSnapSelectedPlats = ['FB'];
 let quickSnapUploadedDataUrl = '';
 let quickSnapSelectedChars = [];
+let quickSnapSelectedLocation = null; // { id, name, address }
+
 
 window.renderQuickSnapCharacters = function() {
     const container = document.getElementById('quickSnapCharacterList');
@@ -1341,6 +1343,100 @@ window.updateQuickSnapAiRecommendation = function() {
     banner.classList.remove('hidden');
 };
 
+// ==========================================
+// 📍 打卡地標搜尋與選取邏輯
+// ==========================================
+function initLocationSearch() {
+    const input    = document.getElementById('quickSnapLocationInput');
+    const btn      = document.getElementById('btnSearchLocation');
+    const results  = document.getElementById('quickSnapLocationResults');
+    const tag      = document.getElementById('quickSnapLocationTag');
+    const tagName  = document.getElementById('quickSnapLocationTagName');
+    const clearBtn = document.getElementById('btnClearLocation');
+    const icon     = document.getElementById('locationSearchIcon');
+    if (!input || !btn) return;
+
+    // Remove old listeners by cloning
+    const newBtn = btn.cloneNode(true);
+    btn.parentNode.replaceChild(newBtn, btn);
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+
+    const freshBtn   = document.getElementById('btnSearchLocation');
+    const freshInput = document.getElementById('quickSnapLocationInput');
+    const freshIcon  = document.getElementById('locationSearchIcon');
+
+    async function doSearch() {
+        const q = freshInput.value.trim();
+        if (!q) return;
+        freshIcon.textContent = '⏳';
+        freshBtn.disabled = true;
+        results.innerHTML = '';
+        results.classList.remove('hidden');
+        try {
+            const res  = await API.searchLocationsAPI(q);
+            const list = res?.data || [];
+            if (list.length === 0) {
+                results.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400">未找到相關地標，請嘗試其他關鍵字</div>`;
+            } else {
+                results.innerHTML = list.map((loc) => `
+                    <div class="location-result-item px-3 py-2.5 text-xs cursor-pointer hover:bg-slate-700 transition-colors border-b border-white/5 last:border-0"
+                         data-id="${loc.id}" data-name="${encodeURIComponent(loc.name)}" data-addr="${encodeURIComponent(loc.address || '')}">
+                        <div class="font-bold text-slate-100">📍 ${loc.name}</div>
+                        <div class="text-slate-400 mt-0.5 truncate">${loc.address || '台灣地區'}</div>
+                    </div>
+                `).join('');
+                results.querySelectorAll('.location-result-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        quickSnapSelectedLocation = {
+                            id:      el.dataset.id,
+                            name:    decodeURIComponent(el.dataset.name),
+                            address: decodeURIComponent(el.dataset.addr)
+                        };
+                        document.getElementById('quickSnapLocationTagName').textContent = quickSnapSelectedLocation.name;
+                        const tagEl = document.getElementById('quickSnapLocationTag');
+                        tagEl.classList.remove('hidden');
+                        tagEl.classList.add('flex');
+                        freshInput.value = '';
+                        results.classList.add('hidden');
+                    });
+                });
+            }
+        } catch(e) {
+            results.innerHTML = `<div class="px-4 py-3 text-xs text-red-400">搜尋失敗：${e.message}</div>`;
+        } finally {
+            freshIcon.textContent = '🔍';
+            freshBtn.disabled = false;
+        }
+    }
+
+    freshBtn.addEventListener('click', doSearch);
+    freshInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+
+    // Click outside to close
+    setTimeout(() => {
+        document.addEventListener('click', function locClickOutside(e) {
+            if (!freshInput?.contains(e.target) && !freshBtn?.contains(e.target) && !results?.contains(e.target)) {
+                results?.classList.add('hidden');
+            }
+        }, { once: false });
+    }, 100);
+
+    const clearBtnEl = document.getElementById('btnClearLocation');
+    if (clearBtnEl) {
+        const newClear = clearBtnEl.cloneNode(true);
+        clearBtnEl.parentNode.replaceChild(newClear, clearBtnEl);
+        document.getElementById('btnClearLocation').addEventListener('click', () => {
+            quickSnapSelectedLocation = null;
+            const tagEl = document.getElementById('quickSnapLocationTag');
+            tagEl.classList.add('hidden');
+            tagEl.classList.remove('flex');
+            document.getElementById('quickSnapLocationTagName').textContent = '';
+            document.getElementById('quickSnapLocationInput').value = '';
+        });
+    }
+}
+
 window.openSmartExpressModal = function() {
     const modal = document.getElementById('quickSnapModal');
     const panel = document.getElementById('quickSnapPanel');
@@ -1350,7 +1446,19 @@ window.openSmartExpressModal = function() {
     quickSnapSelectedPlats = ['FB'];
     quickSnapUploadedDataUrl = '';
     quickSnapSelectedChars = [];
-    
+    quickSnapSelectedLocation = null;
+
+    // 重設打卡地標 UI
+    const locInput   = document.getElementById('quickSnapLocationInput');
+    const locTag     = document.getElementById('quickSnapLocationTag');
+    const locTagName = document.getElementById('quickSnapLocationTagName');
+    const locResults = document.getElementById('quickSnapLocationResults');
+    if (locInput)   locInput.value = '';
+    if (locTag)     { locTag.classList.add('hidden'); locTag.classList.remove('flex'); }
+    if (locTagName) locTagName.textContent = '';
+    if (locResults) locResults.classList.add('hidden');
+    initLocationSearch();
+
     const fileInput = document.getElementById('quickSnapFileInput');
     if (fileInput) fileInput.value = '';
     
@@ -1668,6 +1776,8 @@ function initSmartExpressEvents() {
                         platforms: quickSnapSelectedPlats,
                         characters: quickSnapSelectedChars,
                         quickSnapMode: quickSnapMode,
+                        locationId:   quickSnapSelectedLocation ? quickSnapSelectedLocation.id   : null,
+                        locationName: quickSnapSelectedLocation ? quickSnapSelectedLocation.name : null,
                         sceneFiles: [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }]
                     }
                 };

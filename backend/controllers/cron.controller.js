@@ -102,10 +102,13 @@ async function executeScheduledTask(taskId, taskData) {
 
         console.log(`[Cron Controller] 🚀 啟動多平台連發：共 ${imageUrlsToPublish.length} 張圖 -> [${platforms.join(', ')}]`);
 
+        // 📍 打卡地標 (排程任務亦傳遞打卡地標)
+        const locationId = taskData.missionContext?.locationId || taskData.payload?.locationId || null;
+
         // 🚀 呼叫底層發送服務
-        if (platforms.includes('FB')) await socialService.publishToFacebookAPI(imageUrlsToPublish, captionToPublish);
-        if (platforms.includes('IG')) await socialService.publishToInstagramAPI(imageUrlsToPublish, captionToPublish);
-        if (platforms.includes('THREADS')) await socialService.publishToThreadsAPI(imageUrlsToPublish, captionToPublish);
+        if (platforms.includes('FB')) await socialService.publishToFacebookAPI(imageUrlsToPublish, captionToPublish, locationId);
+        if (platforms.includes('IG')) await socialService.publishToInstagramAPI(imageUrlsToPublish, captionToPublish, locationId);
+        if (platforms.includes('THREADS')) await socialService.publishToThreadsAPI(imageUrlsToPublish, captionToPublish, locationId);
 
         // 更新狀態為已發布，並紀錄時間
         await docRef.update({ 

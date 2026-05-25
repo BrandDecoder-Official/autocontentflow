@@ -411,6 +411,88 @@ Format your output exactly as JSON:
             return res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    // ==========================================
+    // 📍 API 6：搜尋打卡地標 (Meta API + Gemini 視覺/語意模擬)
+    // ==========================================
+    async searchLocations(req, res) {
+        try {
+            const query = req.query.query?.trim() || "";
+            if (!query) {
+                return res.status(200).json({ success: true, data: [] });
+            }
+
+            const envConfig = require('../config/env.config');
+            const token = envConfig.FB_PAGE_TOKEN;
+            let results = [];
+
+            // 1. 嘗試呼叫 Meta Graph API 進行 Page/Place 搜尋
+            if (token) {
+                try {
+                    const searchUrl = `https://graph.facebook.com/v25.0/pages/search?q=${encodeURIComponent(query)}&fields=id,name,location&access_token=${token}&limit=10`;
+                    const apiRes = await fetch(searchUrl);
+                    const apiData = await apiRes.json();
+                    if (apiData && apiData.data) {
+                        results = apiData.data.map(item => ({
+                            id: String(item.id),
+                            name: String(item.name),
+                            address: item.location?.street || item.location?.city || "台灣地區",
+                            latitude: item.location?.latitude || 0.0,
+                            longitude: item.location?.longitude || 0.0
+                        }));
+                    }
+                } catch (apiErr) {
+                    console.warn("⚠️ Meta API Location Search 失敗，切換至 AI 模擬搜尋:", apiErr.message);
+                }
+            }
+
+            // 2. Fallback: 使用 Gemini 大腦模擬地標搜尋，產生極為真實的打卡點
+            if (results.length === 0) {
+                try {
+                    const prompt = `
+You are a location database helper.
+The user is searching for a location/restaurant in Taiwan with query: "${query}".
+Please output a JSON array of up to 5 matching realistic locations.
+Format your output exactly as a JSON array, no markdown wrapper, no other text:
+[
+  {
+    "id": "100234857483921",
+    "name": "地標名稱",
+    "address": "詳細地址(如: 桃園市中壢區龍吉二街...",
+    "latitude": 24.957,
+    "longitude": 121.225
+  }
+]
+`;
+                    const response = await visionAi.models.generateContent({
+                        model: MODELS.AI_MODEL_TEXT,
+                        contents: prompt
+                    });
+                    
+                    const rawText = response.text.trim();
+                    const cleanJson = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                    results = JSON.parse(cleanJson);
+                } catch (aiErr) {
+                    console.error("❌ AI Location Search 也失敗，使用極簡預設:", aiErr.message);
+                    results = [
+                        {
+                            id: "112233445566778",
+                            name: `${query}`,
+                            address: "台灣地區",
+                            latitude: 25.033,
+                            longitude: 121.565
+                        }
+                    ];
+                }
+            }
+
+            return res.status(200).json({ success: true, data: results });
+
+        } catch (error) {
+            console.error("🔥 [搜尋地標] 失敗:", error);
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
 }
 
 module.exports = new SystemController();

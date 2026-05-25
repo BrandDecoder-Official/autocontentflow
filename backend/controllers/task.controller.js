@@ -453,6 +453,8 @@ async function publishTask(req, res) {
         const taskData = docSnap.data();
         const captionBase = finalCaption || taskData.social_post_final || taskData.social_post_draft;
         const platforms = resolvePlatformsFromTask(taskData);
+        // 📍 打卡地標 ID：優先取前端送來的，次取 DB 任務資料
+        const locationId = req.body.locationId || taskData.missionContext?.locationId || taskData.payload?.locationId || null;
         const rawHadPlatforms =
             (Array.isArray(taskData.payload?.platforms) && taskData.payload.platforms.length > 0) ||
             (Array.isArray(taskData.missionContext?.platforms) && taskData.missionContext.platforms.length > 0);
@@ -493,13 +495,13 @@ async function publishTask(req, res) {
                     ? multiCaptions[plat]
                     : captionBase;
             if (plat === 'FB') {
-                await socialService.publishToFacebookAPI(imageUrlsToPublish, caption);
+                await socialService.publishToFacebookAPI(imageUrlsToPublish, caption, locationId);
                 apiCalls++;
             } else if (plat === 'IG') {
-                await socialService.publishToInstagramAPI(imageUrlsToPublish, caption);
+                await socialService.publishToInstagramAPI(imageUrlsToPublish, caption, locationId);
                 apiCalls++;
             } else if (plat === 'THREADS') {
-                await socialService.publishToThreadsAPI(imageUrlsToPublish, caption);
+                await socialService.publishToThreadsAPI(imageUrlsToPublish, caption, locationId);
                 apiCalls++;
             }
         }

@@ -6,7 +6,7 @@ const config = require('../config/env.config.js');
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // 📘 Facebook 發文引擎
-async function publishToFacebookAPI(imageInput, message) {
+async function publishToFacebookAPI(imageInput, message, locationId = null) {
     const images = Array.isArray(imageInput) ? imageInput : [imageInput];
     const pageId = config.FB_PAGE_ID;
     const token = config.FB_PAGE_TOKEN;
@@ -20,6 +20,9 @@ async function publishToFacebookAPI(imageInput, message) {
             message: message,
             access_token: token
         });
+        if (locationId) {
+            params.append('place', locationId);
+        }
 
         const response = await fetch(url, { method: 'POST', body: params });
         const data = await response.json();
@@ -70,6 +73,9 @@ async function publishToFacebookAPI(imageInput, message) {
         const feedParams = new URLSearchParams();
         feedParams.append('message', message);
         feedParams.append('access_token', token);
+        if (locationId) {
+            feedParams.append('place', locationId);
+        }
         
         mediaIds.forEach((id, index) => {
             feedParams.append(`attached_media[${index}]`, JSON.stringify({ media_fbid: id }));
@@ -89,7 +95,7 @@ async function publishToFacebookAPI(imageInput, message) {
 }
 
 // 📸 Instagram 發文引擎
-async function publishToInstagramAPI(imageInput, caption) {
+async function publishToInstagramAPI(imageInput, caption, locationId = null) {
     const igUserId = config.IG_USER_ID; 
     const token = config.FB_PAGE_TOKEN;
     
@@ -100,6 +106,7 @@ async function publishToInstagramAPI(imageInput, caption) {
         console.log('📸 [Social Service] IG 單圖模式發佈中...');
         const containerUrl = `https://graph.facebook.com/v25.0/${igUserId}/media`;
         const containerParams = new URLSearchParams({ image_url: images[0], caption: caption, access_token: token });
+        if (locationId) containerParams.append('location_id', locationId);
         const containerRes = await fetch(containerUrl, { method: 'POST', body: containerParams });
         const containerData = await containerRes.json();
         if (containerData.error) throw new Error(`IG 單圖容器失敗: ${containerData.error.message}`);
@@ -126,6 +133,7 @@ async function publishToInstagramAPI(imageInput, caption) {
         console.log('📸 [Social Service] 正在將子圖片打包成 IG 相簿...');
         const carouselUrl = `https://graph.facebook.com/v25.0/${igUserId}/media`;
         const carouselParams = new URLSearchParams({ media_type: 'CAROUSEL', children: childIds.join(','), caption: caption, access_token: token });
+        if (locationId) carouselParams.append('location_id', locationId);
         const res = await fetch(carouselUrl, { method: 'POST', body: carouselParams });
         const data = await res.json();
         if (data.error) throw new Error(`IG 輪播主容器失敗: ${data.error.message}`);
@@ -146,7 +154,7 @@ async function publishToInstagramAPI(imageInput, caption) {
 }
 
 // 🧵 Threads 發佈引擎
-async function publishToThreadsAPI(imageInput, caption) {
+async function publishToThreadsAPI(imageInput, caption, locationId = null) {
     try {
         const token = config.THREADS_TOKEN;
         const images = Array.isArray(imageInput) ? imageInput : [imageInput];
@@ -154,8 +162,9 @@ async function publishToThreadsAPI(imageInput, caption) {
 
         if (images.length === 1) {
             console.log('🧵 [Social Service] Threads 單圖模式發佈中...');
-            const containerUrl = `https://graph.threads.net/v1.0/me/threads?media_type=IMAGE&image_url=${encodeURIComponent(images[0])}&text=${encodeURIComponent(caption)}&access_token=${token}`;
-            const containerRes = await fetch(containerUrl, { method: 'POST' });
+            let threadsUrl = `https://graph.threads.net/v1.0/me/threads?media_type=IMAGE&image_url=${encodeURIComponent(images[0])}&text=${encodeURIComponent(caption)}&access_token=${token}`;
+            if (locationId) threadsUrl += `&location_id=${encodeURIComponent(locationId)}`;
+            const containerRes = await fetch(threadsUrl, { method: 'POST' });
             const containerData = await containerRes.json();
             if (!containerData.id) throw new Error(`Threads 單圖容器失敗: ${JSON.stringify(containerData)}`);
             finalContainerId = containerData.id;
