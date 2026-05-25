@@ -1729,6 +1729,18 @@ if (document.readyState === 'loading') {
 // 執行非同步背景智慧發文管線
 async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) {
     try {
+        // 🚀【角色庫選人關鍵修復】彙整現場照片與選定的登場角色基因庫參考圖，確保 Imagen 可以對照渲染
+        const expressRefs = [];
+        if (quickSnapUploadedDataUrl) {
+            expressRefs.push({ type: 'scene', name: '現場照片.jpg', data: quickSnapUploadedDataUrl });
+        }
+        getMissionCharacterNames(MISSION.characters).forEach((name) => {
+            const charData = SYSTEM_DB.characters.find(c => c.name === name);
+            if (charData && charData.imageUrl) {
+                expressRefs.push({ type: 'character', name: name, imageUrl: charData.imageUrl });
+            }
+        });
+
         const rawPayload = {
             tenantId: STATE.uid,
             taskId: MISSION.currentTaskId || undefined,
@@ -1756,9 +1768,7 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
             image_options: {
                 ratio: MISSION.ratio,
                 resolution: MISSION.resolution,
-                referenceImages: [
-                    { type: 'scene', name: '現場照片.jpg', data: quickSnapUploadedDataUrl }
-                ],
+                referenceImages: expressRefs,
                 attachmentFiles: []
             }
         };
@@ -1840,9 +1850,7 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
                 image_options: {
                     ratio: MISSION.ratio,
                     resolution: MISSION.resolution,
-                    referenceImages: [
-                        { type: 'scene', name: '現場照片.jpg', data: quickSnapUploadedDataUrl }
-                    ],
+                    referenceImages: expressRefs,
                     attachmentFiles: []
                 },
                 tgConfig: MISSION.tgConfig
@@ -2535,6 +2543,25 @@ export async function renderSmartExpressReviewCard(taskId) {
             await addLog("美術總監", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">收到！正在為您重新發包生圖...</span></div>`, true);
 
             try {
+                // 🚀【角色庫選人防跑偏重繪修復】彙整現場照片與選定的登場角色基因庫參考圖，確保 Imagen 可以對照渲染
+                const expressRefs = [];
+                const sceneUrl = MISSION.sceneFiles?.[0]?.dataUrl || MISSION.sceneFiles?.[0]?.imageUrl || '';
+                if (sceneUrl) {
+                    const item = { type: 'scene', name: '現場照片.jpg' };
+                    if (typeof sceneUrl === 'string' && sceneUrl.startsWith('data:')) {
+                        item.data = sceneUrl;
+                    } else {
+                        item.imageUrl = sceneUrl;
+                    }
+                    expressRefs.push(item);
+                }
+                getMissionCharacterNames(MISSION.characters).forEach((name) => {
+                    const charData = SYSTEM_DB.characters.find(c => c.name === name);
+                    if (charData && charData.imageUrl) {
+                        expressRefs.push({ type: 'character', name: name, imageUrl: charData.imageUrl });
+                    }
+                });
+
                 const responseImg = await API.generateImageFromDraftAPI({
                     taskId: taskId,
                     tenantId: STATE.uid,
@@ -2556,9 +2583,7 @@ export async function renderSmartExpressReviewCard(taskId) {
                     image_options: {
                         ratio: MISSION.ratio,
                         resolution: MISSION.resolution,
-                        referenceImages: [
-                            { type: 'scene', name: '現場照片.jpg', data: MISSION.sceneFiles[0]?.dataUrl || MISSION.sceneFiles[0]?.imageUrl || '' }
-                        ],
+                        referenceImages: expressRefs,
                         attachmentFiles: []
                     },
                     tgConfig: MISSION.tgConfig
