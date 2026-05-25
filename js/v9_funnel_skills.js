@@ -2777,6 +2777,13 @@ export async function renderSmartExpressReviewCard(taskId) {
             }
         };
     }
+
+    // Scroll to the top of the review card so the image is prioritised for visibility and not covered by the layout
+    setTimeout(() => {
+        if (ui) {
+            ui.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 200);
 }
 
 
