@@ -1356,21 +1356,11 @@ function initLocationSearch() {
     const icon     = document.getElementById('locationSearchIcon');
     if (!input || !btn) return;
 
-    // Remove old listeners by cloning
-    const newBtn = btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn, btn);
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-
-    const freshBtn   = document.getElementById('btnSearchLocation');
-    const freshInput = document.getElementById('quickSnapLocationInput');
-    const freshIcon  = document.getElementById('locationSearchIcon');
-
     async function doSearch() {
-        const q = freshInput.value.trim();
+        const q = input.value.trim();
         if (!q) return;
-        freshIcon.textContent = '⏳';
-        freshBtn.disabled = true;
+        if (icon) icon.textContent = '⏳';
+        btn.disabled = true;
         results.innerHTML = '';
         results.classList.remove('hidden');
         try {
@@ -1393,11 +1383,12 @@ function initLocationSearch() {
                             name:    decodeURIComponent(el.dataset.name),
                             address: decodeURIComponent(el.dataset.addr)
                         };
-                        document.getElementById('quickSnapLocationTagName').textContent = quickSnapSelectedLocation.name;
-                        const tagEl = document.getElementById('quickSnapLocationTag');
-                        tagEl.classList.remove('hidden');
-                        tagEl.classList.add('flex');
-                        freshInput.value = '';
+                        if (tagName) tagName.textContent = quickSnapSelectedLocation.name;
+                        if (tag) {
+                            tag.classList.remove('hidden');
+                            tag.classList.add('flex');
+                        }
+                        input.value = '';
                         results.classList.add('hidden');
                     });
                 });
@@ -1405,35 +1396,40 @@ function initLocationSearch() {
         } catch(e) {
             results.innerHTML = `<div class="px-4 py-3 text-xs text-red-400">搜尋失敗：${e.message}</div>`;
         } finally {
-            freshIcon.textContent = '🔍';
-            freshBtn.disabled = false;
+            if (icon) icon.textContent = '🔍';
+            btn.disabled = false;
         }
     }
 
-    freshBtn.addEventListener('click', doSearch);
-    freshInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } });
+    // Use direct properties assignment to automatically overwrite old event listeners without cloning elements
+    btn.onclick = doSearch;
+    input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); doSearch(); } };
 
-    // Click outside to close
-    setTimeout(() => {
-        document.addEventListener('click', function locClickOutside(e) {
-            if (!freshInput?.contains(e.target) && !freshBtn?.contains(e.target) && !results?.contains(e.target)) {
-                results?.classList.add('hidden');
+    // Register click outside listener only once to prevent memory leaks and duplicate handler behavior
+    if (!window.locClickOutsideBound) {
+        document.addEventListener('click', function(e) {
+            const isClickInside = e.target.closest('#quickSnapLocationInput') || 
+                                  e.target.closest('#btnSearchLocation') || 
+                                  e.target.closest('#quickSnapLocationResults');
+            if (!isClickInside) {
+                const resultsEl = document.getElementById('quickSnapLocationResults');
+                if (resultsEl) resultsEl.classList.add('hidden');
             }
-        }, { once: false });
-    }, 100);
+        });
+        window.locClickOutsideBound = true;
+    }
 
     const clearBtnEl = document.getElementById('btnClearLocation');
     if (clearBtnEl) {
-        const newClear = clearBtnEl.cloneNode(true);
-        clearBtnEl.parentNode.replaceChild(newClear, clearBtnEl);
-        document.getElementById('btnClearLocation').addEventListener('click', () => {
+        clearBtnEl.onclick = () => {
             quickSnapSelectedLocation = null;
-            const tagEl = document.getElementById('quickSnapLocationTag');
-            tagEl.classList.add('hidden');
-            tagEl.classList.remove('flex');
-            document.getElementById('quickSnapLocationTagName').textContent = '';
-            document.getElementById('quickSnapLocationInput').value = '';
-        });
+            if (tag) {
+                tag.classList.add('hidden');
+                tag.classList.remove('flex');
+            }
+            if (tagName) tagName.textContent = '';
+            if (input) input.value = '';
+        };
     }
 }
 
