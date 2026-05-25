@@ -172,6 +172,20 @@
                     <label class="text-[10px] text-slate-400 font-bold block">2. 記錄當下發文主旨</label>
                     <textarea id="quickSnapTopic" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[80px] focus:border-emerald-500 focus:outline-none resize-none" placeholder="例如：介紹今天聚餐人潮擁擠，我們新產品非常熱銷，希望藉此吸引新客戶..."></textarea>
                 </div>
+
+                <!-- AI 智慧推薦橫幅 -->
+                <div id="quickSnapAiRecommendBanner" class="hidden bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex flex-col gap-1.5 transition-all duration-300">
+                    <div class="flex justify-between items-center">
+                        <span class="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+                            <span>✨ AI 智慧風格推薦</span>
+                        </span>
+                        <button type="button" id="btnApplySnapAiRec" class="text-[9px] bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-extrabold px-2 py-0.5 rounded-md transition-all active:scale-95">套用配置</button>
+                    </div>
+                    <div class="text-[9px] text-slate-300 leading-relaxed">
+                        推薦配置：<span id="quickSnapAiRecConfig" class="font-extrabold text-emerald-300">寫實單格 / 原色</span><br>
+                        <span id="quickSnapAiRecReason" class="text-slate-400">分析主旨特徵後，此風格能提供最佳的社群互動率。</span>
+                    </div>
+                </div>
                 
                 <!-- 發佈模式與規格設定 -->
                 <div class="space-y-3 pt-2">
@@ -200,6 +214,14 @@
                                 <button type="button" id="snapPlatTHREADS" class="snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500" data-plat="THREADS">TH</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- 登場角色 (可選) -->
+                <div class="space-y-1.5 pt-1.5 border-t border-white/5" id="quickSnapCharacterSection">
+                    <label class="text-[10px] text-slate-400 font-bold block">4. 登場角色 (可選，最多 4 位)</label>
+                    <div id="quickSnapCharacterList" class="flex gap-2 overflow-x-auto pb-1.5 scrollbar-thin py-1">
+                        <!-- Characters will be dynamically rendered here -->
                     </div>
                 </div>
             </div>

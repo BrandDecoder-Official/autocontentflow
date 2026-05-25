@@ -1215,6 +1215,131 @@ function getEarlyImagePlanSuggestion(topicText) {
 
 let quickSnapSelectedPlats = ['FB'];
 let quickSnapUploadedDataUrl = '';
+let quickSnapSelectedChars = [];
+
+window.renderQuickSnapCharacters = function() {
+    const container = document.getElementById('quickSnapCharacterList');
+    if (!container) return;
+
+    // Filter characters by current universe setting
+    const configSelect = document.getElementById('quickSnapConfigSelect');
+    const configVal = configSelect ? configSelect.value : 'COMIC_1_Color';
+    const currentUniverse = configVal.startsWith('COMIC') ? 'COMIC' : 'REALISTIC';
+
+    const available = SYSTEM_DB.characters.filter(c => {
+        const rawType = c.type || '';
+        if (!rawType) return true;
+        const cType = String(rawType).trim().toUpperCase();
+        return cType === currentUniverse;
+    });
+
+    if (available.length === 0) {
+        container.innerHTML = `<div class="text-[10px] text-slate-500 py-1 pl-1">此風格宇宙中尚無登場角色基因庫。</div>`;
+        quickSnapSelectedChars = [];
+        return;
+    }
+
+    // Render characters
+    container.innerHTML = available.map(char => {
+        const isSelected = quickSnapSelectedChars.includes(char.name);
+        const activeClass = isSelected ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10 hover:border-slate-400';
+        return `
+        <div class="relative flex-shrink-0 cursor-pointer rounded-xl border-2 p-1.5 transition-all duration-200 quick-snap-char-card flex flex-col items-center gap-1 bg-slate-900 w-16 ${activeClass}" data-name="${char.name}">
+            <div class="w-10 h-10 rounded-full overflow-hidden border border-slate-700 pointer-events-none">
+                <img src="${char.imageUrl}" class="w-full h-full object-cover">
+            </div>
+            <span class="text-[8px] font-bold text-slate-300 w-full text-center truncate pointer-events-none">${char.name}</span>
+            ${isSelected ? `
+            <div class="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full w-4 h-4 flex items-center justify-center shadow-md font-black text-[9px] pointer-events-none">✓</div>
+            ` : ''}
+        </div>
+        `;
+    }).join('');
+
+    // Bind click events
+    container.querySelectorAll('.quick-snap-char-card').forEach(card => {
+        card.onclick = () => {
+            const name = card.dataset.name;
+            if (quickSnapSelectedChars.includes(name)) {
+                quickSnapSelectedChars = quickSnapSelectedChars.filter(n => n !== name);
+            } else {
+                if (quickSnapSelectedChars.length >= 4) {
+                    showError("最多隻能選擇 4 位登場角色！");
+                    return;
+                }
+                quickSnapSelectedChars.push(name);
+            }
+            window.renderQuickSnapCharacters();
+        };
+    });
+};
+
+window.updateQuickSnapAiRecommendation = function() {
+    const topicInput = document.getElementById('quickSnapTopic');
+    const topicText = topicInput ? topicInput.value.trim() : '';
+    const banner = document.getElementById('quickSnapAiRecommendBanner');
+    const configSpan = document.getElementById('quickSnapAiRecConfig');
+    const reasonSpan = document.getElementById('quickSnapAiRecReason');
+    
+    if (!banner || !configSpan || !reasonSpan) return;
+
+    if (!topicText) {
+        banner.classList.add('hidden');
+        return;
+    }
+
+    const topic = topicText.toLowerCase();
+    
+    let recConfig = 'REALISTIC';
+    let recConfigText = '寫實單格 / 原色';
+    let reason = '';
+
+    // 關鍵字與意圖智慧比對邏輯
+    if (/4格|四格|分鏡|劇情|對話|連載|漫畫|comic|story|panels/.test(topic)) {
+        recConfig = 'COMIC_4_Color';
+        recConfigText = '動漫 4格 / 全彩';
+        reason = '偵測到情節對話或多分鏡敘事需求，推薦使用「動漫 4格全彩」來以連續畫面鋪陳故事，最能引發社群互動！';
+    } else if (/黑白|線稿|復古|懷舊|懷念|bw|retro|sketch/.test(topic)) {
+        recConfig = 'COMIC_1_BW';
+        recConfigText = '動漫 1格 / 黑白';
+        reason = '偵測到文藝線稿或復古黑白畫意圖，推薦使用「動漫 1格黑白」，營造經典視覺氛圍與獨特質感。';
+    } else if (/動漫|卡通|插畫|畫風|二次元|搞笑|迷因|可愛|萌|卡哇伊|anime|illustration|cartoon|cute/.test(topic)) {
+        recConfig = 'COMIC_1_Color';
+        recConfigText = '動漫 1格 / 全彩';
+        reason = '偵測到二次元卡通或動漫視覺特徵，推薦使用「動漫 1格全彩」，以聚焦單圖展現活潑色彩張力。';
+    } else if (/寫實|真實|攝影|照片|實景|實拍|現場|產品|商品|穿搭|美食|街拍|photo|realistic|photography/.test(topic)) {
+        recConfig = 'REALISTIC';
+        recConfigText = '寫實單格 / 原色';
+        reason = '偵測到真實生活、實拍質感或產品細節描述，推薦使用「寫實單格原色」保留高感光度與最真切的社群共鳴。';
+    } else {
+        recConfig = 'REALISTIC';
+        recConfigText = '寫實單格 / 原色';
+        reason = '此主題風格彈性大。推薦使用「寫實單格」以保留原相片的生活感；您也可隨時手動切換至動漫宇宙。';
+    }
+
+    configSpan.innerText = recConfigText;
+    configSpan.dataset.recVal = recConfig;
+    reasonSpan.innerText = reason;
+    
+    // 檢查目前是否已經選取該配置
+    const applyRecBtn = document.getElementById('btnApplySnapAiRec');
+    if (applyRecBtn) {
+        const configSelect = document.getElementById('quickSnapConfigSelect');
+        const modeSelect = document.getElementById('quickSnapModeSelect');
+        const isAlreadyApplied = configSelect && configSelect.value === recConfig && modeSelect && modeSelect.value === 'AI_GEN';
+        if (isAlreadyApplied) {
+            applyRecBtn.innerText = "✓ 已套用";
+            applyRecBtn.className = "text-[9px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-extrabold px-2 py-0.5 rounded-md transition-all cursor-default";
+            applyRecBtn.disabled = true;
+        } else {
+            applyRecBtn.innerText = "套用配置";
+            applyRecBtn.className = "text-[9px] bg-emerald-500 hover:bg-emerald-600 text-slate-900 font-extrabold px-2 py-0.5 rounded-md transition-all active:scale-95";
+            applyRecBtn.disabled = false;
+        }
+    }
+
+    banner.classList.remove('hidden');
+};
 
 window.openSmartExpressModal = function() {
     const modal = document.getElementById('quickSnapModal');
@@ -1224,6 +1349,7 @@ window.openSmartExpressModal = function() {
     // 重設狀態與 UI
     quickSnapSelectedPlats = ['FB'];
     quickSnapUploadedDataUrl = '';
+    quickSnapSelectedChars = [];
     
     const fileInput = document.getElementById('quickSnapFileInput');
     if (fileInput) fileInput.value = '';
@@ -1242,6 +1368,10 @@ window.openSmartExpressModal = function() {
     // 更新平台晶片選中樣式
     updateSnapPlatUI();
 
+    // 隱藏/重設推薦橫幅
+    const banner = document.getElementById('quickSnapAiRecommendBanner');
+    if (banner) banner.classList.add('hidden');
+
     // 重設為預設模式 AI_GEN
     const modeSelect = document.getElementById('quickSnapModeSelect');
     if (modeSelect) {
@@ -1250,6 +1380,9 @@ window.openSmartExpressModal = function() {
             modeSelect.onchange();
         }
     }
+
+    // 渲染角色庫列表
+    window.renderQuickSnapCharacters();
 
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -1331,6 +1464,11 @@ function initSmartExpressEvents() {
                     previewArea.classList.remove('hidden');
                     uploadArea.classList.add('hidden');
                 }
+                
+                // 智慧風格推薦觸發
+                if (typeof window.updateQuickSnapAiRecommendation === 'function') {
+                    window.updateQuickSnapAiRecommendation();
+                }
             } catch (err) {
                 console.error("圖片壓縮失敗：", err);
                 showError("圖片讀取失敗，請重新上傳。");
@@ -1346,6 +1484,20 @@ function initSmartExpressEvents() {
             previewImg.src = '';
             previewArea.classList.add('hidden');
             uploadArea.classList.remove('hidden');
+            
+            // 隱藏推薦橫幅
+            const banner = document.getElementById('quickSnapAiRecommendBanner');
+            if (banner) banner.classList.add('hidden');
+        };
+    }
+
+    // 監聽發文主旨變更，即時進行 AI 智慧風格推薦
+    const topicInput = document.getElementById('quickSnapTopic');
+    if (topicInput) {
+        topicInput.oninput = () => {
+            if (typeof window.updateQuickSnapAiRecommendation === 'function') {
+                window.updateQuickSnapAiRecommendation();
+            }
         };
     }
 
@@ -1356,17 +1508,61 @@ function initSmartExpressEvents() {
             const isOriginal = modeSelect.value === 'ORIGINAL';
             const styleContainer = document.getElementById('quickSnapStyleSelectContainer');
             const platContainer = document.getElementById('quickSnapPlatformContainer');
+            const charSection = document.getElementById('quickSnapCharacterSection');
+            const recBanner = document.getElementById('quickSnapAiRecommendBanner');
+            
             if (isOriginal) {
                 if (styleContainer) styleContainer.classList.add('hidden');
+                if (charSection) charSection.classList.add('hidden');
+                if (recBanner) recBanner.classList.add('hidden');
                 if (platContainer) {
                     platContainer.classList.remove('col-span-1');
                     platContainer.classList.add('col-span-2');
                 }
             } else {
                 if (styleContainer) styleContainer.classList.remove('hidden');
+                if (charSection) charSection.classList.remove('hidden');
                 if (platContainer) {
                     platContainer.classList.remove('col-span-2');
                     platContainer.classList.add('col-span-1');
+                }
+                if (typeof window.updateQuickSnapAiRecommendation === 'function') {
+                    window.updateQuickSnapAiRecommendation();
+                }
+            }
+        };
+    }
+
+    // 風格變更時重置並重新渲染角色基因庫，並更新推薦狀態
+    const configSelect = document.getElementById('quickSnapConfigSelect');
+    if (configSelect) {
+        configSelect.onchange = () => {
+            quickSnapSelectedChars = [];
+            window.renderQuickSnapCharacters();
+            if (typeof window.updateQuickSnapAiRecommendation === 'function') {
+                window.updateQuickSnapAiRecommendation();
+            }
+        };
+    }
+
+    // 綁定套用推薦按鈕
+    const applyRecBtn = document.getElementById('btnApplySnapAiRec');
+    if (applyRecBtn) {
+        applyRecBtn.onclick = () => {
+            const configSpan = document.getElementById('quickSnapAiRecConfig');
+            const recVal = configSpan ? configSpan.dataset.recVal : '';
+            if (recVal) {
+                if (configSelect) {
+                    configSelect.value = recVal;
+                    if (typeof configSelect.onchange === 'function') {
+                        configSelect.onchange();
+                    }
+                }
+                if (modeSelect) {
+                    modeSelect.value = 'AI_GEN';
+                    if (typeof modeSelect.onchange === 'function') {
+                        modeSelect.onchange();
+                    }
                 }
             }
         };
@@ -1470,6 +1666,7 @@ function initSmartExpressEvents() {
                         panelCount: panelCount,
                         style: style,
                         platforms: quickSnapSelectedPlats,
+                        characters: quickSnapSelectedChars,
                         quickSnapMode: quickSnapMode,
                         sceneFiles: [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }]
                     }
@@ -1485,6 +1682,7 @@ function initSmartExpressEvents() {
                     MISSION.panelCount = panelCount;
                     MISSION.style = style;
                     MISSION.platforms = quickSnapSelectedPlats;
+                    MISSION.characters = quickSnapSelectedChars;
                     MISSION.sceneFiles = [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }];
                     MISSION.attachmentFiles = [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }];
                     MISSION.taskMode = 'GENERATE';
@@ -1551,7 +1749,10 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
             isIndependentPost: false,
             platformStrategies: {},
             tgConfig: MISSION.tgConfig || {},
-            characters: [],
+            characters: getMissionCharacterNames(MISSION.characters).map((name) => {
+                const c = SYSTEM_DB.characters.find(x => x.name === name);
+                return { name, persona: c ? (c.persona || "") : "" };
+            }),
             image_options: {
                 ratio: MISSION.ratio,
                 resolution: MISSION.resolution,
@@ -1632,7 +1833,10 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
                 panelCount: MISSION.panelCount,
                 plannedImageCount: 1,
                 isStoryMode: false,
-                characters: [],
+                characters: getMissionCharacterNames(MISSION.characters).map((name) => {
+                    const c = SYSTEM_DB.characters.find(x => x.name === name);
+                    return { name, persona: c ? (c.persona || "") : "" };
+                }),
                 image_options: {
                     ratio: MISSION.ratio,
                     resolution: MISSION.resolution,
@@ -2345,7 +2549,10 @@ export async function renderSmartExpressReviewCard(taskId) {
                     panelCount: MISSION.panelCount,
                     plannedImageCount: 1,
                     isStoryMode: false,
-                    characters: [],
+                    characters: getMissionCharacterNames(MISSION.characters).map((name) => {
+                        const c = SYSTEM_DB.characters.find(x => x.name === name);
+                        return { name, persona: c ? (c.persona || "") : "" };
+                    }),
                     image_options: {
                         ratio: MISSION.ratio,
                         resolution: MISSION.resolution,
