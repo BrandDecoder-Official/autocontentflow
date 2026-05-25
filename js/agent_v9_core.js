@@ -6,7 +6,7 @@ import * as API from './api.js';
 
 // 📦 引入專屬模組
 import { initAgentChatBar } from './v9_chat.js';
-import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard } from './v9_funnel.js';
+import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard, renderSmartExpressReviewCard } from './v9_funnel.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js'; // 🚀 引入跳轉目的地
 import { canPreserveFunnelOnHome } from './v9_funnel_resume.js';
 import './v9_sidebar.js'; // 側欄
@@ -101,6 +101,38 @@ function renderLobby(preserveMission = false) {
                </div>`
             : '';
 
+    const isMobile = window.innerWidth < 1024;
+    let cardsHtml = '';
+    if (isMobile) {
+        cardsHtml = `
+            <!-- 綠色：AI 智慧速發 -->
+            <div class="bg-emerald-600/10 border border-emerald-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(16,185,129,0.15)] flex flex-col active:scale-95 max-w-md mx-auto w-full" id="btnQuickSnapStart">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">⚡</div>
+                <h3 class="text-lg font-black text-white mb-2">AI 智慧速發</h3>
+                <p class="text-xs text-slate-400 mb-6 leading-relaxed">即時發文與現場速記的極速通道。您只需提供照片素材與核心主旨，其餘由 AI 智慧判斷參數並在背景自動產出完整圖文，由「設定者」變為「審核者」，由您做最終決策。</p>
+                <button class="mt-auto w-full bg-emerald-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動閃電生成</button>
+            </div>
+        `;
+    } else {
+        cardsHtml = `
+            <!-- 藍色：細節創意漏斗 -->
+            <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col active:scale-95" id="btnManualStart">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">🎨</div>
+                <h3 class="text-lg font-black text-white mb-2">細節創意漏斗</h3>
+                <p class="text-xs text-slate-400 mb-6 leading-relaxed">適合逐步微調與細緻設定的行銷工作室。從主題發想、多平台配置、到品牌人設與對話語氣，親手打磨每一個溝通細節，成就最完美的獲利閉環。</p>
+                <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動全新漏斗</button>
+            </div>
+            
+            <!-- 綠色：AI 智慧速發 -->
+            <div class="bg-emerald-600/10 border border-emerald-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(16,185,129,0.15)] flex flex-col active:scale-95" id="btnQuickSnapStart">
+                <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">⚡</div>
+                <h3 class="text-lg font-black text-white mb-2">AI 智慧速發</h3>
+                <p class="text-xs text-slate-400 mb-6 leading-relaxed">即時發文與現場速記的極速通道。您只需提供照片素材與核心主旨，其餘由 AI 智慧判斷參數並在背景自動產出完整圖文，由「設定者」變為「審核者」，由您做最終決策。</p>
+                <button class="mt-auto w-full bg-emerald-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動閃電生成</button>
+            </div>
+        `;
+    }
+
     log.innerHTML = `
         <div class="max-w-5xl mx-auto mt-4 lg:mt-10 animate-fade-in space-y-6 lg:space-y-8">
             <div class="text-center space-y-2 mb-6">
@@ -109,21 +141,7 @@ function renderLobby(preserveMission = false) {
             </div>
             ${cloudResumeHint}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto mb-8">
-                <!-- 藍色：發起實戰任務 -->
-                <div class="bg-blue-600/10 border border-blue-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(59,130,246,0.15)] flex flex-col active:scale-95" id="btnManualStart">
-                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">✍️</div>
-                    <h3 class="text-lg font-black text-white mb-2">發起實戰任務</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">從主題、平台到人設，親手建構您的獲利閉環。</p>
-                    <button class="mt-auto w-full bg-blue-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">🚀 啟動全新漏斗</button>
-                </div>
-                
-                <!-- 綠色：行動隨手記 -->
-                <div class="bg-emerald-600/10 border border-emerald-500/50 rounded-3xl p-6 lg:p-8 transition-all cursor-pointer group shadow-[0_0_30px_rgba(16,185,129,0.15)] flex flex-col active:scale-95" id="btnQuickSnapStart">
-                    <div class="text-4xl mb-4 group-hover:scale-110 transition-transform origin-left">📸</div>
-                    <h3 class="text-lg font-black text-white mb-2">行動隨手記</h3>
-                    <p class="text-xs text-slate-400 mb-6 leading-relaxed">隨手記錄照片與靈感。暫存於雲端，回家精修。</p>
-                    <button class="mt-auto w-full bg-emerald-600 text-white py-3 rounded-xl text-xs font-black shadow-lg">⚡ 閃電上傳速記</button>
-                </div>
+                ${cardsHtml}
             </div>
 
             <div id="taskDashboardArea" class="bg-slate-900 border border-white/10 rounded-3xl overflow-hidden shadow-2xl">
@@ -149,19 +167,22 @@ function renderLobby(preserveMission = false) {
         </div>
     `;
 
-    document.getElementById('btnManualStart').onclick = async () => { 
-        resetMissionStateForLobby();
-        IS_EDIT_MODE.value = false;
-        initSplitPaneLayout();
-        await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
-        await startNewFunnel();
-    };
+    const manualBtn = document.getElementById('btnManualStart');
+    if (manualBtn) {
+        manualBtn.onclick = async () => { 
+            resetMissionStateForLobby();
+            IS_EDIT_MODE.value = false;
+            initSplitPaneLayout();
+            await addLog("系統", "🚀", `正在啟動 V1 核心漏斗...`); 
+            await startNewFunnel();
+        };
+    }
 
     const snapBtn = document.getElementById('btnQuickSnapStart');
     if (snapBtn) {
         snapBtn.onclick = () => {
-            if (typeof window.openQuickSnapModal === 'function') {
-                window.openQuickSnapModal();
+            if (typeof window.openSmartExpressModal === 'function') {
+                window.openSmartExpressModal();
             }
         };
     }
@@ -355,6 +376,15 @@ window.resumeTask = async function(taskIndex) {
 
     await addLog('系統', '🔄', `正在為您恢復任務：<b>${(MISSION.topic || '（未命名）').substring(0, 15)}...</b>`, true);
     const chatBar = document.getElementById('agentChatBar');
+
+    // 🚀 2. 智慧速發 (Smart Express) 優先分流：若為手機端，或任務為速發模式，則直接進入一頁式審查決策卡
+    const isMobile = window.innerWidth < 1024 || !!document.getElementById('tabBtnWorkspace');
+    const isExpressTask = isMobile || MISSION.quickSnapMode === 'ORIGINAL' || MISSION.quickSnapMode === 'AI_GEN';
+    if (isExpressTask) {
+        if (chatBar) chatBar.classList.remove('translate-y-full');
+        await renderSmartExpressReviewCard(MISSION.currentTaskId);
+        return;
+    }
 
     // 🚀 2. 狀態分流時光機 (精準跳轉)
     if (status === 'DRAFTING') {

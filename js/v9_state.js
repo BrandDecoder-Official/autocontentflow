@@ -68,7 +68,8 @@ export const MISSION = {
      * 漏斗斷點：下一步要接續的畫面（由每一步 confirm 寫入；reset 時回到 topic）
      * topic → platforms → persona → hook → universe → style → character → visual → schedule → dashboard → draft
      */
-    funnelNextStep: 'topic'
+    funnelNextStep: 'topic',
+    quickSnapMode: null
 };
 
 /** 發佈媒體上限：使用者勾選的合成圖 + 非合成附件圖合計（相簿式 0～10 張，可多選） */
@@ -139,6 +140,7 @@ export function resetMissionStateForLobby() {
     MISSION.lastGeneratedContextKey = '';
     MISSION.publishSyntheticMaskByBatch = {};
     MISSION.funnelNextStep = 'topic';
+    MISSION.quickSnapMode = null;
 
     MISSION.tgConfig.botToken = token;
     MISSION.tgConfig.chatId = chatId;
@@ -250,6 +252,7 @@ export function loadMissionFromDB(taskData) {
     MISSION.contentLength = ctx.contentLength || '深度文 (約300字)';
     MISSION.platforms = ctx.platforms?.length ? ctx.platforms : payloadRoot.platforms || [];
     MISSION.isIndependentPost = ctx.isIndependentPost || payloadRoot.isIndependentPost || false;
+    MISSION.quickSnapMode = ctx.quickSnapMode || null;
     
     if (ctx.platformStrategies) {
         MISSION.platformStrategies = JSON.parse(JSON.stringify(ctx.platformStrategies));

@@ -142,10 +142,10 @@
         <div class="relative w-full max-w-md bg-slate-800 border border-emerald-500/30 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90dvh]" id="quickSnapPanel">
             <div class="flex justify-between items-center p-4 border-b border-white/10 bg-slate-900/50 flex-shrink-0">
                 <div class="flex items-center gap-3">
-                    <span class="text-2xl">📸</span>
+                    <span class="text-2xl">⚡</span>
                     <div>
-                        <h2 class="text-xs sm:text-sm font-black text-slate-100">行動隨手記 (Pocket BD)</h2>
-                        <p class="text-[9px] text-slate-500">拍照記錄當下，靈感不失真 · 暫存於雲端</p>
+                        <h2 class="text-xs sm:text-sm font-black text-slate-100">AI 智慧速發 (Smart Express)</h2>
+                        <p class="text-[9px] text-slate-500">靈感智慧成稿 · 由您決策與發佈</p>
                     </div>
                 </div>
                 <button type="button" onclick="closeQuickSnapModal()" class="text-slate-400 hover:text-white p-2 bg-slate-800 rounded-full hover:bg-red-500/80 transition-colors">✕</button>
@@ -169,26 +169,35 @@
                 
                 <!-- 靈感記敘 -->
                 <div class="space-y-1">
-                    <label class="text-[10px] text-slate-400 font-bold block">2. 記錄當下靈感主題</label>
-                    <textarea id="quickSnapTopic" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[80px] focus:border-emerald-500 focus:outline-none resize-none" placeholder="例如：老K在展覽看到人潮擁擠，和可美討論如何用創意做行銷..."></textarea>
+                    <label class="text-[10px] text-slate-400 font-bold block">2. 記錄當下發文主旨</label>
+                    <textarea id="quickSnapTopic" class="w-full bg-slate-900 border border-white/10 rounded-xl p-3 text-xs text-slate-200 min-h-[80px] focus:border-emerald-500 focus:outline-none resize-none" placeholder="例如：介紹今天聚餐人潮擁擠，我們新產品非常熱銷，希望藉此吸引新客戶..."></textarea>
                 </div>
                 
-                <!-- 預設平台與設定 -->
-                <div class="grid grid-cols-2 gap-3 pt-2">
+                <!-- 發佈模式與規格設定 -->
+                <div class="space-y-3 pt-2">
                     <div>
-                        <label class="text-[9px] text-slate-500 font-bold block mb-1">規格設定</label>
-                        <select id="quickSnapConfigSelect" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-slate-300 focus:border-emerald-500 outline-none">
-                            <option value="COMIC_1_Color">動漫 1格 / 全彩</option>
-                            <option value="COMIC_4_Color">動漫 4格 / 全彩</option>
-                            <option value="COMIC_1_BW">動漫 1格 / 黑白</option>
-                            <option value="REALISTIC">寫實單格 / 原色</option>
+                        <label class="text-[10px] text-slate-400 font-bold block mb-1">3. 發佈圖片模式</label>
+                        <select id="quickSnapModeSelect" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2.5 text-xs text-white focus:border-emerald-500 outline-none cursor-pointer">
+                            <option value="AI_GEN">交給 AI 風格化改畫 (生圖需時約15秒)</option>
+                            <option value="ORIGINAL">使用現場原圖發佈 (極速出稿無需等待)</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="text-[9px] text-slate-500 font-bold block mb-1">發佈平台</label>
-                        <div class="flex gap-1.5 h-9 items-center">
-                            <button type="button" id="snapPlatFB" class="snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-blue-500/50 bg-blue-600/20 text-blue-300" data-plat="FB">FB</button>
-                            <button type="button" id="snapPlatIG" class="snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500" data-plat="IG">IG</button>
+                    <div class="grid grid-cols-2 gap-3" id="quickSnapConfigRow">
+                        <div id="quickSnapStyleSelectContainer">
+                            <label class="text-[9px] text-slate-500 font-bold block mb-1">風格規格</label>
+                            <select id="quickSnapConfigSelect" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-[10px] text-slate-300 focus:border-emerald-500 outline-none">
+                                <option value="COMIC_1_Color">動漫 1格 / 全彩</option>
+                                <option value="COMIC_4_Color">動漫 4格 / 全彩</option>
+                                <option value="COMIC_1_BW">動漫 1格 / 黑白</option>
+                                <option value="REALISTIC">寫實單格 / 原色</option>
+                            </select>
+                        </div>
+                        <div id="quickSnapPlatformContainer" class="col-span-1">
+                            <label class="text-[9px] text-slate-500 font-bold block mb-1">發佈平台</label>
+                            <div class="flex gap-1.5 h-9 items-center">
+                                <button type="button" id="snapPlatFB" class="snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-blue-500/50 bg-blue-600/20 text-blue-300" data-plat="FB">FB</button>
+                                <button type="button" id="snapPlatIG" class="snap-plat-btn flex-1 h-full rounded-lg border text-[10px] font-bold border-white/10 bg-slate-900 text-slate-500" data-plat="IG">IG</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -196,7 +205,7 @@
             
             <div class="p-4 border-t border-white/10 bg-slate-900/50 flex flex-col gap-2 flex-shrink-0">
                 <button type="button" id="btnSubmitQuickSnap" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-black shadow-lg hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5">
-                    <span id="btnSubmitQuickSnapText">💾 閃電存檔至進行中</span>
+                    <span id="btnSubmitQuickSnapText">⚡ 閃電生成規劃</span>
                     <div id="quickSnapLoadingSpinner" class="hidden w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 </button>
             </div>

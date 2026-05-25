@@ -1,11 +1,11 @@
 // js/v9_funnel_skills.js
-import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired, getMissionCharacterNames, bootSystemData } from './v9_state.js';
+import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired, getMissionCharacterNames, bootSystemData, ensureSyntheticPublishMask, PUBLISH_MEDIA_MAX_TOTAL, recordGeneratedImageBatch } from './v9_state.js';
 import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
 import { CONFIG, STATE } from './config.js'; 
 import * as API from './api.js';
-import { applyPointDeduction } from './v9_finance.js';
+import { applyPointDeduction, validatePoints, getImageGenBillingMultiplier } from './v9_finance.js';
 
 export async function startNewFunnel() { await triggerTopicSkill(); }
 
@@ -306,11 +306,16 @@ export async function triggerHookSkill() {
  */
 export async function triggerUniverseSkill() { 
     updateStepHeader("UNIVERSE SELECTION"); await addLog("美術總監", "🌌", "請選擇視覺宇宙：", true);
+    const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+    const disabledAttr = hasImg ? 'disabled title="已有生成圖片，風格與規格已被鎖定。"' : '';
+    const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
+
     const ui = createSkillUI(`
         <div class="space-y-4">
+            ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold mb-2">⚠️ 已有生成圖片，規格與宇宙參數已鎖定。</div>` : ''}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 lg:gap-3">
-                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-blue-500 hover:bg-blue-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'}" data-val="REALISTIC"><span class="text-2xl lg:text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
-                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 hover:border-pink-500 hover:bg-pink-600/20 active:scale-95 flex flex-col items-center gap-2 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'}" data-val="COMIC"><span class="text-2xl lg:text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button>
+                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 ${MISSION.universe === 'REALISTIC' ? 'border-blue-500 bg-blue-600/20' : 'bg-slate-800'} ${disabledClass}" data-val="REALISTIC" ${disabledAttr}><span class="text-2xl lg:text-3xl">📷</span><span class="font-black text-xs text-white">真實攝影</span></button>
+                <button class="uni-btn p-3 lg:p-4 rounded-2xl border border-white/10 ${MISSION.universe === 'COMIC' ? 'border-pink-500 bg-pink-600/20' : 'bg-slate-800'} ${disabledClass}" data-val="COMIC" ${disabledAttr}><span class="text-2xl lg:text-3xl">🎨</span><span class="font-black text-xs text-white">2D 動漫</span></button>
             </div>
             <div class="bg-slate-900/60 border border-white/10 rounded-xl p-3 space-y-2">
                 <label class="text-[10px] text-slate-400 font-bold">子項模式</label>
@@ -319,14 +324,15 @@ export async function triggerUniverseSkill() {
                     <strong class="text-slate-400">無損美化</strong>：<strong>同樣會走風格／濾鏡／角色</strong>；差異在「視覺與附件」步驟須以上傳<strong>來源圖</strong>（主參考欄）為主做精修／改畫。
                 </p>
                 <div class="grid grid-cols-2 gap-2">
-                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'GENERATE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="GENERATE">新生成</button>
-                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'ENHANCE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'}" data-val="ENHANCE">無損美化</button>
+                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'GENERATE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'} ${disabledClass}" data-val="GENERATE" ${disabledAttr}>新生成</button>
+                    <button class="mode-btn py-2 rounded-lg border text-xs font-bold transition-all ${MISSION.taskMode === 'ENHANCE' ? 'border-indigo-500 bg-indigo-600 text-white' : 'border-white/10 bg-slate-800 text-slate-400'} ${disabledClass}" data-val="ENHANCE" ${disabledAttr}>無損美化</button>
                 </div>
             </div>
         </div>
     `);
     ui.querySelectorAll('.mode-btn').forEach(btn => {
         btn.onclick = () => {
+            if (hasImg) return;
             MISSION.taskMode = btn.dataset.val;
             ui.querySelectorAll('.mode-btn').forEach(b => {
                 b.classList.remove('border-indigo-500', 'bg-indigo-600', 'text-white');
@@ -373,6 +379,10 @@ export async function triggerUniverseSkill() {
  * ==========================================
  */
 export async function triggerStyleSkill() { 
+    const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+    const disabledAttr = hasImg ? 'disabled title="已有生成圖片，風格已被鎖定。"' : '';
+    const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
+
     if (MISSION.universe === 'REALISTIC') {
         updateStepHeader("SYNTHESIS MODE"); 
         await addLog("攝影總監", "📸", "進入寫實攝影棚！請選擇這張圖的「核心對焦與合成模式」：", true);
@@ -395,11 +405,15 @@ export async function triggerStyleSkill() {
             return;
         }
 
-        let html = `<div class="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-3">`; 
+        let html = `
+            <div class="space-y-4">
+                ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold mb-2">⚠️ 已有生成圖片，風格已鎖定。</div>` : ''}
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 lg:gap-3">
+        `;
         modes.forEach(m => { 
-            html += `<button class="style-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === m.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${m.name}"><span class="text-xl lg:text-2xl mb-1">${m.icon || '✨'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${m.name}</span><span class="text-[9px] text-slate-400 line-clamp-2">${m.desc || m.promptPrefix || ''}</span></button>`; 
+            html += `<button class="style-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === m.name ? 'border-blue-500 bg-slate-700' : ''} ${disabledClass}" data-val="${m.name}" ${disabledAttr}><span class="text-xl lg:text-2xl mb-1">${m.icon || '✨'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${m.name}</span><span class="text-[9px] text-slate-400 line-clamp-2">${m.desc || m.promptPrefix || ''}</span></button>`; 
         }); 
-        html += `</div>`;
+        html += `</div></div>`;
         const ui = createSkillUI(html); 
         ui.querySelectorAll('.style-btn').forEach(btn => { 
             btn.onclick = async () => { 
@@ -435,11 +449,15 @@ export async function triggerStyleSkill() {
             return;
         }
         
-        let html = `<div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-3">`; 
+        let html = `
+            <div class="space-y-4">
+                ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold mb-2">⚠️ 已有生成圖片，風格已鎖定。</div>` : ''}
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 lg:gap-3">
+        `;
         availableStyles.forEach(s => { 
-            html += `<button class="style-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${s.name}"><span class="text-lg lg:text-xl">${s.icon || '🎨'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${s.name}</span></button>`; 
+            html += `<button class="style-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.style === s.name ? 'border-blue-500 bg-slate-700' : ''} ${disabledClass}" data-val="${s.name}" ${disabledAttr}><span class="text-lg lg:text-xl">${s.icon || '🎨'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${s.name}</span></button>`; 
         }); 
-        html += `</div>`;
+        html += `</div></div>`;
         const ui = createSkillUI(html); 
         ui.querySelectorAll('.style-btn').forEach(btn => { 
             btn.onclick = async () => { 
@@ -461,6 +479,10 @@ export async function triggerRealisticFilterSkill() {
     updateStepHeader("PHOTOGRAPHY FILTER");
     await addLog("攝影總監", "🎞️", "請選擇這組照片的「濾鏡氛圍」：", true);
     
+    const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+    const disabledAttr = hasImg ? 'disabled title="已有生成圖片，濾鏡已被鎖定。"' : '';
+    const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
+
     let filters = SYSTEM_DB.styles.filter(s => s.category === 'REALISTIC_FILTER');
     if (filters.length === 0) {
         await addLog('攝影總監', '⚠️', '寫實濾鏡尚未從後台載入，已暫停選項（避免錯誤扣點）。', true);
@@ -484,11 +506,15 @@ export async function triggerRealisticFilterSkill() {
         return;
     }
 
-    let html = `<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">`;
+    let html = `
+        <div class="space-y-4">
+            ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold mb-2">⚠️ 已有生成圖片，濾鏡已被鎖定。</div>` : ''}
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 lg:gap-3">
+    `;
     filters.forEach(f => {
-        html += `<button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === f.name ? 'border-blue-500 bg-slate-700' : ''}" data-val="${f.name}"><span class="text-xl lg:text-2xl mb-1">${f.icon || '🎞️'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${f.name}</span></button>`;
+        html += `<button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-blue-400 hover:bg-slate-700 active:scale-95 text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === f.name ? 'border-blue-500 bg-slate-700' : ''} ${disabledClass}" data-val="${f.name}" ${disabledAttr}><span class="text-xl lg:text-2xl mb-1">${f.icon || '🎞️'}</span><span class="font-bold text-[11px] lg:text-xs text-white">${f.name}</span></button>`;
     });
-    html += `</div>`;
+    html += `</div></div>`;
     
     const ui = createSkillUI(html);
     ui.querySelectorAll('.color-btn').forEach(btn => {
@@ -509,8 +535,33 @@ export async function triggerRealisticFilterSkill() {
  */
 export async function triggerColorSkill() { 
     updateStepHeader("COLOR MODE"); await addLog("美術總監", "🎨", "請決定漫畫色系：", true);
-    const ui = createSkillUI(`<div class="grid grid-cols-2 gap-2 lg:gap-3"><button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''}" data-val="BW"><span class="text-2xl lg:text-3xl mb-1">🏁</span><span class="font-bold text-[11px] lg:text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400 hidden sm:block">懷舊網點質感</span></button><button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''}" data-val="Color"><span class="text-2xl lg:text-3xl mb-1">🌈</span><span class="font-bold text-[11px] lg:text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400 hidden sm:block">飽滿現代動漫感</span></button></div>`);
-    ui.querySelectorAll('.color-btn').forEach(btn => { btn.onclick = async () => { MISSION.colorMode = btn.dataset.val; releaseUI(ui); await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); if (IS_EDIT_MODE.value && isMissionComplete()) { MISSION.funnelNextStep = 'dashboard'; await triggerMissionSummary(); } else { MISSION.funnelNextStep = 'character'; await triggerCharacterSkill(); } }; });
+    const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+    const disabledAttr = hasImg ? 'disabled title="已有生成圖片，色系已被鎖定。"' : '';
+    const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
+
+    const ui = createSkillUI(`
+        <div class="space-y-4">
+            ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold mb-2">⚠️ 已有生成圖片，色系已鎖定。</div>` : ''}
+            <div class="grid grid-cols-2 gap-2 lg:gap-3">
+                <button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-slate-400 hover:bg-white/5 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'BW' ? 'border-blue-500 bg-white/5' : ''} ${disabledClass}" data-val="BW" ${disabledAttr}><span class="text-2xl lg:text-3xl mb-1">🏁</span><span class="font-bold text-[11px] lg:text-xs text-white">經典黑白</span><span class="text-[9px] text-slate-400 hidden sm:block">懷舊網點質感</span></button>
+                <button class="color-btn p-3 lg:p-4 rounded-xl border border-white/10 hover:border-pink-400 hover:bg-pink-600/10 active:scale-95 transition-all text-left bg-slate-800 flex flex-col gap-1 ${MISSION.colorMode === 'Color' ? 'border-pink-500 bg-pink-600/10' : ''} ${disabledClass}" data-val="Color" ${disabledAttr}><span class="text-2xl lg:text-3xl mb-1">🌈</span><span class="font-bold text-[11px] lg:text-xs text-white">現代全彩</span><span class="text-[9px] text-slate-400 hidden sm:block">飽滿現代動漫感</span></button>
+            </div>
+        </div>
+    `);
+    ui.querySelectorAll('.color-btn').forEach(btn => { 
+        btn.onclick = async () => { 
+            MISSION.colorMode = btn.dataset.val; 
+            releaseUI(ui); 
+            await addLog("美術總監", "✅", `色系已鎖定：<b>${MISSION.colorMode === 'BW' ? "黑白漫畫" : "全彩動漫"}</b>。`); 
+            if (IS_EDIT_MODE.value && isMissionComplete()) { 
+                MISSION.funnelNextStep = 'dashboard'; 
+                await triggerMissionSummary(); 
+            } else { 
+                MISSION.funnelNextStep = 'character'; 
+                await triggerCharacterSkill(); 
+            } 
+        }; 
+    });
 }
 
 /**
@@ -582,12 +633,17 @@ export async function triggerVisualSkill() {
     
     const warningHtml = isRealistic ? `<div class="bg-orange-500/10 border border-orange-500/30 p-2 rounded-lg text-[10px] text-orange-400 mb-3 shadow-inner">⚠️ 提示：寫實模式下請盡量上傳真實照片。若上傳 2D 動漫圖片，AI 將啟動「次元轉換」強制進行寫實化合成，成功率可能較低。</div>` : '';
 
+    const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+    const disabledAttr = hasImg ? 'disabled title="已有生成圖片，此參數已被鎖定。"' : '';
+    const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
+
     const ui = createSkillUI(`
         <div class="flex flex-col gap-4">
+            ${hasImg ? `<div class="bg-amber-600/20 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-200 font-bold">⚠️ 已有生成圖片，畫面規格與參考圖已被鎖定。</div>` : ''}
             <div class="bg-blue-600/10 p-3 lg:p-4 rounded-xl border border-blue-500/30 shadow-md">
                 <div class="grid grid-cols-2 gap-2 lg:gap-3">
-                    <button ${isEnhance ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-2 lg:p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance ? 'opacity-50' : 'hover:bg-slate-700'}"><span class="text-[9px] lg:text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-sm lg:text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
-                    <button id="btnEditRes" class="flex flex-col items-center justify-center bg-slate-800 p-2 lg:p-3 rounded-xl border border-white/10 active:scale-95 hover:bg-slate-700"><span class="text-[9px] lg:text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-sm lg:text-lg font-black text-white tag-res">${currentRes}</span></button>
+                    <button ${isEnhance || hasImg ? 'disabled' : `id="btnEditRatio"`} class="flex flex-col items-center justify-center bg-slate-800 p-2 lg:p-3 rounded-xl border border-white/10 active:scale-95 ${isEnhance || hasImg ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-700'}"><span class="text-[9px] lg:text-[10px] text-slate-400 font-bold">⛭ 比例</span><span class="text-sm lg:text-lg font-black text-white tag-ratio">${currentRatio}</span></button>
+                    <button ${hasImg ? 'disabled' : `id="btnEditRes"`} class="flex flex-col items-center justify-center bg-slate-800 p-2 lg:p-3 rounded-xl border border-white/10 active:scale-95 ${hasImg ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-700'}"><span class="text-[9px] lg:text-[10px] text-slate-400 font-bold">⛭ 解析度</span><span class="text-sm lg:text-lg font-black text-white tag-res">${currentRes}</span></button>
                 </div>
             </div>
             
@@ -607,7 +663,7 @@ export async function triggerVisualSkill() {
                         <span>🖼️ 場景參考圖 (唯一背景真理)</span>
                         <span id="sceneCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 1</span>
                     </label>
-                    <button type="button" id="btnUploadScene" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                    <button type="button" ${hasImg ? 'disabled' : `id="btnUploadScene"`} class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2 ${disabledClass}">
                         <span>📸 上傳場景圖</span>
                     </button>
                     <div id="sceneAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
@@ -619,7 +675,7 @@ export async function triggerVisualSkill() {
                         <span>🧑 人物參考圖 (單獨人物照)</span>
                         <span id="characterCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 3</span>
                     </label>
-                    <button type="button" id="btnUploadCharacter" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                    <button type="button" ${hasImg ? 'disabled' : `id="btnUploadCharacter"`} class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2 ${disabledClass}">
                         <span>👤 上傳人物照</span>
                     </button>
                     <div id="characterAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
@@ -631,7 +687,7 @@ export async function triggerVisualSkill() {
                         <span>⌚ 配件參考圖 (獨立配件如手錶/書本/杯子)</span>
                         <span id="accessoryCountLabel" class="text-[10px] text-slate-500 font-mono">0 / 3</span>
                     </label>
-                    <button type="button" id="btnUploadAccessory" class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2">
+                    <button type="button" ${hasImg ? 'disabled' : `id="btnUploadAccessory"`} class="w-full bg-slate-800/80 hover:bg-indigo-950/40 text-slate-300 hover:text-white py-3 rounded-xl text-xs font-bold border border-white/10 border-dashed active:scale-[0.99] transition-all flex items-center justify-center gap-2 ${disabledClass}">
                         <span>☕ 上傳配件圖</span>
                     </button>
                     <div id="accessoryAssetsArea" class="grid grid-cols-3 gap-2 empty:hidden w-full mt-2"></div>
@@ -640,7 +696,7 @@ export async function triggerVisualSkill() {
 
             <div class="border-t border-white/10 pt-4">
                 <label class="text-[11px] font-black text-slate-300 tracking-wider block mb-2">📥 上傳社群附加輪播圖 (選填，最多 9 張)</label>
-                <button id="btnUploadAttachments" class="w-full bg-slate-800 py-3 rounded-xl text-xs font-black border border-white/10 border-dashed hover:border-slate-400 active:scale-95 transition-all text-slate-300 shadow-md"><span>📤 上傳社群附加圖</span></button>
+                <button ${hasImg ? 'disabled' : `id="btnUploadAttachments"`} class="w-full bg-slate-800 py-3 rounded-xl text-xs font-black border border-white/10 border-dashed hover:border-slate-400 active:scale-95 transition-all text-slate-300 shadow-md ${disabledClass}"><span>📤 上傳社群附加圖</span></button>
                 <div id="attachmentAssetsArea" class="grid grid-cols-3 sm:grid-cols-4 gap-2 empty:hidden w-full mt-2"></div>
             </div>
 
@@ -649,7 +705,7 @@ export async function triggerVisualSkill() {
                     <button type="button" id="btnAcceptVisualManual" class="w-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 py-3.5 rounded-xl text-xs font-bold active:scale-95 transition-all">
                         ✍️ 自行填寫腳本需求
                     </button>
-                    <button type="button" id="btnAcceptVisualAi" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md">
+                    <button type="button" ${hasImg ? 'disabled' : `id="btnAcceptVisualAi"`} class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl text-xs font-bold active:scale-95 transition-all flex items-center justify-center gap-1.5 shadow-md ${disabledClass}">
                         🔍 AI 推薦情境 (扣除 10 點)
                     </button>
                 </div>
@@ -664,13 +720,13 @@ export async function triggerVisualSkill() {
         </div>
     `);
 
-    const openPanel = () => { ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
+    const openPanel = () => { if (hasImg) return; ui.querySelector('#customPanel').classList.remove('hidden'); ui.querySelector('#customPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
     if(ui.querySelector('#btnEditRatio')) ui.querySelector('#btnEditRatio').onclick = openPanel;
     if(ui.querySelector('#btnEditRes')) ui.querySelector('#btnEditRes').onclick = openPanel;
     
-    if (!isEnhance) { ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; }); }
-    ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
-    if (isComic) { ui.querySelectorAll('.panel-btn').forEach(btn => { if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); btn.onclick = () => { currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; }); }
+    if (!isEnhance) { ui.querySelectorAll('.ratio-btn').forEach(btn => { if(btn.dataset.val === currentRatio) btn.classList.add('bg-blue-600'); btn.onclick = () => { if (hasImg) return; currentRatio = btn.dataset.val; ui.querySelectorAll('.ratio-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-ratio').innerText = currentRatio; }; }); }
+    ui.querySelectorAll('.res-btn').forEach(btn => { if(btn.dataset.val === currentRes) btn.classList.add('bg-blue-600'); btn.onclick = () => { if (hasImg) return; currentRes = btn.dataset.val; ui.querySelectorAll('.res-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); ui.querySelector('.tag-res').innerText = currentRes; }; });
+    if (isComic) { ui.querySelectorAll('.panel-btn').forEach(btn => { if(parseInt(btn.dataset.val) === currentPanelCount) btn.classList.add('bg-blue-600'); btn.onclick = () => { if (hasImg) return; currentPanelCount = parseInt(btn.dataset.val); ui.querySelectorAll('.panel-btn').forEach(b => b.classList.remove('bg-blue-600')); btn.classList.add('bg-blue-600'); }; }); }
     
     // Render Scene Ref
     const renderSceneRef = () => {
@@ -752,6 +808,7 @@ export async function triggerVisualSkill() {
 
     // Bind Scene Upload
     ui.querySelector('#btnUploadScene').onclick = () => {
+        if (hasImg) return;
         let i = document.createElement('input');
         i.type = 'file'; i.accept = 'image/*';
         i.onchange = async (e) => {
@@ -768,6 +825,7 @@ export async function triggerVisualSkill() {
 
     // Bind Character Upload
     ui.querySelector('#btnUploadCharacter').onclick = () => {
+        if (hasImg) return;
         if (!MISSION.characterFiles) MISSION.characterFiles = [];
         if (MISSION.characterFiles.length >= 3) return showError("最多只能上傳 3 張人物參考圖喔！");
         
@@ -791,6 +849,7 @@ export async function triggerVisualSkill() {
 
     // Bind Accessory Upload
     ui.querySelector('#btnUploadAccessory').onclick = () => {
+        if (hasImg) return;
         if (!MISSION.accessoryFiles) MISSION.accessoryFiles = [];
         if (MISSION.accessoryFiles.length >= 3) return showError("最多只能上傳 3 張配件參考圖喔！");
         
@@ -821,6 +880,7 @@ export async function triggerVisualSkill() {
          handleMultipleAttachments([], ui.querySelector('#attachmentAssetsArea'), false); 
     }
     ui.querySelector('#btnUploadAttachments').onclick = () => {
+        if (hasImg) return;
         let i = document.createElement('input');
         i.type = 'file';
         i.multiple = true;
@@ -842,6 +902,7 @@ export async function triggerVisualSkill() {
     };
 
     ui.querySelector('#btnAcceptVisualAi').onclick = async () => {
+        if (hasImg) return;
         const hasRefs = (MISSION.sceneFiles && MISSION.sceneFiles.length > 0) ||
                         (MISSION.characterFiles && MISSION.characterFiles.length > 0) ||
                         (MISSION.accessoryFiles && MISSION.accessoryFiles.length > 0);
@@ -1148,15 +1209,14 @@ function getEarlyImagePlanSuggestion(topicText) {
 
 /**
  * ==========================================
- * 📸 Pocket BD：行動端閃電隨手記核心實作
+ * 📸 AI 智慧速發 (Smart Express)：行動端/極速發文管線與一頁式審查核心實作
  * ==========================================
  */
-import { createAgentTaskAPI } from './api.js';
 
 let quickSnapSelectedPlats = ['FB'];
 let quickSnapUploadedDataUrl = '';
 
-window.openQuickSnapModal = function() {
+window.openSmartExpressModal = function() {
     const modal = document.getElementById('quickSnapModal');
     const panel = document.getElementById('quickSnapPanel');
     if (!modal || !panel) return;
@@ -1182,6 +1242,13 @@ window.openQuickSnapModal = function() {
     // 更新平台晶片選中樣式
     updateSnapPlatUI();
 
+    // 重設為預設模式 AI_GEN
+    const modeSelect = document.getElementById('quickSnapModeSelect');
+    if (modeSelect) {
+        modeSelect.value = 'AI_GEN';
+        modeSelect.onchange();
+    }
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
     setTimeout(() => {
@@ -1190,7 +1257,7 @@ window.openQuickSnapModal = function() {
     }, 20);
 };
 
-window.closeQuickSnapModal = function() {
+window.closeSmartExpressModal = function() {
     const modal = document.getElementById('quickSnapModal');
     const panel = document.getElementById('quickSnapPanel');
     if (!modal || !panel) return;
@@ -1222,8 +1289,8 @@ function updateSnapPlatUI() {
     }
 }
 
-// 綁定檔案上傳拍照
-function initQuickSnapEvents() {
+// 綁定檔案上傳拍照與相關按鈕事件
+function initSmartExpressEvents() {
     const uploadArea = document.getElementById('quickSnapUploadArea');
     const fileInput = document.getElementById('quickSnapFileInput');
     const previewArea = document.getElementById('quickSnapPreviewArea');
@@ -1267,6 +1334,29 @@ function initQuickSnapEvents() {
         };
     }
 
+    // 模式切換 (原圖直發 vs AI智慧生圖)
+    const modeSelect = document.getElementById('quickSnapModeSelect');
+    if (modeSelect) {
+        modeSelect.onchange = () => {
+            const isOriginal = modeSelect.value === 'ORIGINAL';
+            const styleContainer = document.getElementById('quickSnapStyleSelectContainer');
+            const platContainer = document.getElementById('quickSnapPlatformContainer');
+            if (isOriginal) {
+                if (styleContainer) styleContainer.classList.add('hidden');
+                if (platContainer) {
+                    platContainer.classList.remove('col-span-1');
+                    platContainer.classList.add('col-span-2');
+                }
+            } else {
+                if (styleContainer) styleContainer.classList.remove('hidden');
+                if (platContainer) {
+                    platContainer.classList.remove('col-span-2');
+                    platContainer.classList.add('col-span-1');
+                }
+            }
+        };
+    }
+
     // 平台切換按鈕綁定
     const fbBtn = document.getElementById('snapPlatFB');
     const igBtn = document.getElementById('snapPlatIG');
@@ -1277,7 +1367,7 @@ function initQuickSnapEvents() {
             } else {
                 quickSnapSelectedPlats.push('FB');
             }
-            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['IG']; // 保底
+            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['IG'];
             updateSnapPlatUI();
         };
     }
@@ -1288,12 +1378,12 @@ function initQuickSnapEvents() {
             } else {
                 quickSnapSelectedPlats.push('IG');
             }
-            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['FB']; // 保底
+            if (quickSnapSelectedPlats.length === 0) quickSnapSelectedPlats = ['FB'];
             updateSnapPlatUI();
         };
     }
 
-    // 提交隨手記
+    // 提交閃電生成
     const submitBtn = document.getElementById('btnSubmitQuickSnap');
     if (submitBtn) {
         submitBtn.onclick = async () => {
@@ -1306,26 +1396,43 @@ function initQuickSnapEvents() {
             }
 
             if (!topicText) {
-                showError("請寫一兩句描述您當下的靈感主題。");
+                showError("請填寫您當下的發文主旨。");
                 return;
             }
 
-            const configVal = document.getElementById('quickSnapConfigSelect')?.value || 'COMIC_1_Color';
-            const universe = configVal.startsWith('COMIC') ? 'COMIC' : 'REALISTIC';
-            let panelCount = 1;
-            let colorMode = 'Color';
-            if (configVal.includes('4_Color')) panelCount = 4;
-            else if (configVal.includes('BW')) colorMode = 'BW';
+            const quickSnapMode = modeSelect ? modeSelect.value : 'AI_GEN';
 
-            // 顯示 Loading Spinner
+            // 算力餘額查核
+            const actionsPricing = SYSTEM_DB.pricing?.actions || {};
+            const draftPrice = actionsPricing['GENERATE_DRAFT']?.retailPoints || 10;
+            const imgPrice = actionsPricing['GENERATE_IMAGE']?.retailPoints || 50;
+            const resW = getImageGenBillingMultiplier('1K');
+            const estImageCost = Math.ceil(imgPrice * resW);
+            const totalCost = (quickSnapMode === 'ORIGINAL') ? draftPrice : (draftPrice + estImageCost);
+
+            if (!validatePoints(totalCost, "AI 智慧速發")) return;
+
             const spinner = document.getElementById('quickSnapLoadingSpinner');
             const btnText = document.getElementById('btnSubmitQuickSnapText');
             if (spinner) spinner.classList.remove('hidden');
-            if (btnText) btnText.innerText = "正在儲存雲端隨手記...";
+            if (btnText) btnText.innerText = "正在規劃速發專案...";
             submitBtn.disabled = true;
 
             try {
-                // 雲端建檔 API 呼叫
+                // 決定預設生圖規格
+                let universe = 'REALISTIC';
+                let panelCount = 1;
+                let colorMode = 'Color';
+                let style = '現場原圖';
+
+                if (quickSnapMode === 'AI_GEN') {
+                    const configVal = document.getElementById('quickSnapConfigSelect')?.value || 'COMIC_1_Color';
+                    universe = configVal.startsWith('COMIC') ? 'COMIC' : 'REALISTIC';
+                    if (configVal.includes('4_Color')) panelCount = 4;
+                    else if (configVal.includes('BW')) colorMode = 'BW';
+                    style = '';
+                }
+
                 const payload = {
                     tenantId: STATE.uid,
                     currentStatus: 'DRAFTING',
@@ -1334,42 +1441,866 @@ function initQuickSnapEvents() {
                         universe: universe,
                         colorMode: colorMode,
                         panelCount: panelCount,
+                        style: style,
                         platforms: quickSnapSelectedPlats,
+                        quickSnapMode: quickSnapMode,
                         sceneFiles: [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }]
                     }
                 };
 
-                const response = await createAgentTaskAPI(payload);
+                const response = await API.createAgentTaskAPI(payload);
                 if (response && response.success) {
-                    window.closeQuickSnapModal();
-                    if (window.showToast) {
-                        window.showToast("🚀 隨手記暫存成功！已存入雲端進行中任務。");
-                    } else {
-                        alert("🚀 隨手記暫存成功！");
-                    }
-                    
-                    // 重新載入大廳任務看板
-                    if (typeof window.renderTaskDashboard === 'function') {
-                        window.renderTaskDashboard();
-                    }
+                    // 同步前端全域 MISSION 狀態
+                    MISSION.currentTaskId = response.task?.id || response.task?._id || response.taskId;
+                    MISSION.topic = topicText;
+                    MISSION.universe = universe;
+                    MISSION.colorMode = colorMode;
+                    MISSION.panelCount = panelCount;
+                    MISSION.style = style;
+                    MISSION.platforms = quickSnapSelectedPlats;
+                    MISSION.sceneFiles = [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }];
+                    MISSION.attachmentFiles = [{ name: 'snap_image.jpg', dataUrl: quickSnapUploadedDataUrl }];
+                    MISSION.taskMode = 'GENERATE';
+                    MISSION.ratio = '9:16';
+                    MISSION.resolution = '1K';
+                    MISSION.quickSnapMode = quickSnapMode;
+
+                    // 關閉 Modal
+                    window.closeSmartExpressModal();
+
+                    // 切換至對話工作室雙欄佈局
+                    initSplitPaneLayout();
+
+                    // 手機端自動切換 Tab 至工作區
+                    document.getElementById('tabBtnWorkspace')?.click();
+
+                    // 顯示進程提示與掃描 Loading
+                    await addLog("智慧助理", "⚡", "已啟動 AI 智慧速發任務！正在為您規劃貼文...", true);
+                    renderExpressLoadingCard(quickSnapMode === 'ORIGINAL' ? "正在智慧生成貼文草稿文案..." : "正在分析現場照片並進行 AI 風格化算圖...");
+
+                    // 執行非同步智慧發文背景管線
+                    runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl);
                 } else {
                     throw new Error(response.message || "建檔失敗。");
                 }
             } catch (err) {
-                console.error("隨手記建檔失敗：", err);
-                showError(`暫存失敗：${err.message}`);
+                console.error("智慧速發初始化失敗：", err);
+                showError(`速發失敗：${err.message}`);
             } finally {
                 if (spinner) spinner.classList.add('hidden');
-                if (btnText) btnText.innerText = "💾 閃電存檔至進行中";
+                if (btnText) btnText.innerText = "⚡ 閃電生成規劃";
                 submitBtn.disabled = false;
             }
         };
     }
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initQuickSnapEvents);
-} else {
-    initQuickSnapEvents();
+// 執行非同步背景智慧發文管線
+async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) {
+    try {
+        const rawPayload = {
+            tenantId: STATE.uid,
+            taskId: MISSION.currentTaskId || undefined,
+            topic: MISSION.topic,
+            isComicMode: MISSION.universe === 'COMIC',
+            universe: MISSION.universe,
+            taskMode: 'GENERATE',
+            style: MISSION.style,
+            platforms: MISSION.platforms,
+            persona: '預設行銷風',
+            hookType: '直白陳述',
+            contentLength: '普通 (約150字)',
+            colorMode: MISSION.colorMode,
+            ratio: MISSION.ratio,
+            resolution: MISSION.resolution,
+            panelCount: MISSION.panelCount,
+            scheduledAt: MISSION.scheduledAt || null,
+            isIndependentPost: false,
+            platformStrategies: {},
+            tgConfig: MISSION.tgConfig || {},
+            characters: [],
+            image_options: {
+                ratio: MISSION.ratio,
+                resolution: MISSION.resolution,
+                referenceImages: [
+                    { type: 'scene', name: '現場照片.jpg', data: quickSnapUploadedDataUrl }
+                ],
+                attachmentFiles: []
+            }
+        };
+
+        // 1. 產生草稿文案
+        const draftRes = await API.generateDraftAPI(rawPayload);
+        if (!draftRes || !draftRes.success) {
+            throw new Error(draftRes.message || "文案生成失敗。");
+        }
+
+        MISSION.currentTaskId = draftRes.taskId || MISSION.currentTaskId;
+        MISSION.currentDraft = draftRes.draftContent;
+        MISSION.currentCaption = draftRes.draftContent.post_caption;
+        MISSION.currentHashtags = draftRes.draftContent.hashtags || [];
+        MISSION.currentCaptions = { UNIFIED: draftRes.draftContent.post_caption };
+
+        const actionsPricing = SYSTEM_DB.pricing?.actions || {};
+        const draftPrice = actionsPricing['GENERATE_DRAFT']?.retailPoints || 10;
+        const draftPersistNote = draftRes.persistence ? `任務ID: ${draftRes.taskId}` : '';
+        await applyPointDeduction(
+            draftRes.chargedPoints !== undefined ? Number(draftRes.chargedPoints) : draftPrice,
+            "AI 智慧速發-產生草稿",
+            draftPersistNote ? { persistNote: draftPersistNote } : {}
+        );
+
+        // 2. 判斷是否需要 AI 風格生圖
+        if (quickSnapMode === 'ORIGINAL') {
+            await renderSmartExpressReviewCard(MISSION.currentTaskId);
+        } else {
+            // 影像合成發包
+            const imgPrice = actionsPricing['GENERATE_IMAGE']?.retailPoints || 50;
+            const resW = getImageGenBillingMultiplier(MISSION.resolution);
+            const estImageCost = Math.ceil(imgPrice * resW);
+
+            const imgRes = await API.generateImageFromDraftAPI({
+                taskId: MISSION.currentTaskId,
+                tenantId: STATE.uid,
+                editedCaption: draftRes.draftContent.post_caption,
+                editedPanels: draftRes.draftContent.panels || [],
+                universe: MISSION.universe,
+                taskMode: 'GENERATE',
+                style: MISSION.style,
+                colorMode: MISSION.colorMode,
+                ratio: MISSION.ratio,
+                resolution: MISSION.resolution,
+                panelCount: MISSION.panelCount,
+                plannedImageCount: 1,
+                isStoryMode: false,
+                characters: [],
+                image_options: {
+                    ratio: MISSION.ratio,
+                    resolution: MISSION.resolution,
+                    referenceImages: [
+                        { type: 'scene', name: '現場照片.jpg', data: quickSnapUploadedDataUrl }
+                    ],
+                    attachmentFiles: []
+                },
+                tgConfig: MISSION.tgConfig
+            });
+
+            if (imgRes && imgRes.success) {
+                const imagePersistNote = imgRes.persistence ? `任務ID: ${MISSION.currentTaskId}` : '';
+                await applyPointDeduction(
+                    imgRes.chargedPoints !== undefined ? Number(imgRes.chargedPoints) : estImageCost,
+                    "AI 智慧速發-影像合成",
+                    imagePersistNote ? { persistNote: imagePersistNote } : {}
+                );
+
+                recordGeneratedImageBatch(imgRes.images, draftRes.draftContent.post_caption);
+                await renderSmartExpressReviewCard(MISSION.currentTaskId);
+            } else {
+                throw new Error(imgRes.message || "未能取得 AI 風格化圖片。");
+            }
+        }
+    } catch (e) {
+        console.error("Express pipeline error:", e);
+        await addLog("智慧助理", "❌", `極速規劃失敗：${e.message}`, true);
+        showError(`極速規劃失敗：${e.message}`);
+        setTimeout(() => {
+            window.dispatchEvent(new Event('reloadLobby'));
+        }, 3000);
+    }
 }
+
+// 繪製雷射掃描 Loading 卡片
+export function renderExpressLoadingCard(text) {
+    updateStepHeader("SMART EXPRESS LOADING");
+    createSkillUI(`
+        <div class="space-y-6 text-center py-6 animate-fade-in w-full">
+            <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-dashed border-emerald-500 animate-spin" style="animation-duration: 8s;"></div>
+                <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-emerald-500 to-teal-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)] animate-pulse">
+                    <span class="text-2xl">⚡</span>
+                </div>
+            </div>
+            
+            <div class="space-y-2">
+                <h3 class="text-base font-black text-white tracking-wider">AI 智慧速發處理中...</h3>
+                <p class="text-xs text-slate-400 max-w-sm mx-auto">${text}</p>
+            </div>
+            
+            <div class="laser-container shimmer-bg rounded-2xl w-full aspect-[16/10] max-w-md mx-auto border border-white/10 shadow-2xl relative overflow-hidden">
+                <div class="laser-line"></div>
+                <div class="absolute inset-0 flex flex-col justify-between p-4 z-0 bg-slate-950/20">
+                    <div class="flex justify-between items-start">
+                        <div class="h-4 w-20 rounded bg-slate-800/80"></div>
+                        <div class="h-4 w-12 rounded bg-slate-800/80"></div>
+                    </div>
+                    <div class="space-y-2 text-left">
+                        <div class="h-3 w-3/4 rounded bg-slate-800/80"></div>
+                        <div class="h-3 w-1/2 rounded bg-slate-800/80"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `);
+}
+
+function getBatchesOldestFirst() {
+    const rows = MISSION.generatedImageBatches || [];
+    return rows.length ? [...rows].reverse() : [];
+}
+
+function buildExpressPublishSlots() {
+    const slots = [];
+    for (const batch of getBatchesOldestFirst()) {
+        const imgs = batch?.images || [];
+        imgs.forEach((img, imageIndex) => {
+            slots.push({ batch, batchId: batch.id, imageIndex, img });
+        });
+    }
+    return slots;
+}
+
+function countSelectedSynthExcludingBatch(excludeBatchId) {
+    let sum = 0;
+    for (const b of MISSION.generatedImageBatches || []) {
+        if (b.id === excludeBatchId) continue;
+        const imgs = b.images || [];
+        const mask = ensureSyntheticPublishMask(b.id, imgs.length);
+        sum += mask.filter(Boolean).length;
+    }
+    return sum;
+}
+
+function trySetPublishInclusion(batch, imageIndex, want) {
+    if (!batch || !Array.isArray(batch.images)) return false;
+    const n = batch.images.length;
+    if (imageIndex < 0 || imageIndex >= n) return false;
+    const mask = ensureSyntheticPublishMask(batch.id, n);
+    const att = (MISSION.attachmentFiles || []).length;
+    let nextSynth = countSelectedSynthExcludingBatch(batch.id);
+    for (let j = 0; j < n; j++) {
+        const on = (j === imageIndex) ? want : !!mask[j];
+        if (on) nextSynth++;
+    }
+    if (nextSynth + att > PUBLISH_MEDIA_MAX_TOTAL) {
+        return false;
+    }
+    mask[imageIndex] = want;
+    return true;
+}
+
+function collectSelectedPublishImagesMerged() {
+    const out = [];
+    for (const batch of getBatchesOldestFirst()) {
+        const imgs = batch.images || [];
+        const mask = ensureSyntheticPublishMask(batch.id, imgs.length);
+        imgs.forEach((img, i) => {
+            if (mask[i]) out.push(img);
+        });
+    }
+    return out;
+}
+
+// 核心：智慧速發一頁式審查卡片 UI
+export async function renderSmartExpressReviewCard(taskId) {
+    updateStepHeader("SMART EXPRESS REVIEW");
+    await addLog("智慧助理", "🚀", "AI 智慧速發規劃完成！請在右側工作區做最後審查與修改：", true);
+
+    // 還原機制：若是從大廳載入的歷史任務，且沒有記憶體生圖批次，則從快取重建批次
+    if (MISSION.quickSnapMode === 'AI_GEN' && (!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0)) {
+        const task = (window.tempTaskCache || []).find(t => (t.id || t._id || t.taskId) === taskId);
+        const imgs = task ? (task.images || task.agentData?.generatedImages || []) : [];
+        const caption = task ? (task.social_post_final || task.social_post_draft || task.draftContent?.post_caption || '') : '';
+        if (imgs.length > 0) {
+            recordGeneratedImageBatch(imgs, caption);
+        }
+    }
+
+    const isOriginal = MISSION.quickSnapMode === 'ORIGINAL';
+    
+    // 取得要顯示的預覽圖
+    let displayImgUrl = '';
+    let slots = [];
+    if (isOriginal) {
+        displayImgUrl = MISSION.attachmentFiles[0]?.imageUrl || MISSION.attachmentFiles[0]?.dataUrl || '';
+    } else {
+        slots = buildExpressPublishSlots();
+        const nFlat = slots.length;
+        if (nFlat > 0) {
+            MISSION.selectedImagePreviewIndex = Math.max(0, Math.min(MISSION.selectedImagePreviewIndex || 0, nFlat - 1));
+            const cur = slots[MISSION.selectedImagePreviewIndex];
+            if (cur) MISSION.selectedImageBatchId = cur.batchId;
+            displayImgUrl = cur ? (cur.img.finalUrl || cur.img.imageUrl || '') : '';
+        } else {
+            MISSION.selectedImagePreviewIndex = 0;
+        }
+    }
+
+    // 確定文案內容
+    let selectedCaption = MISSION.currentCaptions?.UNIFIED || MISSION.currentCaption || '';
+
+    const ui = createSkillUI(`
+        <div class="space-y-6 animate-fade-in w-full">
+            <!-- Header -->
+            <div class="flex items-center justify-between pb-3 border-b border-white/10">
+                <div class="flex items-center gap-2.5">
+                    <span class="text-xl">⚡</span>
+                    <div>
+                        <h3 class="text-sm font-black text-white tracking-wide">AI 智慧速發審查</h3>
+                        <p class="text-[9px] text-slate-500">審查生成內容，確認即可發佈</p>
+                    </div>
+                </div>
+                <div class="px-2 py-0.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded text-[9px] font-bold">
+                    ${isOriginal ? '現場原圖' : 'AI 風格生圖'}
+                </div>
+            </div>
+
+            <!-- Main Preview Image Wrapper -->
+            <div class="flex flex-col items-center">
+                <div id="expressPreviewWrapper" class="relative group cursor-zoom-in rounded-2xl overflow-hidden border border-white/10 aspect-[16/10] w-full max-w-md bg-slate-950 flex items-center justify-center transition-all duration-300">
+                    <div id="expressPreviewGlow" class="absolute inset-0 border border-emerald-500/30 rounded-2xl pointer-events-none transition-all duration-300"></div>
+                    <img id="expressPreviewImg" src="${displayImgUrl}" class="w-full h-full object-contain max-h-[260px]" alt="預覽圖">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
+                        <span class="bg-black/60 text-white text-[10px] font-black px-3 py-1.5 rounded-full border border-white/20">🔍 點擊 3D 燈箱放大</span>
+                    </div>
+                    <div id="expressPreviewCheckBadge" class="absolute top-3 right-3 bg-emerald-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow-lg font-black text-xs">✓</div>
+                </div>
+            </div>
+
+            <!-- Thumbnails scroll (only for AI_GEN) -->
+            ${!isOriginal && slots.length > 0 ? `
+            <div class="space-y-1.5">
+                <label class="text-[10px] text-slate-400 font-bold block">📸 合成相簿複選 (1~N 張發佈)</label>
+                <div class="flex gap-3 overflow-x-auto pb-2 scrollbar-thin max-w-md mx-auto" id="expressThumbStrip">
+                    ${slots.map((slot, idx) => {
+                        const isSelected = ensureSyntheticPublishMask(slot.batchId, slot.batch.images.length)[slot.imageIndex];
+                        const activeClass = idx === MISSION.selectedImagePreviewIndex ? 'border-emerald-500 bg-emerald-500/10' : 'border-white/10 hover:border-slate-400';
+                        return `
+                        <div class="relative flex-shrink-0 cursor-pointer rounded-lg border-2 p-0.5 transition-all duration-200 express-thumb-card ${activeClass}" data-idx="${idx}">
+                            <img src="${slot.img.finalUrl || slot.img.imageUrl || ''}" class="w-12 h-12 object-cover rounded">
+                            <div class="absolute -top-1.5 -right-1.5 bg-slate-950 border border-white/20 rounded-md w-5 h-5 flex items-center justify-center shadow-md express-checkbox-wrap">
+                                <input type="checkbox" class="express-thumb-chk cursor-pointer accent-emerald-500 w-3.5 h-3.5" data-batch="${slot.batchId}" data-imgidx="${slot.imageIndex}" ${isSelected ? 'checked' : ''}>
+                            </div>
+                        </div>
+                        `;
+                    }).join('')}
+                </div>
+            </div>
+            ` : ''}
+
+            <!-- Caption Textarea -->
+            <div class="bg-emerald-600/5 border border-emerald-500/20 rounded-xl p-3.5 space-y-2">
+                <label class="text-[11px] font-bold text-emerald-300 flex items-center justify-between">
+                    <span>📝 貼文文案 (可直接在此修改)</span>
+                    <span class="text-[9px] text-slate-500 font-normal">AI 智慧產出建議內容</span>
+                </label>
+                <textarea id="expressCaptionEdit" class="w-full bg-slate-950 border border-white/10 rounded-lg p-3 text-xs text-slate-200 min-h-[110px] focus:border-emerald-500 focus:outline-none resize-y" placeholder="請輸入要發佈的內容...">${selectedCaption}</textarea>
+            </div>
+
+            <!-- Collapsible Schedule Section -->
+            <div class="bg-slate-900/60 border border-white/5 rounded-xl p-3.5 space-y-3">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" id="chkExpressSchedule" class="rounded accent-blue-500 w-4 h-4 cursor-pointer">
+                    <span class="text-xs font-black text-slate-300">📅 設定排程發佈時間</span>
+                </label>
+                <div id="expressScheduleInputs" class="hidden grid grid-cols-2 gap-3 transition-all duration-300">
+                    <div>
+                        <label class="text-[9px] text-slate-500 font-bold block mb-1">選擇日期</label>
+                        <input type="text" id="expressDatePicker" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white outline-none [color-scheme:dark]" placeholder="📅 日期">
+                    </div>
+                    <div>
+                        <label class="text-[9px] text-slate-500 font-bold block mb-1">選擇時間</label>
+                        <input type="text" id="expressTimePickerInput" class="w-full bg-slate-950 border border-white/10 rounded-lg p-2.5 text-xs text-white outline-none [color-scheme:dark]" placeholder="⏰ 時間">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-2 pt-2">
+                <button id="btnExpressPublish" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-black shadow-lg hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98] transition-all flex items-center justify-center gap-1.5">
+                    <span id="btnExpressPublishText">🚀 立即部署發佈</span>
+                    <div id="expressPublishSpinner" class="hidden w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </button>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    ${!isOriginal ? `
+                    <button id="btnExpressRegen" class="py-3 bg-slate-800 text-slate-300 rounded-xl text-xs font-bold border border-white/10 hover:bg-slate-700 active:scale-[0.98] transition-all flex items-center justify-center gap-1">
+                        <span>🔄 防跑偏重算</span>
+                    </button>
+                    ` : `
+                    <div class="hidden"></div>
+                    `}
+                    <button id="btnExpressAbandon" class="py-3 bg-slate-800/50 text-red-400 border border-red-500/20 rounded-xl text-xs font-bold hover:bg-red-950/20 active:scale-[0.98] transition-all">
+                        🗑️ 放棄此任務
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D Lightbox Backdrop -->
+        <div id="expressPublishLightbox" class="fixed inset-0 z-[450] flex flex-col lightbox-backdrop hidden" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-950/90 cursor-zoom-out" id="expressLbOverlay"></div>
+            <div class="relative z-10 flex-1 flex items-center justify-center p-4">
+                <button id="btnExpressLbPrev" class="absolute left-4 bg-slate-900/60 hover:bg-slate-900 border border-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all text-lg select-none">‹</button>
+                <img id="expressLbImg" class="max-w-full max-h-[85vh] object-contain cursor-zoom-out select-none touch-manipulation lightbox-content" src="">
+                <button id="btnExpressLbNext" class="absolute right-4 bg-slate-900/60 hover:bg-slate-900 border border-white/20 text-white w-10 h-10 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all text-lg select-none">›</button>
+            </div>
+            <div class="relative z-10 p-4 bg-slate-900/90 text-center text-xs text-slate-400 flex flex-col gap-1">
+                <div id="expressLbIdx" class="font-bold text-white text-sm"></div>
+                <p>點擊圖片與遮罩可關閉燈箱</p>
+            </div>
+        </div>
+    `);
+
+    // 同步預覽渲染
+    const syncExpressPreview = () => {
+        const previewImg = ui.querySelector('#expressPreviewImg');
+        const previewGlow = ui.querySelector('#expressPreviewGlow');
+        const previewCheckBadge = ui.querySelector('#expressPreviewCheckBadge');
+        
+        if (isOriginal) {
+            if (previewCheckBadge) previewCheckBadge.classList.remove('hidden');
+            if (previewGlow) {
+                previewGlow.className = "absolute inset-0 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)] rounded-2xl pointer-events-none";
+            }
+            return;
+        }
+        
+        const localSlots = buildExpressPublishSlots();
+        const idx = MISSION.selectedImagePreviewIndex || 0;
+        if (localSlots.length > 0 && localSlots[idx]) {
+            const slot = localSlots[idx];
+            const url = slot.img.finalUrl || slot.img.imageUrl || '';
+            if (previewImg) previewImg.src = url;
+            
+            const isSelected = ensureSyntheticPublishMask(slot.batchId, slot.batch.images.length)[slot.imageIndex];
+            
+            if (previewCheckBadge) {
+                previewCheckBadge.classList.toggle('hidden', !isSelected);
+            }
+            
+            if (previewGlow) {
+                if (isSelected) {
+                    previewGlow.className = "absolute inset-0 border-2 border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.4)] rounded-2xl pointer-events-none animate-pulse";
+                } else {
+                    previewGlow.className = "absolute inset-0 border border-white/10 rounded-2xl pointer-events-none";
+                }
+            }
+        }
+    };
+
+    // 初始化預覽
+    syncExpressPreview();
+
+    // 縮圖與勾選框點擊綁定
+    if (!isOriginal) {
+        ui.querySelectorAll('.express-thumb-card').forEach(card => {
+            card.onclick = (e) => {
+                if (e.target.closest('.express-checkbox-wrap') || e.target.classList.contains('express-thumb-chk')) {
+                    return;
+                }
+                const idx = parseInt(card.dataset.idx);
+                MISSION.selectedImagePreviewIndex = idx;
+                
+                ui.querySelectorAll('.express-thumb-card').forEach(c => {
+                    c.classList.remove('border-emerald-500', 'bg-emerald-500/10');
+                    c.classList.add('border-white/10');
+                });
+                card.classList.remove('border-white/10');
+                card.classList.add('border-emerald-500', 'bg-emerald-500/10');
+                
+                syncExpressPreview();
+            };
+        });
+
+        ui.querySelectorAll('.express-thumb-chk').forEach(chk => {
+            chk.onchange = () => {
+                const batchId = chk.dataset.batch;
+                const imgIdx = parseInt(chk.dataset.imgidx);
+                const batch = MISSION.generatedImageBatches.find(b => b.id === batchId);
+                const want = chk.checked;
+                
+                const success = trySetPublishInclusion(batch, imgIdx, want);
+                if (!success) {
+                    chk.checked = false;
+                    showError("發佈圖片數量（合成圖+附加圖）已達 10 張上限！");
+                }
+                syncExpressPreview();
+            };
+        });
+    }
+
+    // 3D 燈箱 Zoom 邏輯
+    let lightboxOpen = false;
+
+    const syncLightboxContent = () => {
+        if (!lightboxOpen) return;
+        const lbImg = ui.querySelector('#expressLbImg');
+        const lbIdx = ui.querySelector('#expressLbIdx');
+        
+        if (isOriginal) {
+            if (lbImg) {
+                lbImg.src = MISSION.attachmentFiles[0]?.imageUrl || MISSION.attachmentFiles[0]?.dataUrl || '';
+            }
+            if (lbIdx) lbIdx.textContent = '1 / 1';
+            return;
+        }
+        
+        const localSlots = buildExpressPublishSlots();
+        const n = localSlots.length;
+        let idx = MISSION.selectedImagePreviewIndex || 0;
+        if (n > 0) idx = Math.max(0, Math.min(idx, n - 1));
+        
+        if (lbImg) {
+            const url = n > 0 ? (localSlots[idx].img.finalUrl || localSlots[idx].img.imageUrl || '') : '';
+            lbImg.src = url || '';
+        }
+        if (lbIdx) lbIdx.textContent = n === 0 ? '' : `${idx + 1} / ${n}`;
+    };
+
+    const openPublishLightbox = () => {
+        const localSlots = buildExpressPublishSlots();
+        if (!isOriginal && !localSlots.length) return;
+        
+        lightboxOpen = true;
+        const lb = ui.querySelector('#expressPublishLightbox');
+        if (lb) {
+            lb.classList.remove('hidden');
+            lb.className = "fixed inset-0 z-[450] flex flex-col lightbox-backdrop";
+            setTimeout(() => {
+                lb.classList.add('active');
+            }, 20);
+            
+            const lbImg = ui.querySelector('#expressLbImg');
+            if (lbImg) {
+                lbImg.className = "max-w-full max-h-[85vh] object-contain cursor-zoom-out select-none touch-manipulation lightbox-content";
+            }
+            document.body.style.overflow = 'hidden';
+        }
+        syncLightboxContent();
+    };
+
+    const closePublishLightbox = () => {
+        lightboxOpen = false;
+        const lb = ui.querySelector('#expressPublishLightbox');
+        if (lb) {
+            lb.classList.remove('active');
+            setTimeout(() => {
+                if (!lightboxOpen) lb.classList.add('hidden');
+            }, 300);
+        }
+        document.body.style.overflow = '';
+    };
+
+    const previewWrapper = ui.querySelector('#expressPreviewWrapper');
+    if (previewWrapper) {
+        previewWrapper.onclick = openPublishLightbox;
+    }
+
+    const lbOverlay = ui.querySelector('#expressLbOverlay');
+    const lbImg = ui.querySelector('#expressLbImg');
+    if (lbOverlay) lbOverlay.onclick = closePublishLightbox;
+    if (lbImg) lbImg.onclick = closePublishLightbox;
+
+    const btnPrev = ui.querySelector('#btnExpressLbPrev');
+    const btnNext = ui.querySelector('#btnExpressLbNext');
+
+    if (btnPrev) {
+        btnPrev.onclick = (e) => {
+            e.stopPropagation();
+            if (isOriginal) return;
+            const localSlots = buildExpressPublishSlots();
+            const n = localSlots.length;
+            if (n <= 0) return;
+            let idx = MISSION.selectedImagePreviewIndex || 0;
+            idx = (idx - 1 + n) % n;
+            MISSION.selectedImagePreviewIndex = idx;
+            syncLightboxContent();
+            syncExpressPreview();
+        };
+    }
+
+    if (btnNext) {
+        btnNext.onclick = (e) => {
+            e.stopPropagation();
+            if (isOriginal) return;
+            const localSlots = buildExpressPublishSlots();
+            const n = localSlots.length;
+            if (n <= 0) return;
+            let idx = MISSION.selectedImagePreviewIndex || 0;
+            idx = (idx + 1) % n;
+            MISSION.selectedImagePreviewIndex = idx;
+            syncLightboxContent();
+            syncExpressPreview();
+        };
+    }
+
+    // 排程面板 Toggle 邏輯
+    const chkSchedule = ui.querySelector('#chkExpressSchedule');
+    const scheduleInputs = ui.querySelector('#expressScheduleInputs');
+    const publishBtnText = ui.querySelector('#btnExpressPublishText');
+    
+    let fpDate = null;
+    let fpTime = null;
+
+    if (chkSchedule) {
+        chkSchedule.onchange = () => {
+            const wantSchedule = chkSchedule.checked;
+            if (wantSchedule) {
+                scheduleInputs.classList.remove('hidden');
+                publishBtnText.innerText = "📅 確認排程部署";
+                
+                // 初始化 flatpickr
+                const defaultDateObj = new Date();
+                defaultDateObj.setHours(defaultDateObj.getHours() + 1);
+                const m = defaultDateObj.getMinutes();
+                defaultDateObj.setMinutes(m + (15 - (m % 15)));
+                defaultDateObj.setSeconds(0);
+
+                const year = defaultDateObj.getFullYear();
+                const month = String(defaultDateObj.getMonth() + 1).padStart(2, '0');
+                const day = String(defaultDateObj.getDate()).padStart(2, '0');
+                const defDate = `${year}-${month}-${day}`;
+                const defTime = defaultDateObj.toTimeString().slice(0,5);
+
+                ui.querySelector('#expressDatePicker').value = defDate;
+                ui.querySelector('#expressTimePickerInput').value = defTime;
+
+                if (typeof flatpickr !== 'undefined') {
+                    fpDate = flatpickr("#expressDatePicker", {
+                        dateFormat: "Y-m-d",
+                        minDate: "today",
+                        defaultDate: defDate,
+                        disableMobile: "true"
+                    });
+                    fpTime = flatpickr("#expressTimePickerInput", {
+                        enableTime: true,
+                        noCalendar: true,
+                        dateFormat: "H:i",
+                        time_24hr: true,
+                        minuteIncrement: 15,
+                        defaultDate: defTime,
+                        disableMobile: "true"
+                    });
+                }
+            } else {
+                scheduleInputs.classList.add('hidden');
+                publishBtnText.innerText = "🚀 立即部署發佈";
+                if (fpDate) { fpDate.destroy(); fpDate = null; }
+                if (fpTime) { fpTime.destroy(); fpTime = null; }
+            }
+        };
+    }
+
+    // 立即部署與排程按鈕
+    const publishBtn = ui.querySelector('#btnExpressPublish');
+    if (publishBtn) {
+        publishBtn.onclick = async () => {
+            const isScheduled = chkSchedule ? chkSchedule.checked : false;
+            let scheduleIso = null;
+
+            if (isScheduled) {
+                const dateStr = ui.querySelector('#expressDatePicker').value;
+                const timeStr = ui.querySelector('#expressTimePickerInput').value;
+                if (!dateStr || !timeStr) {
+                    return showError("排程日期與時間必須完整設定！");
+                }
+                const schDate = new Date(`${dateStr}T${timeStr}:00+08:00`);
+                const oneHourLater = new Date(Date.now() + 60 * 60 * 1000);
+                if (schDate < oneHourLater) {
+                    return showError("排程部署時間需大於目前時間至少 1 個小時。");
+                }
+                scheduleIso = schDate.toISOString();
+            }
+
+            const editedCaption = ui.querySelector('#expressCaptionEdit').value.trim();
+            if (!editedCaption) {
+                return showError("貼文文案內容不可為空！");
+            }
+
+            // 更新至全域 MISSION
+            MISSION.scheduledAt = scheduleIso;
+            MISSION.currentCaption = editedCaption;
+            MISSION.currentCaptions = { UNIFIED: editedCaption };
+
+            // 關閉 Datepickers
+            if (fpDate) fpDate.destroy();
+            if (fpTime) fpTime.destroy();
+
+            // 執行發佈
+            releaseUI(ui);
+            const spinId = 'spin_pub_' + Date.now();
+            await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
+
+            try {
+                const publishImages = isOriginal ? [] : collectSelectedPublishImagesMerged();
+                
+                const response = await API.publishTaskAPI({
+                    taskId: taskId,
+                    tenantId: STATE.uid,
+                    scheduledAt: MISSION.scheduledAt,
+                    finalCaption: editedCaption,
+                    multiCaptions: { UNIFIED: editedCaption },
+                    isIndependentPost: false,
+                    attachmentFiles: isOriginal ? [{ name: 'snap_image.jpg', dataUrl: MISSION.sceneFiles[0]?.dataUrl || MISSION.sceneFiles[0]?.imageUrl || '' }] : [],
+                    selectedImageBatchId: null,
+                    selectedImages: publishImages.map(img => ({
+                        finalUrl: img.finalUrl || img.imageUrl || '',
+                        prompt: img.prompt || ''
+                    }))
+                });
+
+                if (response && response.success) {
+                    const spEl = document.getElementById(spinId);
+                    if (spEl) {
+                        spEl.classList.remove('animate-spin', 'border-t-transparent');
+                        spEl.classList.add('bg-emerald-500');
+                        document.getElementById(`text_${spinId}`).innerText = "連線成功";
+                    }
+
+                    const charged = Number(response.chargedPoints);
+                    if (Number.isFinite(charged) && charged > 0) {
+                        await applyPointDeduction(charged, "社群發佈");
+                    } else {
+                        await triggerWalletSync();
+                    }
+
+                    const chatBar = document.getElementById('agentChatBar');
+                    if (chatBar) chatBar.classList.add('translate-y-full');
+                    
+                    await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
+                    
+                    const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);
+                    endUi.querySelector('#btnRestart').onclick = () => {
+                        releaseUI(endUi);
+                        window.dispatchEvent(new Event('reloadLobby'));
+                    };
+                } else {
+                    throw new Error(response.message || "發佈失敗。");
+                }
+            } catch (e) {
+                const spEl = document.getElementById(spinId);
+                if (spEl) {
+                    spEl.classList.remove('animate-spin', 'border-emerald-500');
+                    spEl.classList.add('border-red-500');
+                    document.getElementById(`text_${spinId}`).innerText = "連線失敗";
+                }
+                showError(`操作失敗：${e.message}`);
+            }
+        };
+    }
+
+    // 重新生成圖片 (防跑偏重算)
+    const regenBtn = ui.querySelector('#btnExpressRegen');
+    if (regenBtn) {
+        regenBtn.onclick = async () => {
+            const editedCaption = ui.querySelector('#expressCaptionEdit').value.trim();
+            if (!editedCaption) {
+                return showError("重算生圖前，請先填寫貼文文案！");
+            }
+            MISSION.currentCaption = editedCaption;
+            MISSION.currentCaptions = { UNIFIED: editedCaption };
+
+            // 點數查核
+            const actionsPricing = SYSTEM_DB.pricing?.actions || {};
+            const imgPrice = actionsPricing['GENERATE_IMAGE']?.retailPoints || 50;
+            const resW = getImageGenBillingMultiplier(MISSION.resolution);
+            const estImageCost = Math.ceil(imgPrice * resW);
+
+            if (!validatePoints(estImageCost, "影像合成")) return;
+
+            // 關閉 Datepickers
+            if (fpDate) fpDate.destroy();
+            if (fpTime) fpTime.destroy();
+
+            // 顯示 Loading 卡
+            releaseUI(ui);
+            renderExpressLoadingCard("正在為您重新合成 AI 影像 (風格規格已鎖定)...");
+
+            const spinId = 'spin_img_' + Date.now();
+            await addLog("美術總監", "🎨", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">收到！正在為您重新發包生圖...</span></div>`, true);
+
+            try {
+                const responseImg = await API.generateImageFromDraftAPI({
+                    taskId: taskId,
+                    tenantId: STATE.uid,
+                    editedCaption: editedCaption,
+                    editedPanels: MISSION.currentPanels || [],
+                    universe: MISSION.universe,
+                    taskMode: 'GENERATE',
+                    style: MISSION.style,
+                    colorMode: MISSION.colorMode,
+                    ratio: MISSION.ratio,
+                    resolution: MISSION.resolution,
+                    panelCount: MISSION.panelCount,
+                    plannedImageCount: 1,
+                    isStoryMode: false,
+                    characters: [],
+                    image_options: {
+                        ratio: MISSION.ratio,
+                        resolution: MISSION.resolution,
+                        referenceImages: [
+                            { type: 'scene', name: '現場照片.jpg', data: MISSION.sceneFiles[0]?.dataUrl || MISSION.sceneFiles[0]?.imageUrl || '' }
+                        ],
+                        attachmentFiles: []
+                    },
+                    tgConfig: MISSION.tgConfig
+                });
+
+                if (responseImg && responseImg.success) {
+                    const spEl = document.getElementById(spinId);
+                    if (spEl) {
+                        spEl.classList.remove('animate-spin', 'border-t-transparent');
+                        spEl.classList.add('bg-blue-500');
+                        document.getElementById(`text_${spinId}`).innerText = "影像合成完畢";
+                    }
+
+                    const imagePersistNote = responseImg.persistence ? `任務ID: ${taskId}` : '';
+                    await applyPointDeduction(
+                        responseImg.chargedPoints !== undefined ? Number(responseImg.chargedPoints) : estImageCost,
+                        "AI 智慧速發-重新生圖",
+                        imagePersistNote ? { persistNote: imagePersistNote } : {}
+                    );
+
+                    recordGeneratedImageBatch(responseImg.images, editedCaption);
+                    await renderSmartExpressReviewCard(taskId);
+                } else {
+                    throw new Error(responseImg.message || "重算失敗。");
+                }
+            } catch (e) {
+                const spEl = document.getElementById(spinId);
+                if (spEl) {
+                    spEl.classList.remove('animate-spin', 'border-blue-500');
+                    spEl.classList.add('border-red-500');
+                    document.getElementById(`text_${spinId}`).innerText = "合成失敗";
+                }
+                showError(`重算失敗：${e.message}`);
+                await renderSmartExpressReviewCard(taskId);
+            }
+        };
+    }
+
+    // 放棄與刪除此任務
+    const abandonBtn = ui.querySelector('#btnExpressAbandon');
+    if (abandonBtn) {
+        abandonBtn.onclick = async () => {
+            if (!confirm("確定要放棄此任務並刪除嗎？此動作無法復原。")) return;
+            
+            if (fpDate) fpDate.destroy();
+            if (fpTime) fpTime.destroy();
+
+            releaseUI(ui);
+            try {
+                await API.deleteAgentTaskAPI(taskId);
+                window.renderTaskDashboard();
+                window.dispatchEvent(new Event('reloadLobby'));
+                if (window.showToast) window.showToast('任務已成功放棄並刪除。', 'success');
+            } catch (error) {
+                console.error("刪除失敗:", error);
+                showError("放棄失敗，請手動在大廳刪除：" + error.message);
+                window.dispatchEvent(new Event('reloadLobby'));
+            }
+        };
+    }
+}
+
 

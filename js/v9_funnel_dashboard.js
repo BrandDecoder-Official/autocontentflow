@@ -145,38 +145,42 @@ export async function triggerMissionSummary() {
             }
         };
 
-        // 🌌 組合宇宙選項區域的 HTML (根據選擇切換模式與濾鏡)
+        // 🌌 組合宇宙選項區域 Graves HTML (根據選擇切換模式與濾鏡)
         const getUniverseStyleHtml = () => {
             let styleSection = '';
             let colorSection = '';
+            const hasImg = MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0;
+            const disabledAttr = hasImg ? 'disabled title="已有生成圖片，風格與規格已被鎖定。"' : '';
+            const disabledClass = hasImg ? 'opacity-50 cursor-not-allowed' : '';
 
             if (MISSION.universe === 'REALISTIC') {
                 styleSection = `
                     <label class="text-[10px] text-slate-500">合成模式 (對焦邏輯)</label>
                     <div class="flex flex-wrap gap-2">
-                        ${realisticModes.map(m => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===m.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.name}">${m.name}</button>`).join('')}
+                        ${realisticModes.map(m => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${disabledClass} ${MISSION.style===m.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.name}" ${disabledAttr}>${m.name}</button>`).join('')}
                     </div>`;
                 colorSection = `
                     <label class="text-[10px] text-slate-500">攝影濾鏡氛圍</label>
                     <div class="flex flex-wrap gap-2">
-                        ${realisticFilters.map(f => `<button class="btn-dash-color px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===f.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${f.name}">${f.name}</button>`).join('')}
+                        ${realisticFilters.map(f => `<button class="btn-dash-color px-3 py-2 rounded-lg border shadow-sm transition-all ${disabledClass} ${MISSION.colorMode===f.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${f.name}" ${disabledAttr}>${f.name}</button>`).join('')}
                     </div>`;
             } else if (MISSION.universe === 'COMIC') {
                 styleSection = `
                     <label class="text-[10px] text-slate-500">動漫視覺風格</label>
                     <div class="flex flex-wrap gap-2">
-                        ${animeStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${MISSION.style===s.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${s.name}">${s.name}</button>`).join('')}
+                        ${animeStyles.map(s => `<button class="btn-dash-style px-3 py-2 rounded-lg border shadow-sm transition-all ${disabledClass} ${MISSION.style===s.name?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${s.name}" ${disabledAttr}>${s.name}</button>`).join('')}
                     </div>`;
                 colorSection = `
                     <label class="text-[10px] text-slate-500">色系模式</label>
                     <div class="grid grid-cols-2 gap-2">
-                        ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}">${c.i} ${c.n}</button>`).join('')}
+                        ${[{v:'BW',i:'🏁',n:'黑白'},{v:'Color',i:'🌈',n:'彩色'}].map(c => `<button class="btn-dash-color py-2 rounded-lg border shadow-sm transition-all ${disabledClass} ${MISSION.colorMode===c.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${c.v}" ${disabledAttr}>${c.i} ${c.n}</button>`).join('')}
                     </div>`;
             } else {
                 styleSection = `<span class="text-[10px] text-amber-400/90">尚未鎖定宇宙時無法顯示風格；請先選「📷 攝影」或「🎨 動漫」。</span>`;
             }
 
             return `
+                ${hasImg ? `<div class="text-amber-400 font-bold text-[9px] mb-2">🔒 已生圖，風格與色系參數已鎖定</div>` : ''}
                 <div class="space-y-2 pt-3 border-t border-white/5" id="dash-style-section">
                     ${styleSection}
                 </div>
@@ -280,13 +284,14 @@ export async function triggerMissionSummary() {
                             <span class="text-indigo-300 font-black dash-val-universe-style text-right">${MISSION.universe || ''} / ${MISSION.taskMode === 'ENHANCE' ? '無損美化' : '新生成'} / ${MISSION.style || '預設'} ✎</span>
                         </button>
                         <div id="dash-universe-style" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
+                            ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? `<div class="text-amber-400 font-bold text-[9px] mb-1">🔒 已生圖，核心規格與宇宙參數已鎖定</div>` : ''}
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">宇宙類型</label>
                                 <div class="grid grid-cols-2 gap-2">
-                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}">${u.i} ${u.n}</button>`).join('')}
+                                    ${[{v:'REALISTIC',i:'📷',n:'攝影'},{v:'COMIC',i:'🎨',n:'動漫'}].map(u => `<button class="btn-dash-uni py-2 rounded-lg border shadow-sm transition-all ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'opacity-50 cursor-not-allowed' : ''} ${MISSION.universe===u.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${u.v}" ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'disabled' : ''}>${u.i} ${u.n}</button>`).join('')}
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 pt-2 border-t border-white/5">
-                                    ${[{v:'GENERATE',n:'新生成'},{v:'ENHANCE',n:'無損美化'}].map(m => `<button class="btn-dash-mode py-2 rounded-lg border shadow-sm transition-all ${MISSION.taskMode===m.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.v}">${m.n}</button>`).join('')}
+                                    ${[{v:'GENERATE',n:'新生成'},{v:'ENHANCE',n:'無損美化'}].map(m => `<button class="btn-dash-mode py-2 rounded-lg border shadow-sm transition-all ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'opacity-50 cursor-not-allowed' : ''} ${MISSION.taskMode===m.v?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${m.v}" ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'disabled' : ''}>${m.n}</button>`).join('')}
                                 </div>
                             </div>
                             <div id="dash-dynamic-styles-container">
@@ -301,17 +306,18 @@ export async function triggerMissionSummary() {
                             <span class="text-indigo-300 font-black dash-val-visual-specs">${MISSION.ratio || '9:16'} / ${isComic ? (MISSION.panelCount || 4) + '格' : ''} ✎</span>
                         </button>
                         <div id="dash-visual-specs" class="hidden p-4 bg-slate-900 shadow-inner border-t border-indigo-500/20 space-y-4">
+                            ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? `<div class="text-amber-400 font-bold text-[9px] mb-1">🔒 已生圖，格數與比例已鎖定</div>` : ''}
                             ${isComic ? `
                             <div class="space-y-2">
                                 <label class="text-[10px] text-slate-500">漫畫格數</label>
                                 <div class="grid grid-cols-4 gap-2">
-                                    ${[1,2,3,4].map(n => `<button class="btn-dash-panel py-2 rounded-lg border shadow-sm transition-all ${MISSION.panelCount===n?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${n}">${n}格</button>`).join('')}
+                                    ${[1,2,3,4].map(n => `<button class="btn-dash-panel py-2 rounded-lg border shadow-sm transition-all ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'opacity-50 cursor-not-allowed' : ''} ${MISSION.panelCount===n?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${n}" ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'disabled' : ''}>${n}格</button>`).join('')}
                                 </div>
                             </div>` : ''}
                             <div class="space-y-2 pt-3 border-t border-white/5">
                                 <label class="text-[10px] text-slate-500">畫面比例${isEnhance ? '（無損可選原圖比例）' : ''}</label>
                                 <div class="${ratioGridClass}">
-                                    ${ratioChoices.map(r => `<button class="btn-dash-ratio py-2 rounded-lg border shadow-sm transition-all ${MISSION.ratio===r?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${r}">${r}</button>`).join('')}
+                                    ${ratioChoices.map(r => `<button class="btn-dash-ratio py-2 rounded-lg border shadow-sm transition-all ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'opacity-50 cursor-not-allowed' : ''} ${MISSION.ratio===r?'border-indigo-500 bg-indigo-600 text-white':'border-white/10 bg-slate-800 text-slate-400 hover:border-slate-500'}" data-val="${r}" ${MISSION.generatedImageBatches && MISSION.generatedImageBatches.length > 0 ? 'disabled' : ''}>${r}</button>`).join('')}
                                 </div>
                             </div>
                         </div>
