@@ -1246,7 +1246,9 @@ window.openSmartExpressModal = function() {
     const modeSelect = document.getElementById('quickSnapModeSelect');
     if (modeSelect) {
         modeSelect.value = 'AI_GEN';
-        modeSelect.onchange();
+        if (typeof modeSelect.onchange === 'function') {
+            modeSelect.onchange();
+        }
     }
 
     modal.classList.remove('hidden');
@@ -1493,6 +1495,12 @@ function initSmartExpressEvents() {
             }
         };
     }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initSmartExpressEvents);
+} else {
+    initSmartExpressEvents();
 }
 
 // 執行非同步背景智慧發文管線
