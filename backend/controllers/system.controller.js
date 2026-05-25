@@ -54,7 +54,25 @@ class SystemController {
             const characters = [];
             charsSnap.forEach(doc => {
                 const data = doc.data();
-                if (data.isActive !== false) characters.push({ id: doc.id, ...data });
+                if (data.isActive !== false) {
+                    let charType = data.type || '';
+                    // 🚀 智慧相容：若資料庫無 type 欄位，基於特徵句進行即時自動判斷與非同步補正
+                    if (!charType && data.aiExtractedFeatures) {
+                        const feats = String(data.aiExtractedFeatures).toLowerCase();
+                        if (feats.includes('photo') || feats.includes('photograph') || feats.includes('portrait') || feats.includes('real-life')) {
+                            charType = 'REALISTIC';
+                        } else if (feats.includes('drawing') || feats.includes('anime') || feats.includes('cartoon') || feats.includes('sketch') || feats.includes('illustration') || feats.includes('comic') || feats.includes('2d')) {
+                            charType = 'COMIC';
+                        }
+                        
+                        if (charType) {
+                            db.collection('system_characters').doc(doc.id).update({ type: charType })
+                                .then(() => console.log(`[Migration] 已成功補正角色 [${data.name}] 類型為 ${charType}`))
+                                .catch(e => console.error(`[Migration] 補正角色失敗:`, e));
+                        }
+                    }
+                    characters.push({ id: doc.id, ...data, type: charType || 'COMIC' });
+                }
             });
 
             const personas = [];
@@ -158,7 +176,7 @@ class SystemController {
     // ==========================================
     async createCharacter(req, res) {
         try {
-            const { name, persona, imageBase64, mimeType, tenantId } = req.body;
+            const { name, persona, imageBase64, mimeType, tenantId, type } = req.body;
 
             if (!name || !imageBase64 || !tenantId) {
                 return res.status(400).json({ success: false, message: '❌ 請提供角色名字、大頭照與用戶驗證！' });
@@ -169,7 +187,7 @@ class SystemController {
                 return res.status(400).json({ success: false, message: '❌ 您的角色庫已滿 (上限 10 個)，請先刪除舊角色後再新增。' });
             }
 
-            console.log(`👁️ 正在為 [${tenantId}] 的角色 [${name}] 建檔，啟動 ${MODELS.AI_MODEL_TEXT} 特徵分析...`);
+            console.log(`👁️ 正在為 [${tenantId}] 的角色 [${name}] 建檔，啟動 ${MODELS.AI_MODEL_TEXT} 特徵與風格判定...`);
 
             const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
             const buffer = Buffer.from(base64Data, 'base64');
@@ -182,18 +200,48 @@ class SystemController {
             const response = await visionAi.models.generateContent({
                 model: MODELS.AI_MODEL_TEXT,
                 contents: [
-                    { text: `Extract the core physical traits of the person/character in this image. Focus on: gender, age range, hairstyle, facial hair, distinct facial features, and any highly visible accessories (like glasses, hats) or iconic clothing. Output in 1 concise English sentence. Do not describe the background.` },
+                    { text: `You are a visual design expert. Analyze the provided image of a character/person and output a JSON object containing:
+1. "features": A concise 1-sentence English description of the core physical traits (gender, age, hairstyle, clothing, facial features, accessories). Do not describe the background.
+2. "styleType": Must be either "REALISTIC" (if it is a real-life photograph/photo portrait) or "COMIC" (if it is a 2D anime, cartoon, drawing, painting, sketch, illustration, or 3D character render).
+
+Format your output exactly as JSON:
+{
+  "features": "...",
+  "styleType": "REALISTIC"
+}` },
                     { inlineData: { data: base64Data, mimeType: mimeType || 'image/jpeg' } }
                 ]
             });
 
-            const aiExtractedFeatures = response.text.trim();
-            console.log(`✅ ${MODELS.AI_MODEL_TEXT} 特徵萃取完成: ${aiExtractedFeatures}`);
+            const aiResponseText = response.text.trim();
+            let aiExtractedFeatures = "";
+            let detectedType = type || "COMIC";
+
+            try {
+                const jsonText = aiResponseText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                const parsed = JSON.parse(jsonText);
+                aiExtractedFeatures = parsed.features || "";
+                if (parsed.styleType === 'REALISTIC' || parsed.styleType === 'COMIC') {
+                    detectedType = parsed.styleType;
+                }
+            } catch (jsonErr) {
+                console.warn("⚠️ 語意分析 JSON 解析失敗，使用備用 Regex 與傳入值:", jsonErr.message);
+                aiExtractedFeatures = aiResponseText;
+                const textLower = aiResponseText.toLowerCase();
+                if (textLower.includes('realistic') || textLower.includes('photograph') || textLower.includes('photo')) {
+                    detectedType = 'REALISTIC';
+                } else if (textLower.includes('comic') || textLower.includes('anime') || textLower.includes('cartoon') || textLower.includes('drawing') || textLower.includes('illustration')) {
+                    detectedType = 'COMIC';
+                }
+            }
+
+            console.log(`✅ ${MODELS.AI_MODEL_TEXT} 特徵與風格判定完成. 風格: ${detectedType}, 特徵: ${aiExtractedFeatures}`);
 
             const charRef = db.collection('system_characters').doc();
             await charRef.set({
                 name: name,
                 persona: persona || '',
+                type: detectedType, // 🚀 寫入 AI 判斷之風格宇宙
                 aiExtractedFeatures: aiExtractedFeatures,
                 imageUrl: publicImageUrl,
                 gcsFilename: gcsFilename, 
