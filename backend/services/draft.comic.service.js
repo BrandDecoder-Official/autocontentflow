@@ -92,19 +92,38 @@ async function processDraft(req, res, payloadRaw, tools) {
             jsonOutputStructure = `"captions": { "UNIFIED": "全平台通用內文(包含 \\n)" },\n  "hashtags": { "UNIFIED": ["標籤1", "標籤2"] },`;
         }
 
+        let imageDescriptions = "";
+        let sceneInstruction = "";
+        if (tempRefsForAI && tempRefsForAI.length > 0) {
+            imageDescriptions = "\n【🚨參考圖片清單 (已作為多模態輸入提供，與附圖依序對應)】:\n";
+            tempRefsForAI.forEach((img, idx) => {
+                imageDescriptions += `${idx + 1}. 類型: ${img.type || '場景'}, 名稱: ${img.name || '無'}\n`;
+                if (img.type === 'scene') {
+                    sceneInstruction = `
+【🚨實景參考圖分鏡融合鐵律】:
+您已被提供了一張實景參考圖 (類型為 scene，對應上述第 ${idx + 1} 張附圖)。
+1. 您必須仔細觀察這張場景照片的特徵：例如店面外觀、文字招牌（如「田妹子」、「陝西涼皮」）、招牌顏色與周圍環境。
+2. 每一格漫畫分鏡 (panel) 的 \`action_en\` (必須為英文) 描述中，必須融合此場景細節，使生圖模型在此參考圖上繪製動漫內容。例如描述角色站在帶有紅色招牌且寫著 "田妹子" 的店門前或在該背景下進行互動。
+3. 嚴禁憑空捏造無關的場景（例如上傳圖是街邊店面外觀，您卻在分鏡中寫主角在室內木桌椅吃麵。這會導致生圖時因為 Prompt 與參考圖不符而直接把參考圖背景丟棄）。`;
+                }
+            });
+        }
+
         const promptText = `
             請寫一個「${targetPanelCount} 格連載漫畫」腳本。主題：${topic}
             發言人設：${mission.persona || '預設'}
             強制登場角色設定:\n${charContext}
             【視覺風格】${styleName}
             【色系模式】${colorModeName === 'BW' ? '黑白漫畫' : '彩色漫畫'}
+            ${imageDescriptions}
+            ${sceneInstruction}
             ${writingStrategyInstruction}
             【🚨分鏡字數鐵律】每一格 dialogue 絕對不准超過 15 個中文字！你必須輸出剛好 ${targetPanelCount} 格。
             請務必只輸出純 JSON，格式如下：
-            { "post_title": "標題", ${jsonOutputStructure} "panels": [ { "panel_number": 1, "action_en": "畫面描述(英文)", "action_zh": "中文", "speaker_en": "英文", "speaker_zh": "中文", "dialogue": "對白(15字內)", "sound_effect": "狀聲詞" } ] }`;
+            { "post_title": "標題", ${jsonOutputStructure} "panels": [ { "panel_number": 1, "action_en": "畫面描述(英文，必須具體融入實景參考圖特徵)", "action_zh": "中文", "speaker_en": "英文", "speaker_zh": "中文", "dialogue": "對白(15字內)", "sound_effect": "狀聲詞" } ] }`;
 
-        // 🌟 6. 呼叫 AI 大腦
-        const aiResponse = await aiService.generateTextGemini(promptText);
+        // 🌟 6. 呼叫 AI 大腦 (多模態，傳入 Base64 參考圖陣列)
+        const aiResponse = await aiService.generateTextGemini(promptText, tempRefsForAI);
         
         // 🌟 7. 防爆破 JSON 解析裝甲
         let draftContent;

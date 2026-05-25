@@ -110,14 +110,45 @@ async function processDraft(req, res, payloadRaw, tools) {
             jsonOutputStructure = `"captions": { "UNIFIED": "全平台寫實通用內文(包含 \\n)" },\n  "hashtags": { "UNIFIED": ["標籤1", "標籤2"] },`;
         }
 
+        let imageDescriptions = "";
+        let sceneInstruction = "";
+        let characterInstruction = "";
+        if (tempRefsForAI && tempRefsForAI.length > 0) {
+            imageDescriptions = "\n【🚨參考圖片清單 (已作為多模態輸入提供，與附圖依序對應)】:\n";
+            tempRefsForAI.forEach((img, idx) => {
+                imageDescriptions += `${idx + 1}. 類型: ${img.type || '場景'}, 名稱: ${img.name || '無'}\n`;
+                if (img.type === 'scene') {
+                    sceneInstruction = `
+【🚨實景參考圖引用鐵律】:
+您已被提供了一張實景參考圖 (類型為 scene，對應上述第 ${idx + 1} 張附圖)。
+1. 您必須仔細觀察這張場景照片的細節：例如店面外觀、文字招牌（如「田妹子」、「陝西涼皮」、「湘南米粉」）、整體色彩（如紅色橫幅招牌）、建築外牆、門口植物與周圍街道環境。
+2. 您產出的 \`visual_prompt\` (必須為英文) 必須具體且精確地描述此實景的視覺特徵，指引生圖模型將主角們融入到此實景背景中（例如描述角色站在帶有紅色招牌、寫著 "田妹子" 的店門口，或者在該店門前擺姿勢）。
+3. 嚴禁憑空捏造一個與實景相衝突的場景（例如上傳圖明明是街邊店面外觀，您卻在 \`visual_prompt\` 裡寫主角坐在室內木桌椅旁吃麵。這會導致生圖時因為 Prompt 與參考圖不符而直接把參考圖背景丟棄）。
+4. 您的社群文案內容也必須與此場景高度契合。`;
+                }
+            });
+
+            const charRefsInAI = tempRefsForAI.filter(img => img.type === 'character');
+            if (charRefsInAI.length > 0) {
+                characterInstruction = `
+【🚨登場真人角色外觀引用鐵律】:
+您已被提供了登場角色的照片（對應上述參考圖片清單中類型為 character 的附圖）。
+1. 在產出 \`visual_prompt\` 時，請明確描述這些角色在場景中的互動、姿態和相對位置。
+2. 保持與【強制登場真人角色外觀描述】及附圖中的人物外貌特徵（如性別、髮型、大約年齡）一致。`;
+            }
+        }
+
         const promptText = `
             你是一位專業的商業攝影指導與社群行銷專家。
             請為主題：『${topic}』 策劃一組極具質感的寫實攝影圖文。
             發言人設：${mission.persona || '預設'}
             【🚨強制登場真人角色外觀描述】：\n${charContext}
             【🚨攝影風格技術參數】：\n${realisticEnhancePrompt}
+            ${imageDescriptions}
+            ${sceneInstruction}
+            ${characterInstruction}
             
-            請將上述的對焦模式、濾鏡氛圍與角色長相基因，完美揉合進 visual_prompt 指令中。
+            請將上述的對焦模式、濾鏡氛圍、實景背景特徵與角色長相基因，完美揉合進 visual_prompt 指令中。
             ${writingStrategyInstruction}
             
             請務必只輸出純 JSON，格式如下：
@@ -127,8 +158,8 @@ async function processDraft(req, res, payloadRaw, tools) {
               "visual_prompt": "一段極其詳細的英文攝影描述，包含燈光、構圖、模特兒姿態與環境細節" 
             }`;
 
-        // 🌟 6. 呼叫 AI 大腦生成企劃
-        const aiResponse = await aiService.generateTextGemini(promptText);
+        // 🌟 6. 呼叫 AI 大腦生成企劃 (多模態，傳入 Base64 參考圖陣列)
+        const aiResponse = await aiService.generateTextGemini(promptText, tempRefsForAI);
         
         // 🌟 7. 防爆破 JSON 解析裝甲
         let draftContent;

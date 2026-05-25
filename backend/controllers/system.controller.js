@@ -215,7 +215,7 @@ Format your output exactly as JSON:
 
             const aiResponseText = response.text.trim();
             let aiExtractedFeatures = "";
-            let detectedType = type || "COMIC";
+            let detectedType = (type && type !== 'AUTO') ? type : "";
 
             try {
                 const jsonText = aiResponseText.replace(/```json/gi, "").replace(/```/g, "").trim();
@@ -225,13 +225,20 @@ Format your output exactly as JSON:
                     detectedType = parsed.styleType;
                 }
             } catch (jsonErr) {
-                console.warn("⚠️ 語意分析 JSON 解析失敗，使用備用 Regex 與傳入值:", jsonErr.message);
+                console.warn("⚠️ 語意分析 JSON 解析失敗，使用備用 Regex:", jsonErr.message);
                 aiExtractedFeatures = aiResponseText;
+            }
+
+            // 🔍 如果仍未判定出類型，進行關鍵字備用 Regex 匹配
+            if (detectedType !== 'REALISTIC' && detectedType !== 'COMIC') {
                 const textLower = aiResponseText.toLowerCase();
-                if (textLower.includes('realistic') || textLower.includes('photograph') || textLower.includes('photo')) {
+                if (textLower.includes('realistic') || textLower.includes('photograph') || textLower.includes('photo') || textLower.includes('real-life')) {
                     detectedType = 'REALISTIC';
-                } else if (textLower.includes('comic') || textLower.includes('anime') || textLower.includes('cartoon') || textLower.includes('drawing') || textLower.includes('illustration')) {
+                } else if (textLower.includes('comic') || textLower.includes('anime') || textLower.includes('cartoon') || textLower.includes('drawing') || textLower.includes('illustration') || textLower.includes('sketch') || textLower.includes('render')) {
                     detectedType = 'COMIC';
+                } else {
+                    // 最終安全 fallback
+                    detectedType = 'REALISTIC';
                 }
             }
 

@@ -91,7 +91,7 @@ window.handleCharPhotoSelect = async function(e) {
 
 window.submitNewChar = async function() { 
     const name = document.getElementById('newCharName').value.trim(); 
-    const type = document.getElementById('newCharType').value; 
+    const type = 'AUTO'; 
     const persona = document.getElementById('newCharPersona').value.trim(); 
     if(!name || !tempCharBase64) return alert('請提供照片與名稱！'); 
     

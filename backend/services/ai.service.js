@@ -10,14 +10,26 @@ const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 /**
  * 🧠 呼叫 Gemini 進行文字/JSON 生成 (升級版：支援 Token 分離計算)
  */
-async function generateTextGemini(promptText) {
+async function generateTextGemini(promptText, images = []) {
     try {
         const modelName = aiConfig.MODELS.AI_MODEL_TEXT; 
-        console.log(`🧠 [AI Service] 正在呼叫 ${modelName} 大腦進行極速文字運算...`);
+        console.log(`🧠 [AI Service] 正在呼叫 ${modelName} 大腦進行極速文字/多模態運算... (附帶 ${images.length} 張參考圖)`);
         
+        const contents = [{ text: promptText }];
+        if (images && images.length > 0) {
+            images.forEach((img) => {
+                if (img.data) {
+                    const pureBase64 = img.data.replace(/^data:image\/\w+;base64,/, '');
+                    contents.push({
+                        inlineData: { mimeType: img.mimeType || 'image/jpeg', data: pureBase64 }
+                    });
+                }
+            });
+        }
+
         const response = await ai.models.generateContent({
             model: modelName,
-            contents: promptText,
+            contents: contents,
             config: { temperature: 0.7 }
         });
 
