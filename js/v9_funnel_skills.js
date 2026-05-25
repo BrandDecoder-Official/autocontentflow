@@ -1,6 +1,6 @@
 // js/v9_funnel_skills.js
 import { MISSION, SYSTEM_DB, IS_EDIT_MODE, isMissionComplete, compressImage, markImageRegenerationRequired, getMissionCharacterNames, bootSystemData, ensureSyntheticPublishMask, PUBLISH_MEDIA_MAX_TOTAL, recordGeneratedImageBatch } from './v9_state.js';
-import { updateStepHeader, createSkillUI, releaseUI, addLog, showError } from './v9_ui.js';
+import { updateStepHeader, createSkillUI, releaseUI, addLog, showError, initSplitPaneLayout } from './v9_ui.js';
 import { decodeHTMLEntities } from './v9_funnel_utils.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js';
 import { CONFIG, STATE } from './config.js'; 
@@ -1255,6 +1255,7 @@ window.openSmartExpressModal = function() {
     modal.classList.add('flex');
     setTimeout(() => {
         modal.classList.add('opacity-100');
+        modal.classList.add('show');
         panel.classList.add('translate-y-0');
     }, 20);
 };
@@ -1265,12 +1266,15 @@ window.closeSmartExpressModal = function() {
     if (!modal || !panel) return;
 
     modal.classList.remove('opacity-100');
+    modal.classList.remove('show');
     panel.classList.remove('translate-y-0');
     setTimeout(() => {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }, 300);
 };
+
+window.closeQuickSnapModal = window.closeSmartExpressModal;
 
 // 平台選中更新
 function updateSnapPlatUI() {
