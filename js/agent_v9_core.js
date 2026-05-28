@@ -6,7 +6,7 @@ import * as API from './api.js';
 
 // 📦 引入專屬模組
 import { initAgentChatBar } from './v9_chat.js';
-import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard, renderSmartExpressReviewCard } from './v9_funnel.js';
+import { startNewFunnel, renderDraftEditorCard, renderFinalPublishCard, renderSmartExpressReviewCard, renderExpressLoadingCard, runSmartExpressPipeline } from './v9_funnel.js';
 import { triggerMissionSummary } from './v9_funnel_dashboard.js'; // 🚀 引入跳轉目的地
 import { canPreserveFunnelOnHome } from './v9_funnel_resume.js';
 import './v9_sidebar.js'; // 側欄
@@ -377,22 +377,42 @@ window.resumeTask = async function(taskIndex) {
     await addLog('系統', '🔄', `正在為您恢復任務：<b>${(MISSION.topic || '（未命名）').substring(0, 15)}...</b>`, true);
     const chatBar = document.getElementById('agentChatBar');
 
-    // 🚀 2. 智慧速發 (Smart Express) 優先分流：若為手機端，或任務為速發模式，則直接進入一頁式審查決策卡
+    // 🚀 2. [關鍵優先分流] 如果貼文已經發佈 (COMPLETED, PUBLISHED) 或排程中 (SCHEDULED)，不論是不是手機/速發，都應直接檢視唯讀成品
+    if (status === 'COMPLETED' || status === 'PUBLISHED' || status === 'SCHEDULED') {
+        if(chatBar) chatBar.classList.add('translate-y-full'); 
+        await addLog("社群總監", "✅", "這篇貼文已經處理完畢囉！以下是最終成品：", true);
+        const imgs = MISSION.generatedImageBatches[0]?.images || task.images || task.agentData?.generatedImages || [];
+        const caption = MISSION.currentCaption;
+        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption, status);
+        return;
+    }
+
+    // 🚀 3. 智慧速發 (Smart Express) 優先分流：若為手機端，或任務為速發模式，則直接進入一頁式審查決策卡
     const isMobile = window.innerWidth < 1024 || !!document.getElementById('tabBtnWorkspace');
     const isExpressTask = isMobile || MISSION.quickSnapMode === 'ORIGINAL' || MISSION.quickSnapMode === 'AI_GEN';
     if (isExpressTask) {
         if (chatBar) chatBar.classList.remove('translate-y-full');
+
+        // 🚀 [關鍵修復] 如果是速發的 AI_GEN 任務，且處於 DRAFTING 或 PROCESSING_IMAGES（生圖未完成或中斷），
+        // 應自動為其重啟背景生圖管線，並顯示雷射掃描 Loading，而不是顯示一個破圖且空文案的審查卡！
+        if (MISSION.quickSnapMode === 'AI_GEN' && (status === 'DRAFTING' || status === 'PROCESSING_IMAGES')) {
+            const sceneUrl = MISSION.sceneFiles[0]?.dataUrl || MISSION.sceneFiles[0]?.imageUrl || '';
+            renderExpressLoadingCard("正在分析現場照片並進行 AI 風格化算圖...");
+            runSmartExpressPipeline('AI_GEN', sceneUrl);
+            return;
+        }
+
         await renderSmartExpressReviewCard(MISSION.currentTaskId);
         return;
     }
 
-    // 🚀 2. 狀態分流時光機 (精準跳轉)
+    // 🚀 4. 標準漏斗狀態分流時光機 (非速發、非手機寬螢幕模式精準跳轉)
     if (status === 'DRAFTING') {
         // 情況 A：草稿狀態直接回到「內容字卡」，避免再繞回漏斗
         if(chatBar) chatBar.classList.remove('translate-y-full');
         const draftFromTask = task.draftContent || task.agentData?.draftContent || {
-            post_caption: task.social_post_draft || '',
-            hashtags: task.hashtags || [],
+            post_caption: MISSION.currentCaption || '',
+            hashtags: MISSION.currentHashtags?.UNIFIED || [],
             panels: task.panels || task.agentData?.panels || MISSION.currentPanels || []
         };
         await renderDraftEditorCard(MISSION.currentTaskId, draftFromTask, MISSION.universe === 'COMIC');
@@ -408,22 +428,9 @@ window.resumeTask = async function(taskIndex) {
         if (status === 'PUBLISH_FAILED' && task.errorMsg) {
             await addLog('系統', '⚠️', `上次錯誤：${task.errorMsg}`, true);
         }
-        const imgs = task.images || task.agentData?.generatedImages || [];
-        const caption =
-            task.social_post_final ||
-            task.social_post_draft ||
-            task.draftContent?.post_caption ||
-            task.agentData?.draftContent?.post_caption ||
-            '';
-        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
-
-    } else if (status === 'COMPLETED' || status === 'PUBLISHED' || status === 'SCHEDULED') {
-        // 情況 C：已經發佈或排程的成品，直接檢視
-        if(chatBar) chatBar.classList.add('translate-y-full'); 
-        await addLog("社群總監", "✅", "這篇貼文已經處理完畢囉！以下是最終成品：", true);
-        const imgs = task.images || task.agentData?.generatedImages || [];
-        const caption = task.social_post_draft || task.draftContent?.post_caption || task.agentData?.draftContent?.post_caption || '';
-        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption);
+        const imgs = MISSION.generatedImageBatches[0]?.images || task.images || task.agentData?.generatedImages || [];
+        const caption = MISSION.currentCaption;
+        await renderFinalPublishCard(MISSION.currentTaskId, imgs, caption, status);
 
     } else if (status === 'ERROR') {
         // 流程錯誤：若有草稿則回編輯，否則提示新任務

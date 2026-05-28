@@ -260,35 +260,169 @@ export function loadMissionFromDB(taskData) {
     MISSION.locationId = ctx.locationId || null;
     MISSION.locationName = ctx.locationName || null;
     
+    // 2.5 還原貼文文案與標籤 (Caption and Hashtags)
+    let extractedCaption = taskData.social_post_final || taskData.social_post_draft || '';
+    let extractedCaptions = { UNIFIED: '', FB: '', IG: '', THREADS: '' };
+    let extractedHashtags = { UNIFIED: [] };
+
+    if (taskData.draftContent) {
+        const dc = taskData.draftContent;
+        if (dc.captions && typeof dc.captions === 'object') {
+            extractedCaptions = {
+                UNIFIED: dc.captions.UNIFIED || extractedCaption,
+                FB: dc.captions.FB || extractedCaption,
+                IG: dc.captions.IG || extractedCaption,
+                THREADS: dc.captions.THREADS || extractedCaption
+            };
+            if (!extractedCaption) {
+                extractedCaption = dc.captions.UNIFIED || dc.captions.FB || dc.captions.IG || dc.captions.THREADS || '';
+            }
+        } else if (dc.post_caption) {
+            extractedCaption = dc.post_caption;
+        }
+
+        if (dc.hashtags) {
+            if (Array.isArray(dc.hashtags)) {
+                extractedHashtags.UNIFIED = dc.hashtags;
+            } else if (typeof dc.hashtags === 'object') {
+                extractedHashtags = { ...dc.hashtags };
+            }
+        }
+    }
+
+    if (!extractedCaption) {
+        extractedCaption = taskData.social_post_draft || taskData.social_post_final || '';
+    }
+
+    MISSION.currentCaption = extractedCaption;
+    MISSION.currentCaptions = {
+        UNIFIED: extractedCaptions.UNIFIED || extractedCaption,
+        FB: extractedCaptions.FB || extractedCaption,
+        IG: extractedCaptions.IG || extractedCaption,
+        THREADS: extractedCaptions.THREADS || extractedCaption
+    };
+
+    if (taskData.hashtags) {
+        if (Array.isArray(taskData.hashtags)) {
+            MISSION.currentHashtags = { UNIFIED: taskData.hashtags };
+        } else if (typeof taskData.hashtags === 'object') {
+            MISSION.currentHashtags = { ...taskData.hashtags };
+        }
+    } else {
+        MISSION.currentHashtags = extractedHashtags;
+    }
+
     if (ctx.platformStrategies) {
         MISSION.platformStrategies = JSON.parse(JSON.stringify(ctx.platformStrategies));
     }
 
     MISSION.scheduledAt = ctx.scheduledAt || taskData.scheduledAt || null;
 
-    // 3. 還原圖片庫 (從 image_options 提取背景與 9張附加圖)
+    // 3. 還原圖片庫 (從多個可能的位置提取場景與附加圖)
     MISSION.sceneFiles = [];
     MISSION.characterFiles = [];
     MISSION.accessoryFiles = [];
     MISSION.attachmentFiles = [];
     const imgOpts = taskData.image_options || ctx.image_options || {};
 
+    const sceneBuckets = [
+        taskData.sceneFiles,
+        payloadRoot.sceneFiles,
+        ctx.sceneFiles,
+        imgOpts.sceneFiles
+    ];
+    const uniqueScenes = new Set();
+    for (const arr of sceneBuckets) {
+        if (Array.isArray(arr)) {
+            arr.forEach(img => {
+                const url = img.imageUrl || img.dataUrl || img.url || '';
+                if (url && !uniqueScenes.has(url)) {
+                    uniqueScenes.add(url);
+                    MISSION.sceneFiles.push({ imageUrl: url, dataUrl: url, name: img.name || 'scene.jpg' });
+                }
+            });
+        }
+    }
+
+    const attachBuckets = [
+        taskData.attachmentFiles,
+        payloadRoot.attachmentFiles,
+        ctx.attachmentFiles,
+        imgOpts.attachmentFiles
+    ];
+    const uniqueAttaches = new Set();
+    for (const arr of attachBuckets) {
+        if (Array.isArray(arr)) {
+            arr.forEach(img => {
+                const url = img.imageUrl || img.dataUrl || img.url || '';
+                if (url && !uniqueAttaches.has(url)) {
+                    uniqueAttaches.add(url);
+                    MISSION.attachmentFiles.push({ imageUrl: url, dataUrl: url, name: img.name || 'attachment.jpg' });
+                }
+            });
+        }
+    }
+
     if (imgOpts.referenceImages && Array.isArray(imgOpts.referenceImages)) {
         imgOpts.referenceImages.forEach(img => {
+            const url = img.imageUrl || img.dataUrl || img.url || '';
+            if (!url) return;
             if (img.type === 'scene') {
-                MISSION.sceneFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+                if (!uniqueScenes.has(url)) {
+                    uniqueScenes.add(url);
+                    MISSION.sceneFiles.push({ imageUrl: url, dataUrl: url, name: img.name || 'scene.jpg' });
+                }
             } else if (img.type === 'character') {
-                MISSION.characterFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+                MISSION.characterFiles.push({ imageUrl: url, dataUrl: url, name: img.name || 'character.jpg' });
             } else if (img.type === 'accessory' || img.type === 'object') {
-                MISSION.accessoryFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
+                MISSION.accessoryFiles.push({ imageUrl: url, dataUrl: url, name: img.name || 'accessory.jpg' });
             }
         });
     }
 
-    if (imgOpts.attachmentFiles && Array.isArray(imgOpts.attachmentFiles)) {
-        imgOpts.attachmentFiles.forEach(img => {
-            MISSION.attachmentFiles.push({ imageUrl: img.imageUrl, dataUrl: img.imageUrl, name: img.name });
-        });
+    // ORIGINAL 模式下若無附加圖，複製場景圖作為主圖
+    if (MISSION.quickSnapMode === 'ORIGINAL' && MISSION.attachmentFiles.length === 0 && MISSION.sceneFiles.length > 0) {
+        MISSION.attachmentFiles = [...MISSION.sceneFiles];
+    }
+
+    // 還原已產出的生圖列表 (用於查看成品與預覽)
+    let dbImages = taskData.images || taskData.agentData?.generatedImages || [];
+    if ((!Array.isArray(dbImages) || dbImages.length === 0) && taskData.generated_image_url) {
+        dbImages = [{ finalUrl: taskData.generated_image_url }];
+    }
+    if (Array.isArray(dbImages) && dbImages.length > 0) {
+        const imgs = dbImages.map(img => ({
+            finalUrl: img.finalUrl || img.imageUrl || '',
+            imageUrl: img.finalUrl || img.imageUrl || '',
+            prompt: img.prompt || ''
+        }));
+        const batchId = `img_batch_restored`;
+        const batch = {
+            id: batchId,
+            createdAt: new Date().toISOString(),
+            caption: MISSION.currentCaption,
+            images: imgs
+        };
+        MISSION.generatedImageBatches = [batch];
+        MISSION.selectedImageBatchId = batchId;
+        MISSION.selectedImagePreviewIndex = 0;
+        MISSION.publishSyntheticMaskByBatch = {
+            [batchId]: imgs.map(() => true)
+        };
+    }
+
+    // 🚀 安全推斷舊版或遺失的 quickSnapMode (AI_GEN / ORIGINAL)
+    if (!MISSION.quickSnapMode) {
+        if (MISSION.generatedImageBatches.length > 0) {
+            MISSION.quickSnapMode = 'AI_GEN';
+        } else if (MISSION.attachmentFiles.length > 0 || MISSION.sceneFiles.length > 0) {
+            MISSION.quickSnapMode = 'ORIGINAL';
+        }
+    }
+
+    // ORIGINAL 模式下雙重確保有附加圖以供渲染
+    if (MISSION.quickSnapMode === 'ORIGINAL' && MISSION.attachmentFiles.length === 0 && MISSION.sceneFiles.length > 0) {
+        MISSION.attachmentFiles = [...MISSION.sceneFiles];
     }
 
     // 4. 回傳當前任務狀態，讓外層決定要跳轉到漏斗的哪一步

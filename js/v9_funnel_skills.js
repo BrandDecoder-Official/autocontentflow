@@ -1862,7 +1862,7 @@ if (document.readyState === 'loading') {
 }
 
 // 執行非同步背景智慧發文管線
-async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) {
+export async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) {
     try {
         // 🚀【角色庫選人關鍵修復】彙整現場照片與選定的登場角色基因庫參考圖，確保 Imagen 可以對照渲染
         const expressRefs = [];
@@ -2113,12 +2113,12 @@ export async function renderSmartExpressReviewCard(taskId) {
     updateStepHeader("SMART EXPRESS REVIEW");
     await addLog("智慧助理", "🚀", "AI 智慧速發規劃完成！請在右側工作區做最後審查與修改：", true);
 
-    // 還原機制：若是從大廳載入的歷史任務，且沒有記憶體生圖批次，則從快取重建批次
-    if (MISSION.quickSnapMode === 'AI_GEN' && (!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0)) {
+    // 還原機制：若是從大廳載入的歷史任務，且沒有記憶體生圖批次，則從快取或全域狀態重建批次
+    if (!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0) {
         const task = (window.tempTaskCache || []).find(t => (t.id || t._id || t.taskId) === taskId);
         const imgs = task ? (task.images || task.agentData?.generatedImages || []) : [];
-        let caption = '';
-        if (task) {
+        let caption = MISSION.currentCaption;
+        if (!caption && task) {
             caption = task.social_post_final || task.social_post_draft || '';
             if (!caption && task.draftContent) {
                 if (typeof task.draftContent.captions === 'object') {
@@ -2142,7 +2142,7 @@ export async function renderSmartExpressReviewCard(taskId) {
     let displayImgUrl = '';
     let slots = [];
     if (isOriginal) {
-        displayImgUrl = MISSION.attachmentFiles[0]?.imageUrl || MISSION.attachmentFiles[0]?.dataUrl || '';
+        displayImgUrl = MISSION.attachmentFiles[0]?.imageUrl || MISSION.attachmentFiles[0]?.dataUrl || MISSION.sceneFiles[0]?.imageUrl || MISSION.sceneFiles[0]?.dataUrl || '';
     } else {
         slots = buildExpressPublishSlots();
         const nFlat = slots.length;

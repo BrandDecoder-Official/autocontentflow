@@ -384,9 +384,14 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
  * 📌 函數名稱：renderFinalPublishCard
  * ==========================================
  */
-export async function renderFinalPublishCard(taskId, images, finalCaption) {
-    updateStepHeader("FINAL DEPLOYMENT"); 
-    await addLog("社群總監", "🚀", "大作已完成！請做最後確認，您還可以選擇重新算圖或退回修改：", true);
+export async function renderFinalPublishCard(taskId, images, finalCaption, status) {
+    const isReadOnly = ['COMPLETED', 'PUBLISHED', 'SCHEDULED'].includes(status);
+    updateStepHeader(isReadOnly ? "ARCHIVED POST" : "FINAL DEPLOYMENT"); 
+    if (isReadOnly) {
+        await addLog("社群總監", "✅", "此貼文已處理完畢，以下是唯讀成品存檔：", true);
+    } else {
+        await addLog("社群總監", "🚀", "大作已完成！請做最後確認，您還可以選擇重新算圖或退回修改：", true);
+    }
 
     if ((!MISSION.generatedImageBatches || MISSION.generatedImageBatches.length === 0) && Array.isArray(images) && images.length > 0) {
         recordGeneratedImageBatch(images, finalCaption || '');
@@ -429,10 +434,20 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         <div class="flex flex-col gap-3 sm:gap-4 w-full animate-fade-in max-w-full">
             <div class="flex justify-between items-center px-0.5 sm:px-1 gap-2">
                 <button type="button" id="btnTopReturnLobbyFinal" class="min-h-[44px] min-w-0 px-2 -ml-2 text-[11px] sm:text-xs text-slate-400 hover:text-white active:text-white transition-colors flex items-center gap-1.5 font-bold touch-manipulation rounded-lg hover:bg-white/5">
-                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i><span class="text-left leading-tight">暫存並返回大廳</span>
+                    <i class="fa-solid fa-arrow-left text-sm" aria-hidden="true"></i><span class="text-left leading-tight">${isReadOnly ? '返回任務大廳' : '暫存並返回大廳'}</span>
                 </button>
             </div>
 
+            ${isReadOnly ? `
+            <div class="rounded-xl border border-dashed border-emerald-500/35 bg-emerald-950/25 px-3 py-3 sm:py-3.5 text-slate-200 shadow-inner">
+                <div class="font-black text-emerald-300 text-[11px] sm:text-xs mb-1 flex items-center gap-2">
+                    <span class="text-base leading-none" aria-hidden="true">🎉</span> 本貼文已發佈／排程成功
+                </div>
+                <div class="text-[11px] sm:text-xs text-slate-300 leading-snug">
+                    此貼文已完成社群發佈或寫入排程。目前為「唯讀存檔」畫面，無法進行二次修改或重新發佈。
+                </div>
+            </div>
+            ` : `
             <div class="rounded-xl border border-dashed border-indigo-500/35 bg-indigo-950/25 px-3 py-3 sm:py-3.5 text-slate-200 shadow-inner">
                 <div class="font-black text-indigo-300 text-[11px] sm:text-xs mb-2 flex items-center gap-2">
                     <span class="text-base leading-none" aria-hidden="true">💡</span> 第一次用？照這三步
@@ -443,6 +458,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     <li>改好文字後，按最下方綠色<strong class="text-emerald-300">發佈</strong>按鈕。</li>
                 </ol>
             </div>
+            `}
 
             <div class="w-full bg-slate-900 border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 <div id="finalPreviewFrame" class="relative w-full aspect-square bg-black flex items-center justify-center touch-pan-y ring-2 ring-inset ring-transparent transition-shadow duration-150">
@@ -450,7 +466,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     <button type="button" id="finalImgPrev" class="absolute left-0 sm:left-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="上一張">‹</button>
                     <button type="button" id="finalImgNext" class="absolute right-0 sm:right-1 top-1/2 -translate-y-1/2 z-10 min-h-[44px] min-w-[44px] w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-black/75 text-white text-2xl sm:text-xl font-bold leading-none border border-white/30 active:bg-black active:scale-95 shadow-lg touch-manipulation" aria-label="下一張">›</button>
                     <div id="finalBatchMetaBadge" class="absolute top-2 left-2 bg-black/75 text-white text-[10px] sm:text-[11px] px-2.5 py-1 rounded-full border border-white/25 font-bold pointer-events-none max-w-[50%] sm:max-w-[55%] truncate"></div>
-                    <label id="finalPublishPickWrap" class="absolute top-2 right-2 z-20 flex items-center gap-2 bg-black/85 text-white text-[11px] sm:text-[10px] min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-full border border-white/35 cursor-pointer active:bg-black shadow-lg select-none max-w-[min(52%,280px)] touch-manipulation" title="合成圖與附件加總最多 10 張，可複選">
+                    <label id="finalPublishPickWrap" class="absolute top-2 right-2 z-20 flex items-center gap-2 bg-black/85 text-white text-[11px] sm:text-[10px] min-h-[44px] sm:min-h-0 px-3 py-2 sm:py-1.5 rounded-full border border-white/35 cursor-pointer active:bg-black shadow-lg select-none max-w-[min(52%,280px)] touch-manipulation ${isReadOnly ? 'hidden' : ''}" title="合成圖與附件加總最多 10 張，可複選">
                         <input type="checkbox" id="finalPublishIncludeCb" class="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0 rounded border border-white/60 bg-slate-900 accent-rose-500 cursor-pointer">
                         <span class="font-bold leading-tight">選入發佈</span>
                     </label>
@@ -469,9 +485,10 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     </div>
                     ${previewNote}
                     <div class="mb-3 bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-2.5 sm:p-3">
-                        <div class="text-[11px] sm:text-[10px] font-bold text-emerald-300 mb-1.5">✅ 貼文文字（改這裡不用重算圖）</div>
-                        <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-sm sm:text-xs text-slate-200 min-h-[128px] sm:min-h-[120px] focus:border-emerald-500 outline-none resize-y touch-manipulation" placeholder="在這裡修改要發出的文字…">${selectedCaption}</textarea>
+                        <div class="text-[11px] sm:text-[10px] font-bold text-emerald-300 mb-1.5">✅ 貼文文字</div>
+                        <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-sm sm:text-xs text-slate-200 min-h-[128px] sm:min-h-[120px] focus:border-emerald-500 outline-none resize-y touch-manipulation" placeholder="在這裡修改要發出的文字…" ${isReadOnly ? 'readonly' : ''}>${selectedCaption}</textarea>
                     </div>
+                    ${isReadOnly ? '' : `
                     <div class="mb-2 bg-amber-600/10 border border-amber-500/30 rounded-lg p-2.5 sm:p-2">
                         <div class="text-[11px] sm:text-[10px] font-bold text-amber-300 mb-1">⚠️ 想改這些請先按「重算」</div>
                         <div class="text-[11px] sm:text-[10px] text-slate-300 leading-snug">主題、風格宇宙、色系、角色、參考圖</div>
@@ -492,6 +509,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                             </div>
                         </div>
                     </div>
+                    `}
                     <div class="mt-3 pt-3 border-t border-white/10 space-y-2">
                         <div class="text-[11px] sm:text-[10px] text-slate-400 font-bold leading-snug">🗂️ 生圖批次（跳至該批第一張；發佈可跨批勾選）</div>
                         <div id="batchSelector" class="flex flex-wrap gap-2">
@@ -501,15 +519,23 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 </div>
             </div>
             
+            ${isReadOnly ? `
+            <button type="button" id="btnDeploy" class="w-full min-h-[52px] sm:min-h-0 bg-slate-800 text-slate-400 border border-white/10 py-4 rounded-xl font-black text-base sm:text-sm cursor-not-allowed" disabled>
+                ${status === 'SCHEDULED' ? '⏰ 貼文已完成排程 (唯讀存檔)' : '✅ 貼文已成功發佈 (唯讀存檔)'}
+            </button>
+            ` : `
             <button type="button" id="btnDeploy" class="w-full min-h-[52px] sm:min-h-0 bg-gradient-to-r ${btnColor} text-white py-4 rounded-xl font-black text-base sm:text-sm shadow-xl active:scale-[0.98] transition-all touch-manipulation">${btnText}</button>
+            `}
             
+            ${isReadOnly ? '' : `
             <div class="flex flex-col sm:flex-row gap-2 w-full">
                 <button type="button" id="btnRegenerateImages" class="flex-1 min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 touch-manipulation">🎲 重算圖（約 500 點）</button>
                 <button type="button" id="btnBackToDraft" class="flex-1 min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 touch-manipulation">📝 回去改文字</button>
             </div>
+            `}
 
             <button type="button" id="btnBottomReturnLobbyFinal" class="w-full min-h-[48px] bg-slate-800 text-slate-300 border border-white/10 py-3.5 sm:py-3 rounded-xl text-sm sm:text-xs font-bold active:scale-[0.98] transition-all hover:bg-slate-700 mt-1 touch-manipulation">
-                🔙 先離開，之後從大廳繼續
+                ${isReadOnly ? '🔙 返回任務大廳' : '🔙 先離開，之後從大廳繼續'}
             </button>
 
             <div id="finalPublishLightbox" class="hidden fixed inset-0 z-[400] flex flex-col bg-black/92" aria-hidden="true">
@@ -635,7 +661,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 batchBadge.textContent = '';
             }
         }
-        if (pickWrap) pickWrap.classList.toggle('hidden', n === 0);
+        if (pickWrap) pickWrap.classList.toggle('hidden', isReadOnly || n === 0);
         if (publishCb) publishCb.checked = included;
         if (previewFrame && n > 0) {
             if (included) {
@@ -648,9 +674,9 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         } else if (previewFrame) {
             previewFrame.classList.remove('neon-border-glow', 'ring-white/20');
         }
-        if (pickTools) pickTools.classList.toggle('hidden', n === 0);
+        if (pickTools) pickTools.classList.toggle('hidden', isReadOnly || n === 0);
         if (hint) {
-            if (n > 0) {
+            if (n > 0 && !isReadOnly) {
                 hint.classList.remove('hidden');
                 const att = normalizeAttachmentFilesForPublish().length;
                 const selSynth = totalSelectedSynthCount();
@@ -681,6 +707,12 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                     const checkMark = on
                         ? '<span class="pointer-events-none absolute bottom-1 right-1 min-w-[1.5rem] h-6 px-0.5 rounded-full bg-rose-500 text-white text-[11px] font-black flex items-center justify-center border-2 border-white shadow-md" aria-hidden="true">✓</span>'
                         : '';
+                    const labelHtml = isReadOnly ? '' : `
+                        <label class="flex items-center justify-center gap-1.5 w-full min-h-[40px] py-1 rounded-lg active:bg-white/5 touch-manipulation cursor-pointer select-none">
+                            <input type="checkbox" class="final-thumb-pub w-[18px] h-[18px] sm:w-4 sm:h-4 accent-rose-500 shrink-0 touch-manipulation" data-batch-id="${s.batchId}" data-img-idx="${s.imageIndex}" ${on ? 'checked' : ''}>
+                            <span class="text-[10px] sm:text-[10px] text-slate-400 font-bold">發佈</span>
+                        </label>
+                    `;
                     return `
                     <div class="snap-start shrink-0 flex flex-col items-center gap-1 w-[4.85rem] sm:w-[5.35rem]">
                         <button type="button" class="thumb-preview-btn relative w-[4.25rem] h-[4.25rem] sm:w-[4.75rem] sm:h-[4.75rem] rounded-xl overflow-hidden border-[3px] ${curRing} touch-manipulation active:opacity-90 shadow-md bg-slate-800" data-flat-idx="${flatI}" aria-label="第${batchNum}批 第 ${s.imageIndex + 1} 張" aria-current="${isCur ? 'true' : 'false'}">
@@ -688,10 +720,7 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                             <span class="pointer-events-none absolute top-0.5 left-0.5 min-w-[1.1rem] h-5 flex items-center justify-center bg-black/80 text-[9px] font-black text-white px-1 rounded border border-white/20 leading-none">B${batchNum}</span>
                             ${checkMark}
                         </button>
-                        <label class="flex items-center justify-center gap-1.5 w-full min-h-[40px] py-1 rounded-lg active:bg-white/5 touch-manipulation cursor-pointer select-none">
-                            <input type="checkbox" class="final-thumb-pub w-[18px] h-[18px] sm:w-4 sm:h-4 accent-rose-500 shrink-0 touch-manipulation" data-batch-id="${s.batchId}" data-img-idx="${s.imageIndex}" ${on ? 'checked' : ''}>
-                            <span class="text-[10px] sm:text-[10px] text-slate-400 font-bold">發佈</span>
-                        </label>
+                        ${labelHtml}
                     </div>`;
                 }).join('');
 
@@ -721,20 +750,22 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                         }
                     };
                 });
-                thumbStrip.querySelectorAll('.final-thumb-pub').forEach((cb) => {
-                    cb.onchange = () => {
-                        const bid = cb.dataset.batchId;
-                        const ii = parseInt(cb.dataset.imgIdx, 10);
-                        const batchNow = rows.find((b) => b.id === bid);
-                        if (!batchNow || Number.isNaN(ii)) return;
-                        const want = cb.checked;
-                        if (!trySetPublishInclusion(batchNow, ii, want)) {
-                            cb.checked = !want;
-                            return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
-                        }
-                        syncFinalPreview();
-                    };
-                });
+                if (!isReadOnly) {
+                    thumbStrip.querySelectorAll('.final-thumb-pub').forEach((cb) => {
+                        cb.onchange = () => {
+                            const bid = cb.dataset.batchId;
+                            const ii = parseInt(cb.dataset.imgIdx, 10);
+                            const batchNow = rows.find((b) => b.id === bid);
+                            if (!batchNow || Number.isNaN(ii)) return;
+                            const want = cb.checked;
+                            if (!trySetPublishInclusion(batchNow, ii, want)) {
+                                cb.checked = !want;
+                                return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
+                            }
+                            syncFinalPreview();
+                        };
+                    });
+                }
             }
         }
 
@@ -773,34 +804,36 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
     ui.querySelector('#btnTopReturnLobbyFinal').onclick = returnToLobbyHandler;
     ui.querySelector('#btnBottomReturnLobbyFinal').onclick = returnToLobbyHandler;
 
-    ui.querySelectorAll('.final-plat-chip').forEach(btn => {
-        btn.onclick = () => {
-            const p = btn.dataset.plat;
-            if (MISSION.platforms.includes(p)) {
-                if (MISSION.platforms.length <= 1) return;
-                MISSION.platforms = MISSION.platforms.filter(x => x !== p);
-                btn.classList.remove('border-blue-500', 'bg-blue-600', 'text-white');
-                btn.classList.add('border-white/10', 'bg-slate-900', 'text-slate-400');
-            } else {
-                MISSION.platforms.push(p);
-                btn.classList.remove('border-white/10', 'bg-slate-900', 'text-slate-400');
-                btn.classList.add('border-blue-500', 'bg-blue-600', 'text-white');
-            }
-        };
-    });
-    const scheduleInput = ui.querySelector('#finalScheduleInput');
-    if (scheduleInput) {
-        scheduleInput.onchange = (e) => {
-            const v = e.target.value;
-            MISSION.scheduledAt = v ? new Date(v).toISOString() : null;
-        };
-    }
-    const immediateBtn = ui.querySelector('#btnFinalImmediate');
-    if (immediateBtn) {
-        immediateBtn.onclick = () => {
-            MISSION.scheduledAt = null;
-            if (scheduleInput) scheduleInput.value = '';
-        };
+    if (!isReadOnly) {
+        ui.querySelectorAll('.final-plat-chip').forEach(btn => {
+            btn.onclick = () => {
+                const p = btn.dataset.plat;
+                if (MISSION.platforms.includes(p)) {
+                    if (MISSION.platforms.length <= 1) return;
+                    MISSION.platforms = MISSION.platforms.filter(x => x !== p);
+                    btn.classList.remove('border-blue-500', 'bg-blue-600', 'text-white');
+                    btn.classList.add('border-white/10', 'bg-slate-900', 'text-slate-400');
+                } else {
+                    MISSION.platforms.push(p);
+                    btn.classList.remove('border-white/10', 'bg-slate-900', 'text-slate-400');
+                    btn.classList.add('border-blue-500', 'bg-blue-600', 'text-white');
+                }
+            };
+        });
+        const scheduleInput = ui.querySelector('#finalScheduleInput');
+        if (scheduleInput) {
+            scheduleInput.onchange = (e) => {
+                const v = e.target.value;
+                MISSION.scheduledAt = v ? new Date(v).toISOString() : null;
+            };
+        }
+        const immediateBtn = ui.querySelector('#btnFinalImmediate');
+        if (immediateBtn) {
+            immediateBtn.onclick = () => {
+                MISSION.scheduledAt = null;
+                if (scheduleInput) scheduleInput.value = '';
+            };
+        }
     }
 
     ui.querySelectorAll('.batch-chip').forEach(btn => {
@@ -868,153 +901,158 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
         }, { passive: true });
     }
 
-    const publishCbEl = ui.querySelector('#finalPublishIncludeCb');
-    if (publishCbEl) {
-        publishCbEl.addEventListener('change', () => {
-            const slots = buildFlatPublishSlots();
-            const flatI = MISSION.selectedImagePreviewIndex || 0;
-            const slot = slots[flatI];
-            if (!slot) return;
-            const batch = slot.batch;
-            const want = publishCbEl.checked;
-            if (!trySetPublishInclusion(batch, slot.imageIndex, want)) {
-                publishCbEl.checked = !want;
-                return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
-            }
-            syncFinalPreview();
-        });
-    }
+    if (!isReadOnly) {
+        const publishCbEl = ui.querySelector('#finalPublishIncludeCb');
+        if (publishCbEl) {
+            publishCbEl.addEventListener('change', () => {
+                const slots = buildFlatPublishSlots();
+                const flatI = MISSION.selectedImagePreviewIndex || 0;
+                const slot = slots[flatI];
+                if (!slot) return;
+                const batch = slot.batch;
+                const want = publishCbEl.checked;
+                if (!trySetPublishInclusion(batch, slot.imageIndex, want)) {
+                    publishCbEl.checked = !want;
+                    return showError(`最多只能發 ${PUBLISH_MEDIA_MAX_TOTAL} 張圖（含附件）。請少勾幾張，或回到前面減少附件。`);
+                }
+                syncFinalPreview();
+            });
+        }
 
-    const btnSynthAll = ui.querySelector('#btnSynthPublishAll');
-    const btnSynthNone = ui.querySelector('#btnSynthPublishNone');
-    if (btnSynthAll) {
-        btnSynthAll.onclick = () => {
-            const batch = getPublishSelectedBatch();
-            const n = batch?.images?.length || 0;
-            if (!batch || n < 1) return;
-            const att = normalizeAttachmentFilesForPublish().length;
-            const others = countSelectedSynthExcludingBatch(batch.id);
-            if (others + n + att > PUBLISH_MEDIA_MAX_TOTAL) {
-                return showError(`本批全選後合計會超過 ${PUBLISH_MEDIA_MAX_TOTAL} 張（含附件與其他批次已勾選）。請調整。`);
-            }
-            const mask = ensureSyntheticPublishMask(batch.id, n);
-            for (let i = 0; i < n; i++) mask[i] = true;
-            syncFinalPreview();
-        };
-    }
-    if (btnSynthNone) {
-        btnSynthNone.onclick = () => {
-            const batch = getPublishSelectedBatch();
-            const n = batch?.images?.length || 0;
-            if (!batch || n < 1) return;
-            const mask = ensureSyntheticPublishMask(batch.id, n);
-            for (let i = 0; i < n; i++) mask[i] = false;
-            syncFinalPreview();
-        };
+        const btnSynthAll = ui.querySelector('#btnSynthPublishAll');
+        const btnSynthNone = ui.querySelector('#btnSynthPublishNone');
+        if (btnSynthAll) {
+            btnSynthAll.onclick = () => {
+                const batch = getPublishSelectedBatch();
+                const n = batch?.images?.length || 0;
+                if (!batch || n < 1) return;
+                const att = normalizeAttachmentFilesForPublish().length;
+                const others = countSelectedSynthExcludingBatch(batch.id);
+                if (others + n + att > PUBLISH_MEDIA_MAX_TOTAL) {
+                    return showError(`本批全選後合計會超過 ${PUBLISH_MEDIA_MAX_TOTAL} 張（含附件與其他批次已勾選）。請調整。`);
+                }
+                const mask = ensureSyntheticPublishMask(batch.id, n);
+                for (let i = 0; i < n; i++) mask[i] = true;
+                syncFinalPreview();
+            };
+        }
+        if (btnSynthNone) {
+            btnSynthNone.onclick = () => {
+                const batch = getPublishSelectedBatch();
+                const n = batch?.images?.length || 0;
+                if (!batch || n < 1) return;
+                const mask = ensureSyntheticPublishMask(batch.id, n);
+                for (let i = 0; i < n; i++) mask[i] = false;
+                syncFinalPreview();
+            };
+        }
     }
 
     syncFinalPreview();
 
-    ui.querySelector('#btnRegenerateImages').onclick = async () => {
-        const capEl = ui.querySelector('#finalCaptionEdit');
-        const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
-        if (capEl) {
-            MISSION.currentCaptions[currentTab] = capEl.value.trim();
-        }
-        const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
-            ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t.replace(/^#/, '')).join(' ')
-            : '';
-        const regeneratedCaption = (MISSION.currentCaptions[currentTab] || '') + tagsString;
-        await window.FunnelActions.generateImages(taskId, regeneratedCaption, MISSION.currentPanels);
-    };
-
-    ui.querySelector('#btnBackToDraft').onclick = async () => {
-        closePublishLightbox();
-        releaseUI(ui);
-        markImageRegenerationRequired('退回修改草稿');
-        const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
-        const finalCapEl = ui.querySelector('#finalCaptionEdit');
-        const latestCaption = (finalCapEl ? finalCapEl.value : selectedCaption) || MISSION.currentCaptions[currentTab] || '';
-        MISSION.currentCaptions[currentTab] = latestCaption;
-        const pseudoDraft = {
-            post_caption: latestCaption,
-            hashtags: MISSION.currentHashtags[currentTab] || [],
-            panels: MISSION.currentPanels
+    if (!isReadOnly) {
+        ui.querySelector('#btnRegenerateImages').onclick = async () => {
+            const capEl = ui.querySelector('#finalCaptionEdit');
+            const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+            if (capEl) {
+                MISSION.currentCaptions[currentTab] = capEl.value.trim();
+            }
+            const tagsString = (MISSION.currentHashtags[currentTab] || []).length > 0
+                ? '\n\n' + MISSION.currentHashtags[currentTab].map(t => '#' + t.replace(/^#/, '')).join(' ')
+                : '';
+            const regeneratedCaption = (MISSION.currentCaptions[currentTab] || '') + tagsString;
+            await window.FunnelActions.generateImages(taskId, regeneratedCaption, MISSION.currentPanels);
         };
-        await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC', {
-            returnBannerText: '已回到內容編輯卡（不回漏斗）。'
-        });
-    };
 
-    ui.querySelector('#btnDeploy').onclick = async () => {
-        const capEl = ui.querySelector('#finalCaptionEdit');
-        if (capEl) selectedCaption = capEl.value;
-        const currentCtx = buildImageGenerationContextKey();
-        if (MISSION.imageRegenerationRequired || MISSION.lastGeneratedContextKey !== currentCtx) {
-            return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
-        }
-
-        const mergedPre = collectSelectedPublishImagesMerged();
-        const synthSelPre = mergedPre.length;
-        const attPre = normalizeAttachmentFilesForPublish().length;
-        if (synthSelPre + attPre > PUBLISH_MEDIA_MAX_TOTAL) {
-            return showError(`圖片太多了：合成 + 附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張，請調整勾選或附件。`);
-        }
-
-        closePublishLightbox();
-        releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
-        await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
-        try {
-            const finalMultiCaptions = {};
-            ['UNIFIED', 'FB', 'IG', 'THREADS'].forEach(p => {
-                if (MISSION.currentCaptions[p]) {
-                    const tagsStr = MISSION.currentHashtags[p].length > 0 ? '\n\n' + MISSION.currentHashtags[p].map(t => '#' + t).join(' ') : '';
-                    finalMultiCaptions[p] = MISSION.currentCaptions[p] + tagsStr;
-                }
+        ui.querySelector('#btnBackToDraft').onclick = async () => {
+            closePublishLightbox();
+            releaseUI(ui);
+            markImageRegenerationRequired('退回修改草稿');
+            const currentTab = MISSION.isIndependentPost ? (MISSION.platforms[0] || 'FB') : 'UNIFIED';
+            const finalCapEl = ui.querySelector('#finalCaptionEdit');
+            const latestCaption = (finalCapEl ? finalCapEl.value : selectedCaption) || MISSION.currentCaptions[currentTab] || '';
+            MISSION.currentCaptions[currentTab] = latestCaption;
+            const pseudoDraft = {
+                post_caption: latestCaption,
+                hashtags: MISSION.currentHashtags[currentTab] || [],
+                panels: MISSION.currentPanels
+            };
+            await renderDraftEditorCard(taskId, pseudoDraft, MISSION.universe === 'COMIC', {
+                returnBannerText: '已回到內容編輯卡（不回漏斗）。'
             });
+        };
 
-            const publishImages = collectSelectedPublishImagesMerged();
+        ui.querySelector('#btnDeploy').onclick = async () => {
+            const capEl = ui.querySelector('#finalCaptionEdit');
+            if (capEl) selectedCaption = capEl.value;
+            const currentCtx = buildImageGenerationContextKey();
+            if (MISSION.imageRegenerationRequired || MISSION.lastGeneratedContextKey !== currentCtx) {
+                return showError('偵測到你已修改主題/風格/角色/參考圖，請先「重算生圖」後再發佈，避免圖文不一致。');
+            }
 
-            const response = await publishTaskAPI({ 
-                taskId: taskId, 
-                tenantId: STATE.uid, 
-                scheduledAt: MISSION.scheduledAt, 
-                finalCaption: selectedCaption,
-                multiCaptions: finalMultiCaptions, 
-                isIndependentPost: MISSION.isIndependentPost,
-                attachmentFiles: normalizeAttachmentFilesForPublish(),
-                selectedImageBatchId: null,
-                selectedImages: publishImages.map(img => ({
-                    finalUrl: img.finalUrl || img.imageUrl || '',
-                    prompt: img.prompt || ''
-                })),
-                locationId: MISSION.locationId || null,
-                locationName: MISSION.locationName || null
-            });
-            
-            if (response && response.success) {
-                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
+            const mergedPre = collectSelectedPublishImagesMerged();
+            const synthSelPre = mergedPre.length;
+            const attPre = normalizeAttachmentFilesForPublish().length;
+            if (synthSelPre + attPre > PUBLISH_MEDIA_MAX_TOTAL) {
+                return showError(`圖片太多了：合成 + 附件最多 ${PUBLISH_MEDIA_MAX_TOTAL} 張，請調整勾選或附件。`);
+            }
+
+            closePublishLightbox();
+            releaseUI(ui); const spinId = 'spin_pub_' + Date.now();
+            await addLog("系統", "⏳", `<div class="flex items-center gap-2"><div id="${spinId}" class="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div><span id="text_${spinId}">Agent 正在與社群伺服器連線...</span></div>`, true);
+            try {
+                const finalMultiCaptions = {};
+                ['UNIFIED', 'FB', 'IG', 'THREADS'].forEach(p => {
+                    if (MISSION.currentCaptions[p]) {
+                        const tagsStr = MISSION.currentHashtags[p].length > 0 ? '\n\n' + MISSION.currentHashtags[p].map(t => '#' + t).join(' ') : '';
+                        finalMultiCaptions[p] = MISSION.currentCaptions[p] + tagsStr;
+                    }
+                });
+
+                const publishImages = collectSelectedPublishImagesMerged();
+
+                const response = await publishTaskAPI({ 
+                    taskId: taskId, 
+                    tenantId: STATE.uid, 
+                    scheduledAt: MISSION.scheduledAt, 
+                    finalCaption: selectedCaption,
+                    multiCaptions: finalMultiCaptions, 
+                    isIndependentPost: MISSION.isIndependentPost,
+                    attachmentFiles: normalizeAttachmentFilesForPublish(),
+                    selectedImageBatchId: null,
+                    selectedImages: publishImages.map(img => ({
+                        finalUrl: img.finalUrl || img.imageUrl || '',
+                        prompt: img.prompt || ''
+                    })),
+                    locationId: MISSION.locationId || null,
+                    locationName: MISSION.locationName || null
+                });
                 
-                const charged = Number(response.chargedPoints);
-                if (Number.isFinite(charged) && charged > 0) {
-                    await applyPointDeduction(
-                        charged,
-                        getBillingActionDisplayName('PUBLISH_POST', '社群發布')
-                    );
-                } else {
-                    await triggerWalletSync();
-                }
+                if (response && response.success) {
+                    const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-t-transparent'); spEl.classList.add('bg-emerald-500'); document.getElementById(`text_${spinId}`).innerText = "連線成功"; }
+                    
+                    const charged = Number(response.chargedPoints);
+                    if (Number.isFinite(charged) && charged > 0) {
+                        await applyPointDeduction(
+                            charged,
+                            getBillingActionDisplayName('PUBLISH_POST', '社群發布')
+                        );
+                    } else {
+                        await triggerWalletSync();
+                    }
 
-                const chatBar = document.getElementById('agentChatBar'); if(chatBar) chatBar.classList.add('translate-y-full');
-                await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
-                const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);
-                endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); window.dispatchEvent(new Event('reloadLobby')); }; 
-            } else { throw new Error(response.message || "未能完成發佈。"); }
-        } catch(e) { 
-            const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-emerald-500'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
-            showError(`操作失敗：${e.message}`); 
-        }
-    };
+                    const chatBar = document.getElementById('agentChatBar'); if(chatBar) chatBar.classList.add('translate-y-full');
+                    await addLog("系統", "🎉", `<span class="text-green-400 font-bold">發佈流程完畢</span> 任務圓滿達成！您已跨出商業化第一步！🥂`, true);
+                    const endUi = createSkillUI(`<button id="btnRestart" class="w-full bg-slate-800 border border-white/10 text-white py-3 rounded-xl font-bold text-xs hover:bg-slate-700 active:scale-95 transition-all shadow-lg">🔄 回到任務大廳</button>`);
+                    endUi.querySelector('#btnRestart').onclick = () => { releaseUI(endUi); window.dispatchEvent(new Event('reloadLobby')); }; 
+                } else { throw new Error(response.message || "未能完成發佈。"); }
+            } catch(e) { 
+                const spEl = document.getElementById(spinId); if(spEl){ spEl.classList.remove('animate-spin', 'border-emerald-500'); spEl.classList.add('border-red-500'); document.getElementById(`text_${spinId}`).innerText = "連線失敗"; }
+                showError(`操作失敗：${e.message}`); 
+            }
+        };
+    }
+}
 }
 
 /**
