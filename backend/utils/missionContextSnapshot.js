@@ -24,6 +24,8 @@ const SNAPSHOT_KEYS = [
     'scheduledAt',
     'characters',
     'tgConfig',
+    'locationId',
+    'locationName',
 ];
 
 function buildMissionContextSnapshot(payloadRaw) {

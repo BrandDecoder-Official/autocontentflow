@@ -24,6 +24,8 @@ export const MISSION = {
     hookType: '痛點提問', 
     contentLength: '深度文 (約300字)',
     platforms: [], 
+    locationId: null,
+    locationName: null,
 
     // 🆕 V10 新增：平台獨立發文開關
     isIndependentPost: false, 
@@ -119,6 +121,8 @@ export function resetMissionStateForLobby() {
     MISSION.hookType = '痛點提問';
     MISSION.contentLength = '深度文 (約300字)';
     MISSION.platforms = [];
+    MISSION.locationId = null;
+    MISSION.locationName = null;
     MISSION.isIndependentPost = false;
     MISSION.platformStrategies = {
         FB: { hookType: '痛點提問', contentLength: '深度文 (約300字)' },
@@ -253,6 +257,8 @@ export function loadMissionFromDB(taskData) {
     MISSION.platforms = ctx.platforms?.length ? ctx.platforms : payloadRoot.platforms || [];
     MISSION.isIndependentPost = ctx.isIndependentPost || payloadRoot.isIndependentPost || false;
     MISSION.quickSnapMode = ctx.quickSnapMode || null;
+    MISSION.locationId = ctx.locationId || null;
+    MISSION.locationName = ctx.locationName || null;
     
     if (ctx.platformStrategies) {
         MISSION.platformStrategies = JSON.parse(JSON.stringify(ctx.platformStrategies));

@@ -987,7 +987,9 @@ export async function renderFinalPublishCard(taskId, images, finalCaption) {
                 selectedImages: publishImages.map(img => ({
                     finalUrl: img.finalUrl || img.imageUrl || '',
                     prompt: img.prompt || ''
-                }))
+                })),
+                locationId: MISSION.locationId || null,
+                locationName: MISSION.locationName || null
             });
             
             if (response && response.success) {

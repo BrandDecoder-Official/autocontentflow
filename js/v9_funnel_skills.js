@@ -1822,6 +1822,8 @@ function initSmartExpressEvents() {
                     MISSION.ratio = '9:16';
                     MISSION.resolution = '1K';
                     MISSION.quickSnapMode = quickSnapMode;
+                    MISSION.locationId = quickSnapSelectedLocation ? quickSnapSelectedLocation.id : null;
+                    MISSION.locationName = quickSnapSelectedLocation ? quickSnapSelectedLocation.name : null;
 
                     // 關閉 Modal
                     window.closeSmartExpressModal();
@@ -1894,6 +1896,8 @@ async function runSmartExpressPipeline(quickSnapMode, quickSnapUploadedDataUrl) 
             isIndependentPost: false,
             platformStrategies: {},
             tgConfig: MISSION.tgConfig || {},
+            locationId: MISSION.locationId || null,
+            locationName: MISSION.locationName || null,
             characters: getMissionCharacterNames(MISSION.characters).map((name) => {
                 const c = SYSTEM_DB.characters.find(x => x.name === name);
                 return { name, persona: c ? (c.persona || "") : "" };
