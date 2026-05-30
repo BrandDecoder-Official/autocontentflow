@@ -1053,7 +1053,6 @@ export async function renderFinalPublishCard(taskId, images, finalCaption, statu
         };
     }
 }
-}
 
 /**
  * 🎨 Canvas 3.0: 驚艷的生圖載入定格卡片 (AI 影像合成中)
