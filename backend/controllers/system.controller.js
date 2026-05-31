@@ -484,29 +484,13 @@ Format your output exactly as JSON:
                     const gRes = await fetch(googleUrl);
                     const gData = await gRes.json();
                     if (gData && gData.results && gData.results.length > 0) {
-                        const rawResults = gData.results.slice(0, 8);
-                        const resolvedResults = await Promise.all(rawResults.map(async item => {
-                            const itemLat = item.geometry?.location?.lat;
-                            const itemLng = item.geometry?.location?.lng;
-                            let fbId = null;
-                            if (itemLat && itemLng) {
-                                fbId = await resolveGooglePlaceToFacebookPlaceId(item.name, itemLat, itemLng, token);
-                            }
-                            if (!fbId) {
-                                fbId = await resolveGooglePageIdByName(item.name, token);
-                            }
-                            if (fbId && /^\d+$/.test(fbId)) {
-                                return {
-                                    id: fbId,
-                                    name: String(item.name),
-                                    address: item.formatted_address || "台灣地區",
-                                    latitude: itemLat || 0.0,
-                                    longitude: itemLng || 0.0
-                                };
-                            }
-                            return null;
+                        results = gData.results.map(item => ({
+                            id: String(item.place_id),
+                            name: String(item.name),
+                            address: item.formatted_address || "台灣地區",
+                            latitude: item.geometry?.location?.lat || 0.0,
+                            longitude: item.geometry?.location?.lng || 0.0
                         }));
-                        results = resolvedResults.filter(Boolean);
                     }
                 } catch (gErr) {
                     console.warn("⚠️ Google Places API 搜尋失敗，嘗試切換至 Meta API:", gErr.message);
