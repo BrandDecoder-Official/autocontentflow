@@ -2220,6 +2220,21 @@ export async function renderSmartExpressReviewCard(taskId) {
                 <textarea id="expressCaptionEdit" class="w-full bg-slate-950 border border-white/10 rounded-lg p-3 text-xs text-slate-200 min-h-[110px] focus:border-emerald-500 focus:outline-none resize-y" placeholder="請輸入要發佈的內容...">${selectedCaption}</textarea>
             </div>
 
+            <!-- Check-in Location Display -->
+            <div class="bg-slate-900/60 border border-white/5 rounded-xl p-3.5 space-y-2">
+                <label class="text-xs font-black text-slate-300 block">📍 預定打卡地標</label>
+                <div class="flex items-center gap-2" id="expressLocationWrap">
+                    ${MISSION.locationName ? `
+                        <div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2 text-xs text-emerald-200 w-full">
+                            <span class="truncate flex-1">📍 ${MISSION.locationName}</span>
+                            <button type="button" id="btnExpressClearLocation" class="text-slate-400 hover:text-red-400 text-xs font-bold transition-colors ml-auto flex-shrink-0">✕ 取消</button>
+                        </div>
+                    ` : `
+                        <span class="text-xs text-slate-500">無（未設定打卡地點）</span>
+                    `}
+                </div>
+            </div>
+
             <!-- Collapsible Schedule Section -->
             <div class="bg-slate-900/60 border border-white/5 rounded-xl p-3.5 space-y-3">
                 <label class="flex items-center gap-2 cursor-pointer select-none">
@@ -2515,6 +2530,17 @@ export async function renderSmartExpressReviewCard(taskId) {
         };
     }
 
+    // 清除地標按鈕
+    const clearLocBtn = ui.querySelector('#btnExpressClearLocation');
+    if (clearLocBtn) {
+        clearLocBtn.onclick = () => {
+            MISSION.locationId = null;
+            MISSION.locationName = null;
+            const wrap = ui.querySelector('#expressLocationWrap');
+            if (wrap) wrap.innerHTML = `<span class="text-xs text-slate-500">無（未設定打卡地點）</span>`;
+        };
+    }
+
     // 立即部署與排程按鈕
     const publishBtn = ui.querySelector('#btnExpressPublish');
     if (publishBtn) {
@@ -2583,7 +2609,9 @@ export async function renderSmartExpressReviewCard(taskId) {
                     selectedImages: publishImages.map(img => ({
                         finalUrl: img.finalUrl || img.imageUrl || '',
                         prompt: img.prompt || ''
-                    }))
+                    })),
+                    locationId: MISSION.locationId || null,
+                    locationName: MISSION.locationName || null
                 });
 
                 if (response && response.success) {

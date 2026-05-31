@@ -222,6 +222,20 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
                     <input type="text" id="hashtagInput" class="w-full bg-slate-900 border border-white/10 rounded-lg p-2 text-xs text-slate-200 focus:border-blue-500 outline-none" placeholder="輸入標籤後按 Enter 新增 (不需打 #)...">
                 </div>
 
+                <div class="space-y-1 pt-3 border-t border-white/10 flex items-center justify-between" id="draftLocationSection">
+                    <label class="text-[9px] text-slate-500 font-bold">📍 預定打卡地標</label>
+                    <div id="draftLocationWrap" class="flex items-center gap-1.5">
+                        ${MISSION.locationName ? `
+                            <div class="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2.5 py-1 text-[10px] text-emerald-200">
+                                <span>📍 ${MISSION.locationName}</span>
+                                <button type="button" id="btnDraftClearLocation" class="text-slate-400 hover:text-red-400 font-bold transition-colors ml-1">✕</button>
+                            </div>
+                        ` : `
+                            <span class="text-[10px] text-slate-500">無（未設定打卡地點）</span>
+                        `}
+                    </div>
+                </div>
+
                 <div class="space-y-2 scrollbar-indigo overflow-y-auto max-h-[300px] pr-1 pt-3 border-t border-white/10">${panelsHtml}</div>
                 ${isComic ? `
                 <div class="pt-3 border-t border-white/10 flex justify-end">
@@ -324,6 +338,16 @@ export async function renderDraftEditorCard(taskId, draftContent, isComic, optio
         ui.querySelector('#editCaption').value = '';
         renderHashtags();
     };
+
+    const clearDraftLocBtn = ui.querySelector('#btnDraftClearLocation');
+    if (clearDraftLocBtn) {
+        clearDraftLocBtn.onclick = () => {
+            MISSION.locationId = null;
+            MISSION.locationName = null;
+            const wrap = ui.querySelector('#draftLocationWrap');
+            if (wrap) wrap.innerHTML = `<span class="text-[10px] text-slate-500">無（未設定）</span>`;
+        };
+    }
 
     ui.querySelectorAll('.plat-tab-btn').forEach(btn => {
         btn.onclick = () => {
@@ -487,6 +511,21 @@ export async function renderFinalPublishCard(taskId, images, finalCaption, statu
                     <div class="mb-3 bg-emerald-600/10 border border-emerald-500/30 rounded-lg p-2.5 sm:p-3">
                         <div class="text-[11px] sm:text-[10px] font-bold text-emerald-300 mb-1.5">✅ 貼文文字</div>
                         <textarea id="finalCaptionEdit" class="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-sm sm:text-xs text-slate-200 min-h-[128px] sm:min-h-[120px] focus:border-emerald-500 outline-none resize-y touch-manipulation" placeholder="在這裡修改要發出的文字…" ${isReadOnly ? 'readonly' : ''}>${selectedCaption}</textarea>
+                    </div>
+
+                    <!-- 📍 Check-in Location Display in Final Publish Preview -->
+                    <div class="mb-3 bg-slate-900/60 border border-white/5 rounded-lg p-2.5 sm:p-3">
+                        <div class="text-[11px] sm:text-[10px] font-bold text-slate-300 mb-1.5">📍 打卡地標</div>
+                        <div id="finalLocationWrap" class="flex items-center gap-2">
+                            ${MISSION.locationName ? `
+                                <div class="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-1.5 text-xs text-emerald-200 w-full">
+                                    <span class="truncate flex-1">📍 ${MISSION.locationName}</span>
+                                    ${isReadOnly ? '' : `<button type="button" id="btnFinalClearLocation" class="text-slate-400 hover:text-red-400 text-xs font-bold transition-colors ml-auto flex-shrink-0">✕ 取消</button>`}
+                                </div>
+                            ` : `
+                                <span class="text-xs text-slate-500">無（未設定打卡地點）</span>
+                            `}
+                        </div>
                     </div>
                     ${isReadOnly ? '' : `
                     <div class="mb-2 bg-amber-600/10 border border-amber-500/30 rounded-lg p-2.5 sm:p-2">
@@ -944,6 +983,18 @@ export async function renderFinalPublishCard(taskId, images, finalCaption, statu
                 const mask = ensureSyntheticPublishMask(batch.id, n);
                 for (let i = 0; i < n; i++) mask[i] = false;
                 syncFinalPreview();
+            };
+        }
+    }
+
+    if (!isReadOnly) {
+        const btnClearLoc = ui.querySelector('#btnFinalClearLocation');
+        if (btnClearLoc) {
+            btnClearLoc.onclick = () => {
+                MISSION.locationId = null;
+                MISSION.locationName = null;
+                const wrap = ui.querySelector('#finalLocationWrap');
+                if (wrap) wrap.innerHTML = `<span class="text-xs text-slate-500">無（未設定打卡地點）</span>`;
             };
         }
     }
