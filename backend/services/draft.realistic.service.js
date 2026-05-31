@@ -142,6 +142,7 @@ async function processDraft(req, res, payloadRaw, tools) {
             你是一位專業的商業攝影指導與社群行銷專家。
             請為主題：『${topic}』 策劃一組極具質感的寫實攝影圖文。
             發言人設：${mission.persona || '預設'}
+            【📌 預定打卡地標】：${mission.locationName || '無'}
             【🚨強制登場真人角色外觀描述】：\n${charContext}
             【🚨攝影風格技術參數】：\n${realisticEnhancePrompt}
             ${imageDescriptions}
@@ -150,6 +151,7 @@ async function processDraft(req, res, payloadRaw, tools) {
             
             請將上述的對焦模式、濾鏡氛圍、實景背景特徵與角色長相基因，完美揉合進 visual_prompt 指令中。
             ${writingStrategyInstruction}
+            ${mission.locationName ? `如果設定了「預定打卡地標」，請在撰寫社群貼文文案時，極其自然地融入該地標名稱（如「今天在${mission.locationName}發覺...」或「來到${mission.locationName}聚餐」）。` : ''}
             
             請務必只輸出純 JSON，格式如下：
             { 

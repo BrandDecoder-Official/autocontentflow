@@ -112,6 +112,7 @@ async function processDraft(req, res, payloadRaw, tools) {
         const promptText = `
             請寫一個「${targetPanelCount} 格連載漫畫」腳本。主題：${topic}
             發言人設：${mission.persona || '預設'}
+            【📌 預定打卡地標】：${mission.locationName || '無'}
             強制登場角色設定:\n${charContext}
             【視覺風格】${styleName}
             【色系模式】${colorModeName === 'BW' ? '黑白漫畫' : '彩色漫畫'}
@@ -119,6 +120,7 @@ async function processDraft(req, res, payloadRaw, tools) {
             ${sceneInstruction}
             ${writingStrategyInstruction}
             【🚨分鏡字數鐵律】每一格 dialogue 絕對不准超過 15 個中文字！你必須輸出剛好 ${targetPanelCount} 格。
+            ${mission.locationName ? `如果設定了「預定打卡地標」，請在撰寫社群貼文文案時，極其自然地融入該地標名稱。` : ''}
             請務必只輸出純 JSON，格式如下：
             { "post_title": "標題", ${jsonOutputStructure} "panels": [ { "panel_number": 1, "action_en": "畫面描述(英文，必須具體融入實景參考圖特徵)", "action_zh": "中文", "speaker_en": "英文", "speaker_zh": "中文", "dialogue": "對白(15字內)", "sound_effect": "狀聲詞" } ] }`;
 
