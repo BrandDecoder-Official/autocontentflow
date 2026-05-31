@@ -11,6 +11,15 @@ async function publishToFacebookAPI(imageInput, message, locationId = null) {
     const pageId = config.FB_PAGE_ID;
     const token = config.FB_PAGE_TOKEN;
 
+    let sanitizedLocationId = locationId;
+    if (sanitizedLocationId) {
+        sanitizedLocationId = String(sanitizedLocationId).trim();
+        if (!/^\d+$/.test(sanitizedLocationId)) {
+            console.warn(`⚠️ [Social Service] locationId "${locationId}" is not a valid Facebook numeric ID. Bypassing place tag.`);
+            sanitizedLocationId = null;
+        }
+    }
+
     if (images.length === 1) {
         console.log('📘 [Social Service] FB 單圖模式發佈中...');
         const url = `https://graph.facebook.com/v25.0/${pageId}/photos`;
@@ -20,8 +29,8 @@ async function publishToFacebookAPI(imageInput, message, locationId = null) {
             message: message,
             access_token: token
         });
-        if (locationId) {
-            params.append('place', locationId);
+        if (sanitizedLocationId) {
+            params.append('place', sanitizedLocationId);
         }
 
         const response = await fetch(url, { method: 'POST', body: params });
@@ -73,8 +82,8 @@ async function publishToFacebookAPI(imageInput, message, locationId = null) {
         const feedParams = new URLSearchParams();
         feedParams.append('message', message);
         feedParams.append('access_token', token);
-        if (locationId) {
-            feedParams.append('place', locationId);
+        if (sanitizedLocationId) {
+            feedParams.append('place', sanitizedLocationId);
         }
         
         mediaIds.forEach((id, index) => {
@@ -102,11 +111,20 @@ async function publishToInstagramAPI(imageInput, caption, locationId = null) {
     const images = Array.isArray(imageInput) ? imageInput : [imageInput];
     let finalContainerId;
 
+    let sanitizedLocationId = locationId;
+    if (sanitizedLocationId) {
+        sanitizedLocationId = String(sanitizedLocationId).trim();
+        if (!/^\d+$/.test(sanitizedLocationId)) {
+            console.warn(`⚠️ [Social Service] locationId "${locationId}" is not a valid Instagram numeric ID. Bypassing location tag.`);
+            sanitizedLocationId = null;
+        }
+    }
+
     if (images.length === 1) {
         console.log('📸 [Social Service] IG 單圖模式發佈中...');
         const containerUrl = `https://graph.facebook.com/v25.0/${igUserId}/media`;
         const containerParams = new URLSearchParams({ image_url: images[0], caption: caption, access_token: token });
-        if (locationId) containerParams.append('location_id', locationId);
+        if (sanitizedLocationId) containerParams.append('location_id', sanitizedLocationId);
         const containerRes = await fetch(containerUrl, { method: 'POST', body: containerParams });
         const containerData = await containerRes.json();
         if (containerData.error) throw new Error(`IG 單圖容器失敗: ${containerData.error.message}`);
@@ -133,7 +151,7 @@ async function publishToInstagramAPI(imageInput, caption, locationId = null) {
         console.log('📸 [Social Service] 正在將子圖片打包成 IG 相簿...');
         const carouselUrl = `https://graph.facebook.com/v25.0/${igUserId}/media`;
         const carouselParams = new URLSearchParams({ media_type: 'CAROUSEL', children: childIds.join(','), caption: caption, access_token: token });
-        if (locationId) carouselParams.append('location_id', locationId);
+        if (sanitizedLocationId) carouselParams.append('location_id', sanitizedLocationId);
         const res = await fetch(carouselUrl, { method: 'POST', body: carouselParams });
         const data = await res.json();
         if (data.error) throw new Error(`IG 輪播主容器失敗: ${data.error.message}`);
@@ -160,10 +178,19 @@ async function publishToThreadsAPI(imageInput, caption, locationId = null) {
         const images = Array.isArray(imageInput) ? imageInput : [imageInput];
         let finalContainerId;
 
+        let sanitizedLocationId = locationId;
+        if (sanitizedLocationId) {
+            sanitizedLocationId = String(sanitizedLocationId).trim();
+            if (!/^\d+$/.test(sanitizedLocationId)) {
+                console.warn(`⚠️ [Social Service] locationId "${locationId}" is not a valid Threads numeric ID. Bypassing Threads location tag.`);
+                sanitizedLocationId = null;
+            }
+        }
+
         if (images.length === 1) {
             console.log('🧵 [Social Service] Threads 單圖模式發佈中...');
             let threadsUrl = `https://graph.threads.net/v1.0/me/threads?media_type=IMAGE&image_url=${encodeURIComponent(images[0])}&text=${encodeURIComponent(caption)}&access_token=${token}`;
-            if (locationId) threadsUrl += `&location_id=${encodeURIComponent(locationId)}`;
+            if (sanitizedLocationId) threadsUrl += `&location_id=${encodeURIComponent(sanitizedLocationId)}`;
             const containerRes = await fetch(threadsUrl, { method: 'POST' });
             const containerData = await containerRes.json();
             if (!containerData.id) throw new Error(`Threads 單圖容器失敗: ${JSON.stringify(containerData)}`);

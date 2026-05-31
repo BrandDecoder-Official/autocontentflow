@@ -15,6 +15,50 @@ const visionAi = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const storage = new Storage();
 const bucket = storage.bucket(GCS_BUCKET_NAME);
 
+/**
+ * 透過 Meta Graph API 將 Google Place (名稱+座標) 轉換/解析為對應的 Facebook Place ID
+ */
+async function resolveGooglePlaceToFacebookPlaceId(name, lat, lng, token) {
+    if (!token) return null;
+    try {
+        const url = `https://graph.facebook.com/v25.0/search?type=place&q=${encodeURIComponent(name)}&center=${lat},${lng}&distance=1000&fields=id,name,location&access_token=${token}&limit=3`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && data.data && data.data.length > 0) {
+            // 優先模糊匹配名稱
+            const match = data.data.find(item => 
+                item.name.toLowerCase().includes(name.toLowerCase()) || 
+                name.toLowerCase().includes(item.name.toLowerCase())
+            );
+            if (match) {
+                return String(match.id);
+            }
+            return String(data.data[0].id);
+        }
+    } catch (err) {
+        console.warn("⚠️ 轉換 Google Place 失敗:", err.message);
+    }
+    return null;
+}
+
+/**
+ * 透過 Meta Pages Search API 依名稱模糊解析對應的 Facebook Page ID (地標)
+ */
+async function resolveGooglePageIdByName(name, token) {
+    if (!token) return null;
+    try {
+        const url = `https://graph.facebook.com/v25.0/pages/search?q=${encodeURIComponent(name)}&fields=id,name,location&access_token=${token}&limit=3`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data && data.data && data.data.length > 0) {
+            return String(data.data[0].id);
+        }
+    } catch (err) {
+        console.warn("⚠️ 轉換 Google Page 失敗:", err.message);
+    }
+    return null;
+}
+
 class SystemController {
     
     // ==========================================
@@ -440,12 +484,24 @@ Format your output exactly as JSON:
                     const gRes = await fetch(googleUrl);
                     const gData = await gRes.json();
                     if (gData && gData.results && gData.results.length > 0) {
-                        results = gData.results.map(item => ({
-                            id: String(item.place_id),
-                            name: String(item.name),
-                            address: item.formatted_address || "台灣地區",
-                            latitude: item.geometry?.location?.lat || 0.0,
-                            longitude: item.geometry?.location?.lng || 0.0
+                        const rawResults = gData.results.slice(0, 5);
+                        results = await Promise.all(rawResults.map(async item => {
+                            const itemLat = item.geometry?.location?.lat;
+                            const itemLng = item.geometry?.location?.lng;
+                            let fbId = null;
+                            if (itemLat && itemLng) {
+                                fbId = await resolveGooglePlaceToFacebookPlaceId(item.name, itemLat, itemLng, token);
+                            }
+                            if (!fbId) {
+                                fbId = await resolveGooglePageIdByName(item.name, token);
+                            }
+                            return {
+                                id: fbId || String(item.place_id),
+                                name: String(item.name),
+                                address: item.formatted_address || "台灣地區",
+                                latitude: itemLat || 0.0,
+                                longitude: itemLng || 0.0
+                            };
                         }));
                     }
                 } catch (gErr) {
