@@ -1377,20 +1377,13 @@ function initLocationSearch() {
             if (list.length === 0) {
                 results.innerHTML = `<div class="px-4 py-3 text-xs text-slate-400">未找到相關地標，請嘗試其他關鍵字</div>`;
             } else {
-                results.innerHTML = list.map((loc) => {
-                    const isMetaMatched = /^\d+$/.test(loc.id);
-                    const tagLabel = isMetaMatched ? '' : '<span class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-normal">限生文案</span>';
-                    return `
-                        <div class="location-result-item px-3 py-2.5 text-xs cursor-pointer hover:bg-slate-700 transition-colors border-b border-white/5 last:border-0"
-                             data-id="${loc.id}" data-name="${encodeURIComponent(loc.name)}" data-addr="${encodeURIComponent(loc.address || '')}">
-                            <div class="font-bold text-slate-100 flex items-center justify-between">
-                                <span>📍 ${loc.name}</span>
-                                ${tagLabel}
-                            </div>
-                            <div class="text-slate-400 mt-0.5 truncate">${loc.address || '台灣地區'}</div>
-                        </div>
-                    `;
-                }).join('');
+                results.innerHTML = list.map((loc) => `
+                    <div class="location-result-item px-3 py-2.5 text-xs cursor-pointer hover:bg-slate-700 transition-colors border-b border-white/5 last:border-0"
+                         data-id="${loc.id}" data-name="${encodeURIComponent(loc.name)}" data-addr="${encodeURIComponent(loc.address || '')}">
+                        <div class="font-bold text-slate-100">📍 ${loc.name}</div>
+                        <div class="text-slate-400 mt-0.5 truncate">${loc.address || '台灣地區'}</div>
+                    </div>
+                `).join('');
                 results.querySelectorAll('.location-result-item').forEach(el => {
                     el.addEventListener('click', () => {
                         quickSnapSelectedLocation = {
@@ -1398,19 +1391,9 @@ function initLocationSearch() {
                             name:    decodeURIComponent(el.dataset.name),
                             address: decodeURIComponent(el.dataset.addr)
                         };
-                        const isMetaMatched = /^\d+$/.test(quickSnapSelectedLocation.id);
-                        if (tagName) {
-                            if (isMetaMatched) {
-                                tagName.innerHTML = `<span>${quickSnapSelectedLocation.name}</span>`;
-                                if (tag) {
-                                    tag.className = "flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2";
-                                }
-                            } else {
-                                tagName.innerHTML = `<span class="truncate">${quickSnapSelectedLocation.name}</span><span class="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded font-normal flex-shrink-0 ml-1">⚠️ 僅生文案(Meta無此打卡點)</span>`;
-                                if (tag) {
-                                    tag.className = "flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2";
-                                }
-                            }
+                        if (tagName) tagName.textContent = quickSnapSelectedLocation.name;
+                        if (tag) {
+                            tag.className = "flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2";
                         }
                         if (tag) {
                             tag.classList.remove('hidden');
